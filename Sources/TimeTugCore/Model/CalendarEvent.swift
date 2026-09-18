@@ -85,6 +85,11 @@ public struct CalendarEvent: Identifiable, Hashable, Sendable {
 
     /// Unique per occurrence: recurring events share a source id but differ in start.
     public var id: String { "\(sourceID)/\(sourceEventID)/\(Int(start.timeIntervalSince1970))" }
+    /// Identity by content (title, start, end): survives a changed `sourceEventID`, matching the
+    /// store's duplicate merge.
+    public var contentKey: String {
+        "\(title.lowercased())|\(Int(start.timeIntervalSince1970))|\(Int(end.timeIntervalSince1970))"
+    }
     public var calendarKey: String { CalendarInfo.key(sourceID: sourceID, calendarID: calendarID) }
     /// This event's own calendar plus every calendar its duplicates appear on.
     public var allCalendarKeys: Set<String> { additionalCalendarKeys.union([calendarKey]) }

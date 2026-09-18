@@ -1,36 +1,103 @@
 import Foundation
 
-/// Remembers which events already took over (or are snoozed) so a refresh never repeats one.
-/// Keyed by `CalendarEvent.id`, which includes the start time, so a rescheduled event is new.
-public struct TakeoverLedger: Equatable, Sendable {
-    enum Entry: Equatable, Sendable {
+/// Remembers which events already took over (or are snoozed) so a refresh, or a relaunch, never
+/// repeats one. Every mutation is recorded under both `CalendarEvent.id` (includes the start time,
+/// so a rescheduled event is new) and `CalendarEvent.contentKey` (survives a changed source id).
+/// Codable so the app can persist it; `prune` keeps the persisted form bounded.
+public struct TakeoverLedger: Equatable, Sendable, Codable {
+    /// Entries older than this are dropped even if the event has not "ended" (bogus end dates).
+    public static let retention: TimeInterval = 7 * 24 * 60 * 60
+    /// Last-resort cap, counted per event (an event holds two keys). Oldest go first.
+    public static let maxEntries = 2000
+
+    enum Entry: Equatable, Sendable, Codable {
         case fired
         case snoozed(until: Date)
     }
 
-    private var entries: [String: Entry] = [:]
-    private var endDates: [String: Date] = [:]
+    struct Record: Equatable, Sendable, Codable {
+        var entry: Entry
+        var end: Date
+        var recordedAt: Date
+    }
+
+    /// Decodes one record, yielding nil (instead of failing the whole file) when it is malformed
+    /// or lacks `recordedAt`; such a record is dropped rather than trusted.
+    private struct LenientRecord: Decodable {
+        let record: Record?
+        init(from decoder: Decoder) throws { record = try? Record(from: decoder) }
+    }
+
+    private enum CodingKeys: String, CodingKey { case records }
+
+    private var records: [String: Record] = [:]
 
     public init() {}
 
-    public mutating func markFired(_ event: CalendarEvent) {
-        entries[event.id] = .fired
-        endDates[event.id] = event.end
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        records = try container.decode([String: LenientRecord].self, forKey: .records).compactMapValues(\.record)
+    }
+
+    public mutating func markFired(_ event: CalendarEvent, now: Date) {
+        record(.fired, for: event, now: now)
     }
 
     /// Re-arms the event `duration` from now, never past the meeting's end.
     public mutating func snooze(_ event: CalendarEvent, for duration: TimeInterval, now: Date) {
-        entries[event.id] = .snoozed(until: min(now.addingTimeInterval(duration), event.end))
-        endDates[event.id] = event.end
+        record(.snoozed(until: min(now.addingTimeInterval(duration), event.end)), for: event, now: now)
     }
 
-    /// Drops entries for events that have ended (not wholesale, so midnight rollover is safe).
-    public mutating func prune(now: Date) {
-        for (id, end) in endDates where end <= now {
-            entries[id] = nil
-            endDates[id] = nil
+    /// Marks every un-ledgered event that started before `now - grace` and has not ended as fired.
+    /// Used once per launch so a meeting already underway never takes over. Returns the count.
+    @discardableResult
+    public mutating func acknowledgeInProgress(
+        events: [CalendarEvent], now: Date, grace: TimeInterval
+    ) -> Int {
+        var count = 0
+        for event in events where entry(for: event) == nil
+            && event.start < now.addingTimeInterval(-grace) && event.end > now {
+            markFired(event, now: now)
+            count += 1
         }
+        return count
     }
 
-    func entry(for event: CalendarEvent) -> Entry? { entries[event.id] }
+    /// Drops entries whose event has ended or that were recorded more than `retention` ago (not
+    /// wholesale, so midnight rollover is safe), then enforces `maxEntries`. True if anything changed.
+    @discardableResult
+    public mutating func prune(now: Date) -> Bool {
+        let before = records.count
+        let cutoff = now.addingTimeInterval(-Self.retention)
+        records = records.filter { $0.value.end > now && $0.value.recordedAt > cutoff }
+
+        let limit = Self.maxEntries * 2
+        if records.count > limit {
+            let oldestFirst = records.sorted { ($0.value.recordedAt, $0.key) < ($1.value.recordedAt, $1.key) }
+            for (key, _) in oldestFirst.prefix(records.count - limit) { records[key] = nil }
+        }
+        return records.count != before
+    }
+
+    /// True only for the `.fired` state; a snoozed event is pending.
+    public func hasFired(_ event: CalendarEvent) -> Bool { entry(for: event) == .fired }
+
+    /// True while the event is snoozed (pending, not fired).
+    public func isSnoozed(_ event: CalendarEvent) -> Bool {
+        if case .snoozed = entry(for: event) { return true }
+        return false
+    }
+
+    /// Number of stored keys (two per remembered event: id and content key). For diagnostics.
+    public var keyCount: Int { records.count }
+
+    func entry(for event: CalendarEvent) -> Entry? {
+        (records[event.id] ?? records[event.contentKey])?.entry
+    }
+
+    private mutating func record(_ entry: Entry, for event: CalendarEvent, now: Date) {
+        let record = Record(entry: entry, end: event.end, recordedAt: now)
+        records[event.id] = record
+        records[event.contentKey] = record
+    }
 }

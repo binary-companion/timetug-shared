@@ -42,3 +42,6 @@ func optedIn(_ configure: (inout TakeoverSettings) -> Void = { _ in }) -> Takeov
     configure(&settings)
     return settings
 }
+
+/// A "now" at which test ledger entries are recorded (before the default test events).
+let recordedAt = date("2026-09-18T09:00:00Z")
