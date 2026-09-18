@@ -25,6 +25,7 @@ public struct DayAgenda: Equatable, Sendable {
         let items = events
             // A merged meeting is hidden only if every calendar it appears on is hidden.
             .filter { !$0.allCalendarKeys.isSubset(of: settings.hiddenCalendarKeys) }
+            .filter { !(settings.skipAllDayEvents && $0.isAllDay) }
             .filter { event in
                 if event.end > dayStart && event.start < nextDayStart { return true }
                 // After-midnight events show only once inside their lead-time period.

@@ -21,7 +21,8 @@ private func agenda(_ events: [CalendarEvent], settings: TakeoverSettings = opte
     let current = makeEvent("c", start: "2026-09-18T10:00:00Z")
     let allDay = makeEvent("a", start: "2026-09-18T00:00:00Z", minutes: 1440, isAllDay: true)
     let upcoming = makeEvent("u", start: "2026-09-18T11:00:00Z")
-    #expect(agenda([allDay, current, upcoming]).next == upcoming)
+    let settings = optedIn { $0.skipAllDayEvents = false }
+    #expect(agenda([allDay, current, upcoming], settings: settings).next == upcoming)
 }
 
 @Test func nextIsNilWhenNothingRemains() {
@@ -63,6 +64,25 @@ private func agenda(_ events: [CalendarEvent], settings: TakeoverSettings = opte
 
 @Test func tomorrowsAllDayEventNeverSpillsIn() {
     let allDay = makeEvent("a", start: "2026-09-19T00:00:00Z", minutes: 1440, isAllDay: true)
-    let settings = optedIn { $0.leadTime = 600 }
+    let settings = optedIn { $0.leadTime = 600; $0.skipAllDayEvents = false }
     #expect(agenda([allDay], settings: settings, at: date("2026-09-18T23:59:00Z")).items.isEmpty)
+}
+
+@Test func allDayEventIsHiddenByDefault() {
+    let allDay = makeEvent("a", start: "2026-09-18T00:00:00Z", minutes: 1440, isAllDay: true)
+    #expect(agenda([allDay]).items.isEmpty)
+}
+
+@Test func allDayEventIsShownWhenNotSkipped() {
+    let allDay = makeEvent("a", start: "2026-09-18T00:00:00Z", minutes: 1440, isAllDay: true)
+    let settings = optedIn { $0.skipAllDayEvents = false }
+    #expect(agenda([allDay], settings: settings).items.map(\.event.sourceEventID) == ["a"])
+}
+
+@Test func timedEventIsUnaffectedBySkipAllDaySetting() {
+    let timed = makeEvent("t", start: "2026-09-18T11:00:00Z")
+    let skip = optedIn { $0.skipAllDayEvents = true }
+    let keep = optedIn { $0.skipAllDayEvents = false }
+    #expect(agenda([timed], settings: skip).items.count == 1)
+    #expect(agenda([timed], settings: keep).items.count == 1)
 }
