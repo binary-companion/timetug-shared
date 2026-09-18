@@ -26,5 +26,31 @@ public struct TakeoverSettings: Codable, Equatable, Sendable {
         skipSoloEvents = try c.decodeIfPresent(Bool.self, forKey: .skipSoloEvents) ?? d.skipSoloEvents
         skipDeclinedEvents = try c.decodeIfPresent(Bool.self, forKey: .skipDeclinedEvents) ?? d.skipDeclinedEvents
         skipAllDayEvents = try c.decodeIfPresent(Bool.self, forKey: .skipAllDayEvents) ?? d.skipAllDayEvents
+        // Legacy data may hide a takeover calendar; takeover wins so a meeting alert is never silently lost.
+        hiddenCalendarKeys.subtract(takeoverCalendarKeys)
+    }
+
+    public func isShownInList(_ key: String) -> Bool {
+        !hiddenCalendarKeys.contains(key)
+    }
+
+    /// Enabling takeover also shows the calendar in the list; disabling leaves visibility alone.
+    public mutating func setTakeover(_ enabled: Bool, forCalendar key: String) {
+        if enabled {
+            takeoverCalendarKeys.insert(key)
+            hiddenCalendarKeys.remove(key)
+        } else {
+            takeoverCalendarKeys.remove(key)
+        }
+    }
+
+    /// Hiding a calendar also turns takeover off for it; showing leaves takeover alone.
+    public mutating func setShownInList(_ shown: Bool, forCalendar key: String) {
+        if shown {
+            hiddenCalendarKeys.remove(key)
+        } else {
+            hiddenCalendarKeys.insert(key)
+            takeoverCalendarKeys.remove(key)
+        }
     }
 }
