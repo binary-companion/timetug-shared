@@ -8,11 +8,14 @@ public struct CalendarInfo: Hashable, Sendable, Identifiable {
     public let sourceID: String
     public let calendarID: String
     public let title: String
+    /// Owning account (iCloud, Google, ...), for grouping. Not part of `key`.
+    public let accountName: String?
 
-    public init(sourceID: String, calendarID: String, title: String) {
+    public init(sourceID: String, calendarID: String, title: String, accountName: String? = nil) {
         self.sourceID = sourceID
         self.calendarID = calendarID
         self.title = title
+        self.accountName = accountName
     }
 
     public var key: String { Self.key(sourceID: sourceID, calendarID: calendarID) }
