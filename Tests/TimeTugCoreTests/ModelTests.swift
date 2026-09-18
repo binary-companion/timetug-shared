@@ -27,4 +27,17 @@ import Testing
     #expect(settings.skipSoloEvents && settings.skipDeclinedEvents)
     #expect(!settings.requireConferenceLink)
     #expect(settings.takeoverCalendarKeys.isEmpty)
+    #expect(settings.skipAllDayEvents)
+}
+
+@Test func settingsDecodeOldFormatJSONWithoutNewKeys() throws {
+    let json = Data(#"{"leadTime":300,"takeoverCalendarKeys":["a/b"]}"#.utf8)
+    let settings = try JSONDecoder().decode(TakeoverSettings.self, from: json)
+    #expect(settings.leadTime == 300)
+    #expect(settings.takeoverCalendarKeys == ["a/b"])
+    #expect(settings.hiddenCalendarKeys.isEmpty)
+    #expect(!settings.requireConferenceLink)
+    #expect(settings.skipSoloEvents)
+    #expect(settings.skipDeclinedEvents)
+    #expect(settings.skipAllDayEvents)
 }
