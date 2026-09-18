@@ -10,12 +10,29 @@ public struct CalendarInfo: Hashable, Sendable, Identifiable {
     public let title: String
     /// Owning account (iCloud, Google, ...), for grouping. Not part of `key`.
     public let accountName: String?
+    /// Calendar color as "#RRGGBB" (uppercase, sRGB); nil when unknown. Not part of `key`.
+    public let colorHex: String?
 
-    public init(sourceID: String, calendarID: String, title: String, accountName: String? = nil) {
+    public init(
+        sourceID: String, calendarID: String, title: String,
+        accountName: String? = nil, colorHex: String? = nil
+    ) {
         self.sourceID = sourceID
         self.calendarID = calendarID
         self.title = title
         self.accountName = accountName
+        self.colorHex = Self.normalizedHex(colorHex)
+    }
+
+    /// Normalizes "#RGB", "#RRGGBB" or "RRGGBB" (any case, surrounding whitespace ok)
+    /// to "#RRGGBB" uppercase; nil for anything invalid.
+    public static func normalizedHex(_ raw: String?) -> String? {
+        guard var s = raw?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 3 || s.count == 6, s.allSatisfy(\.isASCII), s.allSatisfy(\.isHexDigit) else { return nil }
+        s = s.uppercased()
+        if s.count == 3 { s = s.map { "\($0)\($0)" }.joined() }
+        return "#" + s
     }
 
     public var key: String { Self.key(sourceID: sourceID, calendarID: calendarID) }
