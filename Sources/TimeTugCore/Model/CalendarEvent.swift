@@ -37,12 +37,15 @@ public struct CalendarEvent: Identifiable, Hashable, Sendable {
     public var notes: String?
     public var url: URL?
     public var conferenceURL: URL?
+    /// Calendar keys of the other calendars where duplicate copies of this meeting appear.
+    public var additionalCalendarKeys: Set<String>
 
     public init(
         sourceEventID: String, sourceID: String, calendarID: String, title: String,
         start: Date, end: Date, isAllDay: Bool = false, otherAttendeeCount: Int = 0,
         responseStatus: ResponseStatus = .unknown, location: String? = nil,
-        notes: String? = nil, url: URL? = nil, conferenceURL: URL? = nil
+        notes: String? = nil, url: URL? = nil, conferenceURL: URL? = nil,
+        additionalCalendarKeys: Set<String> = []
     ) {
         self.sourceEventID = sourceEventID
         self.sourceID = sourceID
@@ -57,9 +60,12 @@ public struct CalendarEvent: Identifiable, Hashable, Sendable {
         self.notes = notes
         self.url = url
         self.conferenceURL = conferenceURL
+        self.additionalCalendarKeys = additionalCalendarKeys
     }
 
     /// Unique per occurrence: recurring events share a source id but differ in start.
     public var id: String { "\(sourceID)/\(sourceEventID)/\(Int(start.timeIntervalSince1970))" }
     public var calendarKey: String { CalendarInfo.key(sourceID: sourceID, calendarID: calendarID) }
+    /// This event's own calendar plus every calendar its duplicates appear on.
+    public var allCalendarKeys: Set<String> { additionalCalendarKeys.union([calendarKey]) }
 }

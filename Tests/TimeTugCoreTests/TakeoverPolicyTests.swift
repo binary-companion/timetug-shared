@@ -32,3 +32,11 @@ import Testing
     let withLink = makeEvent(conferenceURL: URL(string: "https://meet.google.com/a-b-c"))
     #expect(TakeoverPolicy.qualifies(withLink, settings: settings))
 }
+
+@Test func qualifiesWhenDuplicateOnAnOptedInCalendar() {
+    var event = makeEvent(calendarID: "family")
+    event.additionalCalendarKeys = ["fake/cal"]
+    #expect(TakeoverPolicy.qualifies(event, settings: optedIn()))
+    event.additionalCalendarKeys = []
+    #expect(!TakeoverPolicy.qualifies(event, settings: optedIn()))
+}

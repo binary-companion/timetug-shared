@@ -84,19 +84,31 @@ public actor CalendarStore {
     }
 
     private func merged(within window: DateInterval) -> [CalendarEvent] {
-        var seen = Set<String>()
+        var indexByKey: [String: Int] = [:]
         var result: [CalendarEvent] = []
         for source in sources {
-            for var event in lastEvents[source.id] ?? [] {
+            for event in lastEvents[source.id] ?? [] {
                 guard event.end > window.start, event.start < window.end else { continue }
                 let key = "\(event.title.lowercased())|\(event.start.timeIntervalSince1970)|\(event.end.timeIntervalSince1970)"
-                guard seen.insert(key).inserted else { continue }
-                if event.conferenceURL == nil {
-                    event.conferenceURL = ConferenceLinkDetector.detect(
-                        location: event.location, url: event.url, notes: event.notes)
+                if let index = indexByKey[key] {
+                    // Same meeting on another calendar: keep the first copy but remember the
+                    // other calendar (for takeover opt-in) and borrow any details it lacks.
+                    if event.calendarKey != result[index].calendarKey {
+                        result[index].additionalCalendarKeys.insert(event.calendarKey)
+                    }
+                    result[index].location = result[index].location ?? event.location
+                    result[index].notes = result[index].notes ?? event.notes
+                    result[index].url = result[index].url ?? event.url
+                    result[index].conferenceURL = result[index].conferenceURL ?? event.conferenceURL
+                } else {
+                    indexByKey[key] = result.count
+                    result.append(event)
                 }
-                result.append(event)
             }
+        }
+        for index in result.indices where result[index].conferenceURL == nil {
+            result[index].conferenceURL = ConferenceLinkDetector.detect(
+                location: result[index].location, url: result[index].url, notes: result[index].notes)
         }
         return result.sorted { ($0.start, $0.title) < ($1.start, $1.title) }
     }

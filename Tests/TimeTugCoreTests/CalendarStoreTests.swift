@@ -120,3 +120,30 @@ private let now = date("2026-09-18T10:00:00Z")
     #expect(snapshot.calendars.map(\.title) == ["Work"])
     #expect(snapshot.sourceNames["fake"] == "Fake fake")
 }
+
+@Test func duplicateKeepsFirstCopyButRecordsOtherCalendarKeys() async {
+    let a = FakeSource(id: "fake"), b = FakeSource(id: "fake2")
+    let first = makeEvent("1", title: "Sync", calendarID: "family")
+    var second = makeEvent("2", title: "Sync", calendarID: "work")
+    second.sourceID = "fake/work-src"
+    await a.set(events: .success([first]))
+    await b.set(events: .success([second]))
+    let store = CalendarStore(sources: [a, b], calendar: utcCalendar)
+    let events = await store.refresh(now: now, leadTime: 60).events
+    #expect(events.count == 1)
+    #expect(events.first?.calendarKey == "fake/family")
+    #expect(events.first?.additionalCalendarKeys.contains("fake/work-src/work") == true)
+}
+
+@Test func duplicateFillsMissingFieldsFromLaterCopy() async {
+    let a = FakeSource(id: "a"), b = FakeSource(id: "b")
+    let first = makeEvent("1", title: "Sync")
+    var second = makeEvent("2", title: "Sync", notes: "Join https://acme.zoom.us/j/123")
+    second.sourceID = "b"
+    await a.set(events: .success([first]))
+    await b.set(events: .success([second]))
+    let store = CalendarStore(sources: [a, b], calendar: utcCalendar)
+    let events = await store.refresh(now: now, leadTime: 60).events
+    #expect(events.count == 1)
+    #expect(events.first?.conferenceURL?.host?.hasSuffix("zoom.us") == true)
+}
