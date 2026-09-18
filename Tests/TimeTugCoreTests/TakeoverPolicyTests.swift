@@ -10,10 +10,13 @@ import Testing
     #expect(!TakeoverPolicy.qualifies(makeEvent(calendarID: "family"), settings: optedIn()))
 }
 
-@Test func rejectsAllDayByDefaultButAllowsWhenToggledOff() {
+@Test func rejectsAllDayByDefault() {
+    #expect(!TakeoverPolicy.qualifies(makeEvent(isAllDay: true), settings: optedIn()))
+}
+
+@Test func allDayNeverTakesOverEvenWhenSkipAllDayIsOff() {
     let allDay = makeEvent(isAllDay: true)
-    #expect(!TakeoverPolicy.qualifies(allDay, settings: optedIn()))
-    #expect(TakeoverPolicy.qualifies(allDay, settings: optedIn { $0.skipAllDayEvents = false }))
+    #expect(!TakeoverPolicy.qualifies(allDay, settings: optedIn { $0.skipAllDayEvents = false }))
 }
 
 @Test func rejectsDeclinedByDefaultButAllowsWhenToggledOff() {

@@ -4,7 +4,8 @@ import Foundation
 public enum TakeoverPolicy {
     public static func qualifies(_ event: CalendarEvent, settings: TakeoverSettings) -> Bool {
         guard !settings.takeoverCalendarKeys.isDisjoint(with: event.allCalendarKeys) else { return false }
-        if settings.skipAllDayEvents, event.isAllDay { return false }
+        // All-day events never take over, regardless of settings.
+        if event.isAllDay { return false }
         if settings.skipDeclinedEvents, event.responseStatus == .declined { return false }
         if settings.skipSoloEvents, event.otherAttendeeCount == 0 { return false }
         if settings.requireConferenceLink, event.conferenceURL == nil { return false }

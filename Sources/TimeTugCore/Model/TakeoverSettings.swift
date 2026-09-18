@@ -11,6 +11,7 @@ public struct TakeoverSettings: Codable, Equatable, Sendable {
     public var requireConferenceLink = false
     public var skipSoloEvents = true
     public var skipDeclinedEvents = true
+    /// Hides all-day events from the day list only. All-day events never trigger a takeover, regardless of this setting.
     public var skipAllDayEvents = true
 
     public init() {}
