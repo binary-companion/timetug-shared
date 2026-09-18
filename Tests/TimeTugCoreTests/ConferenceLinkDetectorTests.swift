@@ -63,3 +63,39 @@ private func detect(location: String? = nil, url: String? = nil, notes: String? 
 @Test func noLinksReturnsNil() {
     #expect(detect(location: "Room 4", notes: "Bring laptop") == nil)
 }
+
+// ISSUE 1: zoommtg URL host validation
+@Test func zoommtgRequiresZoomDomain() {
+    // Evil domain should not match
+    #expect(detect(notes: "zoommtg://evil.com/join?confno=1") == nil)
+}
+
+@Test func zoommtgZoomUsStillWorks() {
+    // Legitimate zoom.us should still work
+    #expect(detect(notes: "zoommtg://zoom.us/join?confno=123")?.scheme == "zoommtg")
+}
+
+// ISSUE 2: SafeLinks host boundary validation
+@Test func safelinksRequiresDotBoundary() {
+    // Evil subdomain should not be unwrapped
+    let evilSafelinks = "https://evilsafelinks.protection.outlook.com/?url=https%3A%2F%2Fmeet.google.com%2Fa-b-c"
+    #expect(detect(notes: evilSafelinks) == nil)
+}
+
+// ISSUE 3: Slack huddle path prefix validation
+@Test func slackHuddlePathMustBeExact() {
+    // /huddlefoo should not match
+    #expect(detect(notes: "https://app.slack.com/huddlefoo/x") == nil)
+}
+
+@Test func slackHuddlePathStillWorksWithSlash() {
+    // /huddle/ should still match
+    #expect(detect(notes: "https://app.slack.com/huddle/T1/C1") != nil)
+}
+
+// ISSUE 4: Case-insensitive regex
+@Test func upperCaseURLSchemeAndHostMatch() {
+    let result = detect(notes: "HTTPS://MEET.GOOGLE.COM/abc-defg-hij")
+    #expect(result != nil)
+    #expect(result?.host?.lowercased() == "meet.google.com")
+}

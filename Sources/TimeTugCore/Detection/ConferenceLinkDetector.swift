@@ -41,7 +41,7 @@ public enum ConferenceLinkDetector {
 
     static func candidates(in text: String) -> [String] {
         let decoded = text.replacingOccurrences(of: "&amp;", with: "&")
-        guard let regex = try? NSRegularExpression(pattern: #"(?:https?|zoommtg)://[^\s<>"'\)\]]+"#) else {
+        guard let regex = try? NSRegularExpression(pattern: #"(?:https?|zoommtg)://[^\s<>"'\)\]]+"#, options: [.caseInsensitive]) else {
             return []
         }
         let range = NSRange(decoded.startIndex..., in: decoded)
@@ -58,7 +58,7 @@ public enum ConferenceLinkDetector {
         for _ in 0..<3 {
             guard let url = current, let host = url.host?.lowercased() else { break }
             let inner: String?
-            if host.hasSuffix("safelinks.protection.outlook.com") {
+            if host == "safelinks.protection.outlook.com" || host.hasSuffix(".safelinks.protection.outlook.com") {
                 inner = queryValue(url, "url")
             } else if host == "www.google.com", url.path == "/url" {
                 inner = queryValue(url, "q") ?? queryValue(url, "url")
@@ -73,11 +73,14 @@ public enum ConferenceLinkDetector {
 
     static func isProvider(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased() else { return false }
-        if scheme == "zoommtg" { return true }
+        if scheme == "zoommtg" {
+            guard let host = url.host?.lowercased() else { return false }
+            return host == "zoom.us" || host == "zoom.com" || host.hasSuffix(".zoom.us") || host.hasSuffix(".zoom.com")
+        }
         guard scheme == "http" || scheme == "https", let host = url.host?.lowercased() else { return false }
         return providers.contains { provider in
             (host == provider.host || host.hasSuffix("." + provider.host))
-                && (provider.pathPrefix.map { url.path.hasPrefix($0) } ?? true)
+                && (provider.pathPrefix.map { url.path == $0 || url.path.hasPrefix($0 + "/") } ?? true)
         }
     }
 
