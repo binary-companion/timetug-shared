@@ -71,3 +71,33 @@ private func snapshot(_ events: [WidgetEvent]) -> WidgetSnapshot { WidgetSnapsho
     let states = WidgetTimeline.today(snapshot: s, now: now, calendar: utcCalendar).map { $0.state }
     #expect(states == [.current])
 }
+
+// MARK: visibleToday
+
+private func rows(_ specs: [(String, DayAgenda.State)]) -> [WidgetTimeline.TodayRow] {
+    specs.map { WidgetTimeline.TodayRow(event: event($0.0, "2026-09-18T09:00:00Z"), state: $0.1) }
+}
+
+@Test func visibleTodayKeepsAllRowsWithinCapacity() {
+    let r = rows([("a", .past), ("b", .upcoming)])
+    #expect(WidgetTimeline.visibleToday(rows: r, capacity: 2) == r)
+}
+
+@Test func visibleTodayDropsPastRowsWhenOverCapacity() {
+    let r = rows([("a", .past), ("b", .current), ("c", .upcoming)])
+    #expect(WidgetTimeline.visibleToday(rows: r, capacity: 2).map(\.id) == ["b", "c"])
+}
+
+@Test func visibleTodayKeepsLastFinishedRowsWhenEverythingIsPast() {
+    let r = rows([("a", .past), ("b", .past), ("c", .past)])
+    #expect(WidgetTimeline.visibleToday(rows: r, capacity: 2).map(\.id) == ["b", "c"])
+}
+
+@Test func visibleTodayStaysEmptyWhenThereAreNoRows() {
+    #expect(WidgetTimeline.visibleToday(rows: [], capacity: 2).isEmpty)
+}
+
+@Test func visibleTodayNeverDropsTheCurrentMeeting() {
+    let r = rows([("a", .past), ("b", .past), ("c", .current)])
+    #expect(WidgetTimeline.visibleToday(rows: r, capacity: 2).map(\.id) == ["c"])
+}

@@ -53,7 +53,7 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
             .filter { !$0.allCalendarKeys.isSubset(of: settings.hiddenCalendarKeys) }
             .filter { !(settings.skipAllDayEvents && $0.isAllDay) }
             .filter { $0.end > dayStart && $0.shownStart < horizonEnd }
-            .sorted { ($0.shownStart, $0.title) < ($1.shownStart, $1.title) }
+            .sorted { ($0.shownStart, $0.title, $0.id) < ($1.shownStart, $1.title, $1.id) }
             .map { event in
                 WidgetEvent(id: event.id, title: event.title, start: event.shownStart, end: event.end,
                             isAllDay: event.isAllDay, colorHex: colors[event.calendarKey], joinURL: event.conferenceURL)

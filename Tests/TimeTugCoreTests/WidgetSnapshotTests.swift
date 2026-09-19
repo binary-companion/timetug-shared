@@ -63,3 +63,36 @@ private func make(_ events: [CalendarEvent], settings: TakeoverSettings = Takeov
     #expect(!snapshot.isStale(now: now.addingTimeInterval(WidgetSnapshot.maxAge)))
     #expect(snapshot.isStale(now: now.addingTimeInterval(WidgetSnapshot.maxAge + 1)))
 }
+
+@Test func snapshotBreaksStartAndTitleTiesById() {
+    let one = makeEvent("1", title: "Same", start: "2026-09-18T15:00:00Z")
+    let two = makeEvent("2", title: "Same", start: "2026-09-18T15:00:00Z")
+    let expected = [one.id, two.id].sorted()
+    #expect(make([one, two]).events.map(\.id) == expected)
+    #expect(make([two, one]).events.map(\.id) == expected)
+}
+
+@Test func snapshotExcludesEventEndingExactlyAtStartOfToday() {
+    let ends = makeEvent("x", start: "2026-09-17T23:30:00Z")
+    #expect(make([ends]).events.isEmpty)
+}
+
+@Test func snapshotExcludesEventStartingExactlyAtHorizonEnd() {
+    let starts = makeEvent("x", start: "2026-09-21T00:00:00Z")
+    #expect(make([starts]).events.isEmpty)
+}
+
+@Test func snapshotIncludesEventStartedYesterdayAndStillRunning() {
+    let running = makeEvent("x", start: "2026-09-17T23:00:00Z", minutes: 120)
+    #expect(make([running]).events.map(\.id) == [running.id])
+}
+
+@Test func snapshotHidesMergedEventOnlyWhenAllItsCalendarsAreHidden() {
+    var merged = makeEvent("m")
+    merged.additionalCalendarKeys = ["fake/other"]
+    var settings = TakeoverSettings()
+    settings.setShownInList(false, forCalendar: "fake/cal")
+    #expect(make([merged], settings: settings).events.map(\.id) == [merged.id])
+    settings.setShownInList(false, forCalendar: "fake/other")
+    #expect(make([merged], settings: settings).events.isEmpty)
+}

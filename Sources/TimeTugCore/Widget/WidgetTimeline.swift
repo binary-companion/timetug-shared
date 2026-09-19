@@ -49,4 +49,12 @@ public enum WidgetTimeline {
                 return TodayRow(event: event, state: state)
             }
     }
+
+    /// The rows to show when only `capacity` fit. Over capacity, finished meetings are dropped first so the rest of
+    /// the day stays visible; if everything is finished, the last `capacity` rows are kept so the day is not shown empty.
+    public static func visibleToday(rows: [TodayRow], capacity: Int) -> [TodayRow] {
+        guard rows.count > capacity else { return rows }
+        let remaining = rows.filter { $0.state != .past }
+        return remaining.isEmpty ? Array(rows.suffix(capacity)) : remaining
+    }
 }
