@@ -125,9 +125,23 @@ public enum DuplicateResolver {
             result.url = result.url ?? other.url
             result.conferenceURL = result.conferenceURL ?? other.conferenceURL
         }
+        // Takeover qualification reads these two, so the merged event must not be weaker than any copy.
+        result.otherAttendeeCount = group.map(\.otherAttendeeCount).max() ?? result.otherAttendeeCount
+        result.responseStatus = group.map(\.responseStatus).max { attendance($0) < attendance($1) } ?? result.responseStatus
         result.mergedMembers = group.map { MergedMember($0) }
         result.mergeProvenance = strongest(provenance)
         return result
+    }
+
+    /// accepted > tentative > pending > unknown > declined.
+    private static func attendance(_ status: ResponseStatus) -> Int {
+        switch status {
+        case .accepted: 4
+        case .tentative: 3
+        case .pending: 2
+        case .unknown: 1
+        case .declined: 0
+        }
     }
 
     /// User decisions outrank model verdicts, which outrank rules.

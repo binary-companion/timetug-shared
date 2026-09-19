@@ -138,3 +138,41 @@ private func cache(answering answer: AdjudicationVerdict.Answer, for resolution:
     #expect(forward.count == 2)
     #expect(forward == backward)
 }
+
+private let zoom = URL(string: "https://acme.zoom.us/j/123456")!
+
+@Test func mergedEventKeepsTheLargestAttendeeCountSoTakeoverStillQualifies() {
+    let work = makeEvent("1", title: "Planning", calendarID: "cal", others: 5, conferenceURL: zoom)
+    let personal = makeEvent("2", title: "Planning copy", calendarID: "personal", others: 0,
+                             location: "Room 4", notes: "Agenda", conferenceURL: zoom)
+    #expect(TakeoverPolicy.qualifies(work, settings: optedIn()))
+    let merged = resolve([work, personal]).events
+    #expect(merged.count == 1)
+    #expect(merged[0].calendarKey == "fake/personal")        // the richer copy is the primary
+    #expect(merged[0].otherAttendeeCount == 5)
+    #expect(TakeoverPolicy.qualifies(merged[0], settings: optedIn()))
+}
+
+@Test func mergedEventIsNotDeclinedWhenAnyCopyIsNotDeclined() {
+    let work = makeEvent("1", title: "Planning", calendarID: "cal", others: 3, status: .accepted, conferenceURL: zoom)
+    let personal = makeEvent("2", title: "Planning copy", calendarID: "personal", others: 3, status: .declined,
+                             location: "Room 4", notes: "Agenda", conferenceURL: zoom)
+    #expect(TakeoverPolicy.qualifies(work, settings: optedIn()))
+    let merged = resolve([work, personal]).events
+    #expect(merged.count == 1)
+    #expect(merged[0].calendarKey == "fake/personal")
+    #expect(merged[0].responseStatus == .accepted)
+    #expect(TakeoverPolicy.qualifies(merged[0], settings: optedIn()))
+}
+
+@Test func mergedResponseStatusPrefersTheMostAttending() {
+    func status(_ list: [ResponseStatus]) -> ResponseStatus {
+        let events = list.enumerated().map { makeEvent("\($0.offset)", title: "Sync", calendarID: "c\($0.offset)", status: $0.element) }
+        return resolve(events).events[0].responseStatus
+    }
+    #expect(status([.declined, .unknown]) == .unknown)
+    #expect(status([.unknown, .pending]) == .pending)
+    #expect(status([.pending, .tentative]) == .tentative)
+    #expect(status([.tentative, .accepted, .declined]) == .accepted)
+    #expect(status([.declined, .declined]) == .declined)
+}
