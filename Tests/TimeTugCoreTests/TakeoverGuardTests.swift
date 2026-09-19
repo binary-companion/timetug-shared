@@ -82,3 +82,11 @@ private func evaluate(
         now: date("2026-09-18T09:59:00Z"), overlayVisible: false)
     #expect(decision != .suppress(.notInSnapshot))
 }
+
+@Test func guardSuppressesWhileDisabled() {
+    let event = makeEvent()
+    let decision = TakeoverGuard.evaluate(
+        event: event, currentEvents: [event], settings: optedIn { $0.disabled = true },
+        ledger: TakeoverLedger(), now: date("2026-09-18T09:59:30Z"), overlayVisible: false)
+    #expect(decision == .suppress(.noLongerQualifies))
+}

@@ -45,3 +45,8 @@ import Testing
     event.additionalCalendarKeys = []
     #expect(!TakeoverPolicy.qualifies(event, settings: optedIn()))
 }
+
+@Test func disabledSettingBlocksAnOtherwiseQualifyingEvent() {
+    #expect(TakeoverPolicy.qualifies(makeEvent(), settings: optedIn()))
+    #expect(!TakeoverPolicy.qualifies(makeEvent(), settings: optedIn { $0.disabled = true }))
+}
