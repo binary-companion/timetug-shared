@@ -73,15 +73,22 @@ public enum DuplicateRules {
         return parts
     }
 
-    /// host + path of the conference link (query dropped, lowercased), from the structured link or
-    /// one found in the location, url or notes.
+    /// host + path of the conference link (lowercased), from the structured link or one found in the
+    /// location, url or notes. Only links to a recognised conference provider count (not a generic
+    /// `url` field). Webex keeps the meeting id in the `MTID` query item, so that is part of the identity.
     static func conferenceIdentity(_ event: CalendarEvent) -> String? {
         let url = event.conferenceURL
             ?? ConferenceLinkDetector.detect(location: event.location, url: event.url, notes: event.notes)
-        guard let url, let host = url.host?.lowercased() else { return nil }
+        guard let url, ConferenceLinkDetector.isProvider(url), let host = url.host?.lowercased() else { return nil }
         var path = url.path.lowercased()
         while path.hasSuffix("/") { path.removeLast() }
-        return host + path
+        var identity = host + path
+        if host == "webex.com" || host.hasSuffix(".webex.com"),
+           let meetingID = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
+               .first(where: { $0.name.lowercased() == "mtid" })?.value {
+            identity += "?mtid=" + meetingID.lowercased()
+        }
+        return identity
     }
 
     static func emails(_ event: CalendarEvent) -> Set<String> {

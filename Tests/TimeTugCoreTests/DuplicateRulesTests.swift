@@ -81,3 +81,21 @@ private func decide(_ a: CalendarEvent, _ b: CalendarEvent) -> PairDecision { Du
     #expect(event.participants.map(\.title) == ["Doctor"])
     #expect(event.participants.first?.calendarKey == "fake/cal")
 }
+
+@Test func webexLinksAreIdentifiedByTheirMeetingIDInTheQuery() {
+    let a = makeEvent("1", title: "Weekly", calendarID: "a", conferenceURL: URL(string: "https://acme.webex.com/acme/j.php?MTID=m111")!)
+    let sameMeeting = makeEvent("2", title: "Team sync", calendarID: "b", conferenceURL: URL(string: "https://acme.webex.com/acme/j.php?MTID=M111&x=1")!)
+    let other = makeEvent("3", title: "Team sync", calendarID: "b", conferenceURL: URL(string: "https://acme.webex.com/acme/j.php?MTID=m222")!)
+    #expect(decide(a, sameMeeting) == .merge(.conferenceLink))
+    #expect(decide(a, other) != .merge(.conferenceLink))
+}
+
+@Test func aPlainWebsiteInTheURLFieldIsNotAConferenceIdentity() {
+    let page = URL(string: "https://example.com/event/42")!
+    let a = makeEvent("1", title: "Weekly", calendarID: "a", url: page)
+    let b = makeEvent("2", title: "Team sync", calendarID: "b", url: page)
+    #expect(DuplicateRules.conferenceIdentity(a) == nil)
+    #expect(decide(a, b) != .merge(.conferenceLink))
+    let structured = makeEvent("3", title: "Weekly", calendarID: "a", conferenceURL: page)
+    #expect(DuplicateRules.conferenceIdentity(structured) == nil)
+}
