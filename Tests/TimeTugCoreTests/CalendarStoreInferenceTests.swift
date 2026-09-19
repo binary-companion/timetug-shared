@@ -175,3 +175,26 @@ final class SlowAdjudicator: DuplicateAdjudicator, @unchecked Sendable {
     #expect(await store.refresh(now: later, leadTime: 60).events.count == 1)
     #expect(engine.requests.count == 1)
 }
+
+private func unmergeExactDuplicates(_ a: CalendarEvent, _ b: CalendarEvent) async {
+    let source = FakeSource()
+    await source.set(events: .success([a, b]))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar)
+    let merged = await store.refresh(now: now, leadTime: 60)
+    #expect(merged.events.count == 1)
+    let split = await store.unmerge(merged.events[0], now: now)
+    #expect(split.events.count == 2)
+    #expect(await store.refresh(now: now, leadTime: 60).events.count == 2)   // persists across refresh
+}
+
+@Test func unmergingAllDayDuplicatesOnTwoCalendarsSticks() async {
+    await unmergeExactDuplicates(
+        makeEvent("1", title: "Holiday", calendarID: "personal", isAllDay: true),
+        makeEvent("2", title: "Holiday", calendarID: "work", isAllDay: true))
+}
+
+@Test func unmergingSameCalendarExactDuplicatesSticks() async {
+    await unmergeExactDuplicates(
+        makeEvent("1", title: "Standup", calendarID: "work"),
+        makeEvent("2", title: "Standup", calendarID: "work"))
+}

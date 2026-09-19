@@ -17,10 +17,12 @@ private func member(_ title: String, _ calendar: String, _ details: String = "ba
     #expect(book.decision(b, a)?.decision == .same)
 }
 
-@Test func sameCalendarPairsAreNotRecorded() {
+@Test func sameCalendarPairsAreOnlyRecordedForExactDuplicates() {
     var book = LessonBook()
     book.record(member("A", "fake/cal"), member("B", "fake/cal"), decision: .different, now: t0)
     #expect(book.lessons.isEmpty)
+    book.record(member("A", "fake/cal"), member("A", "fake/cal"), decision: .different, now: t0)
+    #expect(book.lessons.count == 1)
 }
 
 @Test func newDecisionReplacesTheOldOneForThePair() {

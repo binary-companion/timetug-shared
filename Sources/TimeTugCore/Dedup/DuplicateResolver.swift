@@ -35,7 +35,9 @@ public enum DuplicateResolver {
         for i in events.indices {
             for j in events.indices where j > i {
                 let a = events[i], b = events[j]
-                if DuplicateRules.isCandidate(a, b), let lesson = lessons.decision(a, b) {
+                // Exact duplicates (even all-day or on one calendar) merge by rule, so a lesson must be able to undo that.
+                let lessonApplies = DuplicateRules.isCandidate(a, b) || a.contentKey == b.contentKey
+                if lessonApplies, let lesson = lessons.decision(a, b) {
                     usedLessonKeys.insert(lesson.pairKey)
                     if lesson.decision == .same { merges.append(MergeLink(i: i, j: j, why: .userConfirmed)) }
                     else { blocked.insert(Pair(i, j)) }

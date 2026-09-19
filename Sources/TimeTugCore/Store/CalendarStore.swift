@@ -159,8 +159,8 @@ public actor CalendarStore {
         return makeSnapshot(now: now)
     }
 
-    /// The user says this merged event is not one meeting: remember every pair of its participants on
-    /// different calendars (same-calendar pairs are ignored by `LessonBook.record`).
+    /// The user says this merged event is not one meeting: remember every pair of its participants.
+    /// `LessonBook.record` skips same-calendar pairs unless they are exact duplicates.
     public func unmerge(_ event: CalendarEvent, now: Date) -> CalendarSnapshot {
         let parts = event.participants
         for (index, a) in parts.enumerated() {

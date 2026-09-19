@@ -34,7 +34,8 @@ public struct LessonBook: Codable, Equatable, Sendable {
     }
 
     public mutating func record(_ a: MergedMember, _ b: MergedMember, decision: Lesson.Decision, now: Date) {
-        guard a.calendarKey != b.calendarKey else { return }
+        // Same-calendar pairs only matter as exact duplicates (identical content), which rules merge.
+        guard a.calendarKey != b.calendarKey || a.contentKey == b.contentKey else { return }
         let sides = [a, b].sorted { side($0) < side($1) }
         let lesson = Lesson(
             titleA: DuplicateRules.normalize(sides[0].title), titleB: DuplicateRules.normalize(sides[1].title),
