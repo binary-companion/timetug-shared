@@ -41,3 +41,15 @@ import Testing
     #expect(s.takeoverCalendarKeys.contains("a"))
     #expect(!s.isShownInList("b"))
 }
+
+@Test func disabledDefaultsToFalseWhenMissingFromSavedJSON() throws {
+    let decoded = try JSONDecoder().decode(TakeoverSettings.self, from: Data("{}".utf8))
+    #expect(decoded.disabled == false)
+}
+
+@Test func disabledRoundTripsThroughJSON() throws {
+    var settings = TakeoverSettings()
+    settings.disabled = true
+    let decoded = try JSONDecoder().decode(TakeoverSettings.self, from: JSONEncoder().encode(settings))
+    #expect(decoded.disabled)
+}

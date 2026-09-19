@@ -13,6 +13,8 @@ public struct TakeoverSettings: Codable, Equatable, Sendable {
     public var skipDeclinedEvents = true
     /// Hides all-day events from the day list only. All-day events never trigger a takeover, regardless of this setting.
     public var skipAllDayEvents = true
+    /// Master switch: while true no takeover or pre-meeting popup fires. The agenda is unaffected.
+    public var disabled = false
 
     public init() {}
 
@@ -27,6 +29,7 @@ public struct TakeoverSettings: Codable, Equatable, Sendable {
         skipSoloEvents = try c.decodeIfPresent(Bool.self, forKey: .skipSoloEvents) ?? d.skipSoloEvents
         skipDeclinedEvents = try c.decodeIfPresent(Bool.self, forKey: .skipDeclinedEvents) ?? d.skipDeclinedEvents
         skipAllDayEvents = try c.decodeIfPresent(Bool.self, forKey: .skipAllDayEvents) ?? d.skipAllDayEvents
+        disabled = try c.decodeIfPresent(Bool.self, forKey: .disabled) ?? d.disabled
         // Legacy data may hide a takeover calendar; takeover wins so a meeting alert is never silently lost.
         hiddenCalendarKeys.subtract(takeoverCalendarKeys)
     }
