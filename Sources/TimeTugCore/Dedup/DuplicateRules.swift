@@ -38,13 +38,14 @@ public enum DuplicateRules {
         if let uid = a.externalUID, uid == b.externalUID { return .merge(.externalUID) }
         let confA = conferenceIdentity(a), confB = conferenceIdentity(b)
         if let confA, confA == confB { return .merge(.conferenceLink) }
-        let emailsA = emails(a), emailsB = emails(b)
-        if !emailsA.isDisjoint(with: emailsB) { return .merge(.sharedAttendee) }
+        // Vetoes run before the weaker merge signals: a shared person or place merges two events
+        // only when nothing conflicts (user decision 2026-09-19).
         let location = locationRelation(a.location, b.location)
-        if location == .same { return .merge(.sameLocation) }
-
         if location == .conflict { return .separate(.conflictingLocation) }
         if let confA, let confB, confA != confB { return .separate(.conflictingConference) }
+        let emailsA = emails(a), emailsB = emails(b)
+        if !emailsA.isDisjoint(with: emailsB) { return .merge(.sharedAttendee) }
+        if location == .same { return .merge(.sameLocation) }
         if !emailsA.isEmpty, !emailsB.isEmpty { return .separate(.conflictingAttendees) }
         return .ambiguous
     }

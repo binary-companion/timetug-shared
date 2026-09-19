@@ -45,6 +45,39 @@ private func decide(_ a: CalendarEvent, _ b: CalendarEvent) -> PairDecision { Du
     #expect(decide(a, b) == .merge(.sharedAttendee))
 }
 
+@Test func sharedAttendeeDoesNotOverrideAConflictingLocation() {
+    let a = makeEvent("1", title: "A", location: "Room 101 East", attendees: [Attendee(email: "k@x.com")])
+    let b = makeEvent("2", title: "B", calendarID: "o", location: "Dentist Office", attendees: [Attendee(email: "k@x.com")])
+    #expect(decide(a, b) == .separate(.conflictingLocation))
+}
+
+@Test func sharedAttendeeDoesNotOverrideDifferentConferenceLinks() {
+    let a = makeEvent("1", title: "A", conferenceURL: URL(string: "https://acme.zoom.us/j/1"), attendees: [Attendee(email: "k@x.com")])
+    let b = makeEvent("2", title: "B", calendarID: "o", conferenceURL: URL(string: "https://acme.zoom.us/j/2"), attendees: [Attendee(email: "k@x.com")])
+    #expect(decide(a, b) == .separate(.conflictingConference))
+}
+
+@Test func sharedOrganizerAloneMergesWhenNothingConflicts() {
+    var a = makeEvent("1", title: "A")
+    a.organizerEmail = "Boss@x.com"
+    var b = makeEvent("2", title: "B", calendarID: "o")
+    b.organizerEmail = "boss@x.com"
+    #expect(decide(a, b) == .merge(.sharedAttendee))
+}
+
+@Test func sharedAttendeeWithSameLocationReportsSharedAttendee() {
+    // Shared attendee is checked before same location, so it supplies the reason.
+    let a = makeEvent("1", title: "A", location: "Room 101 East", attendees: [Attendee(email: "k@x.com")])
+    let b = makeEvent("2", title: "B", calendarID: "o", location: "Room 101 East", attendees: [Attendee(email: "k@x.com")])
+    #expect(decide(a, b) == .merge(.sharedAttendee))
+}
+
+@Test func sameLocationDoesNotOverrideDifferentConferenceLinks() {
+    let a = makeEvent("1", title: "A", location: "Room 101 East", conferenceURL: URL(string: "https://acme.zoom.us/j/1"))
+    let b = makeEvent("2", title: "B", calendarID: "o", location: "Room 101 East", conferenceURL: URL(string: "https://acme.zoom.us/j/2"))
+    #expect(decide(a, b) == .separate(.conflictingConference))
+}
+
 @Test func sameLocationMergesIncludingContainment() {
     let a = makeEvent("1", title: "Doctor", location: "1234 Main St")
     let b = makeEvent("2", title: "Intermountain Health", calendarID: "o", location: "Intermountain Health, 1234 Main St")
