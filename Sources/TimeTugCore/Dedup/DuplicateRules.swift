@@ -75,12 +75,19 @@ public enum DuplicateRules {
     }
 
     /// host + path of the conference link (lowercased), from the structured link or one found in the
-    /// location, url or notes. Only links to a recognised conference provider count (not a generic
+    /// location, url or notes. A structured link always counts; a detected one must be a recognised provider (not a generic
     /// `url` field). Webex keeps the meeting id in the `MTID` query item, so that is part of the identity.
     static func conferenceIdentity(_ event: CalendarEvent) -> String? {
-        let url = event.conferenceURL
-            ?? ConferenceLinkDetector.detect(location: event.location, url: event.url, notes: event.notes)
-        guard let url, ConferenceLinkDetector.isProvider(url), let host = url.host?.lowercased() else { return nil }
+        // A source-supplied link is trusted as is (unlisted providers like Chime still identify a meeting);
+        // a link detected from free text must be a recognised provider (not a generic `url`).
+        let url: URL?
+        if let structured = event.conferenceURL {
+            url = structured
+        } else {
+            url = ConferenceLinkDetector.detect(location: event.location, url: event.url, notes: event.notes)
+                .flatMap { ConferenceLinkDetector.isProvider($0) ? $0 : nil }
+        }
+        guard let url, let host = url.host?.lowercased() else { return nil }
         var path = url.path.lowercased()
         while path.hasSuffix("/") { path.removeLast() }
         var identity = host + path

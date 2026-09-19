@@ -129,6 +129,18 @@ private func decide(_ a: CalendarEvent, _ b: CalendarEvent) -> PairDecision { Du
     let b = makeEvent("2", title: "Team sync", calendarID: "b", url: page)
     #expect(DuplicateRules.conferenceIdentity(a) == nil)
     #expect(decide(a, b) != .merge(.conferenceLink))
-    let structured = makeEvent("3", title: "Weekly", calendarID: "a", conferenceURL: page)
-    #expect(DuplicateRules.conferenceIdentity(structured) == nil)
+}
+
+@Test func unlistedProvidersStillVetoWhenTheSourceSuppliesTheLink() {
+    let mail = [Attendee(email: "k@x.com")]
+    let a = makeEvent("1", title: "A", conferenceURL: URL(string: "https://chime.aws/111"), attendees: mail)
+    let b = makeEvent("2", title: "B", calendarID: "o", conferenceURL: URL(string: "https://chime.aws/222"), attendees: mail)
+    #expect(decide(a, b) == .separate(.conflictingConference))
+    let c = makeEvent("3", title: "C", calendarID: "o", conferenceURL: URL(string: "https://chime.aws/111"), attendees: mail)
+    #expect(decide(a, c) == .merge(.conferenceLink))
+}
+
+@Test func aDetectedGenericURLIsNotAConferenceIdentity() {
+    let a = makeEvent("1", title: "A", url: URL(string: "https://example.com/x"))
+    #expect(DuplicateRules.conferenceIdentity(a) == nil)
 }
