@@ -209,6 +209,22 @@ public enum DuplicateResolver {
             result.url = result.url ?? other.url
         }
         result.conferenceURL = bestConferenceLink(primary: group[primaryIndex], group: group)
+        // The card shows the longer copy's range; the takeover (`start`) fires when the copy with a join link
+        // starts (the actual appointment), else when the longer copy starts. Everything that schedules or
+        // counts down reads `start`/`end`, so it follows the tug time without further change.
+        let primary = group[primaryIndex]
+        let longer = group.enumerated().min { l, r in
+            let dl = l.element.end.timeIntervalSince(l.element.start), dr = r.element.end.timeIntervalSince(r.element.start)
+            if dl != dr { return dl > dr }
+            if (l.offset == primaryIndex) != (r.offset == primaryIndex) { return l.offset == primaryIndex }
+            return l.element.start < r.element.start
+        }!.element
+        let carrier = joinLink(of: primary) != nil
+            ? primary
+            : group.filter { joinLink(of: $0) != nil }.min { $0.start < $1.start }
+        result.end = longer.end
+        result.start = carrier?.start ?? longer.start
+        result.displayStart = longer.start == result.start ? nil : longer.start
         // Takeover qualification reads these two, so the merged event must not be weaker than any copy.
         result.otherAttendeeCount = group.map(\.otherAttendeeCount).max() ?? result.otherAttendeeCount
         result.responseStatus = group.map(\.responseStatus).max { attendance($0) < attendance($1) } ?? result.responseStatus
@@ -221,10 +237,13 @@ public enum DuplicateResolver {
     /// primary's, then group order. Sources leave `conferenceURL` nil, so links are detected per member.
     private static func bestConferenceLink(primary: CalendarEvent, group: [CalendarEvent]) -> URL? {
         let ordered = [primary] + group.filter { $0.id != primary.id }
-        let links = ordered.compactMap { member in
-            member.conferenceURL ?? ConferenceLinkDetector.detect(location: member.location, url: member.url, notes: member.notes)
-        }
+        let links = ordered.compactMap(joinLink(of:))
         return links.first { ConferenceLinkDetector.isProvider($0) } ?? links.first
+    }
+
+    /// One member's join link: the structured `conferenceURL`, else one detected in its location, url or notes.
+    private static func joinLink(of member: CalendarEvent) -> URL? {
+        member.conferenceURL ?? ConferenceLinkDetector.detect(location: member.location, url: member.url, notes: member.notes)
     }
 
     /// accepted > tentative > pending > unknown > declined.

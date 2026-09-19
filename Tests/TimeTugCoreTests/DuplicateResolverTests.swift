@@ -361,3 +361,119 @@ private func mergedEvent(_ events: [CalendarEvent]) -> CalendarEvent {
     ]
     for order in orders { #expect(memberSets(order) == expected) }
 }
+
+// MARK: - Display span (longer copy) and tug time (conference copy)
+
+private let zoomLink = URL(string: "https://acme.zoom.us/j/777")!
+private let teamsLink = URL(string: "https://teams.microsoft.com/l/meetup-join/abc")!
+
+@Test func mergedEventDisplaysTheLongerCopyButTugsAtTheCarrierStart() {
+    let short = makeEvent("1", title: "Sync", start: "2026-09-18T13:00:00Z", minutes: 30, calendarID: "a", conferenceURL: zoomLink)
+    let long = makeEvent("2", title: "Sync", start: "2026-09-18T12:45:00Z", minutes: 60, calendarID: "b", conferenceURL: zoomLink)
+    let merged = resolve([short, long]).events[0]
+    #expect(merged.mergedMembers.count == 2)
+    #expect(merged.start == date("2026-09-18T13:00:00Z"))      // primary (earliest on a tie) carries the link
+    #expect(merged.displayStart == date("2026-09-18T12:45:00Z"))
+    #expect(merged.shownStart == date("2026-09-18T12:45:00Z"))
+    #expect(merged.end == date("2026-09-18T13:45:00Z"))
+}
+
+@Test func equalDurationsKeepThePrimaryAsTheLongerCopy() {
+    let a = makeEvent("1", title: "Sync", start: "2026-09-18T13:00:00Z", minutes: 30, calendarID: "a", conferenceURL: zoomLink)
+    let b = makeEvent("2", title: "Sync", start: "2026-09-18T13:05:00Z", minutes: 30, calendarID: "b", conferenceURL: zoomLink)
+    let merged = resolve([a, b]).events[0]
+    #expect(merged.start == date("2026-09-18T13:00:00Z"))
+    #expect(merged.end == date("2026-09-18T13:30:00Z"))
+    #expect(merged.displayStart == nil)
+    #expect(merged.shownStart == merged.start)
+}
+
+@Test func unmergedEventIsUnchanged() {
+    let event = makeEvent("1", start: "2026-09-18T13:00:00Z", conferenceURL: zoomLink)
+    let result = resolve([event]).events[0]
+    #expect(result == event)
+    #expect(result.displayStart == nil)
+}
+
+@Test func onlyANonPrimaryCopyHasTheLinkSoItCarriesTheTug() {
+    let rich = makeEvent("1", title: "Sync", start: "2026-09-18T12:45:00Z", minutes: 60, calendarID: "a",
+                         location: "Room 1", notes: "Agenda", externalUID: "u")
+    let linked = makeEvent("2", title: "Sync", start: "2026-09-18T13:00:00Z", minutes: 30, calendarID: "b",
+                           conferenceURL: zoomLink, externalUID: "u")
+    let merged = resolve([rich, linked]).events[0]
+    #expect(merged.calendarKey == "fake/a")
+    #expect(merged.start == date("2026-09-18T13:00:00Z"))
+    #expect(merged.displayStart == date("2026-09-18T12:45:00Z"))
+    #expect(merged.end == date("2026-09-18T13:45:00Z"))
+}
+
+@Test func twoNonPrimaryCarriersTugAtTheEarliestOne() {
+    let rich = makeEvent("1", title: "Sync", start: "2026-09-18T12:45:00Z", minutes: 60, calendarID: "a",
+                         location: "Room 1", notes: "Agenda", externalUID: "u")
+    let late = makeEvent("2", title: "Sync", start: "2026-09-18T13:10:00Z", minutes: 20, calendarID: "b",
+                         conferenceURL: zoomLink, externalUID: "u")
+    let early = makeEvent("3", title: "Sync", start: "2026-09-18T13:05:00Z", minutes: 25, calendarID: "c",
+                          conferenceURL: teamsLink, externalUID: "u")
+    let merged = resolve([rich, late, early]).events[0]
+    #expect(merged.mergedMembers.count == 3)
+    #expect(merged.start == date("2026-09-18T13:05:00Z"))
+    #expect(merged.displayStart == date("2026-09-18T12:45:00Z"))
+}
+
+@Test func noLinkTugsAtTheLongerCopyStart() {
+    let short = makeEvent("1", title: "Sync", start: "2026-09-18T13:00:00Z", minutes: 30, calendarID: "a", externalUID: "u")
+    let long = makeEvent("2", title: "Sync", start: "2026-09-18T12:45:00Z", minutes: 60, calendarID: "b", externalUID: "u")
+    let merged = resolve([short, long]).events[0]
+    #expect(merged.start == date("2026-09-18T12:45:00Z"))
+    #expect(merged.displayStart == nil)
+    #expect(merged.end == date("2026-09-18T13:45:00Z"))
+}
+
+@Test func barePlaceholderWithThreeIdenticalCopiesShowsThePlaceholderRange() {
+    let placeholder = makeEvent("p", title: "Team Sync", start: "2026-09-18T12:45:00Z", minutes: 60, calendarID: "p", others: 0)
+    let copies = ["a", "b", "c"].map {
+        makeEvent($0, title: "Sync", start: "2026-09-18T13:00:00Z", calendarID: $0, location: "Room 1")
+    }
+    let events = [placeholder] + copies
+    let merged = resolve(events, verdicts: cache(answering: .same, for: resolve(events, verdicts: VerdictCache()))).events
+    #expect(merged.count == 1)
+    #expect(merged[0].mergedMembers.count == 4)
+    #expect(merged[0].start == date("2026-09-18T12:45:00Z"))
+    #expect(merged[0].end == date("2026-09-18T13:45:00Z"))
+    #expect(merged[0].title == "Sync")
+    #expect(merged[0].location == "Room 1")
+    #expect(merged[0].displayStart == nil)
+}
+
+@Test func conferenceAppointmentTugsAtItsStartWhileTheListShowsThePlaceholderRange() {
+    let placeholder = makeEvent("p", title: "Team Sync", start: "2026-09-18T12:30:00Z", minutes: 60, calendarID: "other", others: 0)
+    let appointment = makeEvent("a", title: "Sync", start: "2026-09-18T13:00:00Z", minutes: 30, calendarID: "cal",
+                                notes: "Join https://acme.zoom.us/j/777")
+    let events = [placeholder, appointment]
+    let merged = resolve(events, verdicts: cache(answering: .same, for: resolve(events, verdicts: VerdictCache()))).events
+    #expect(merged.count == 1)
+    let event = merged[0]
+    #expect(event.displayStart == date("2026-09-18T12:30:00Z"))
+    #expect(event.start == date("2026-09-18T13:00:00Z"))
+    #expect(event.end == date("2026-09-18T13:30:00Z"))
+    #expect(event.allContentKeys.isSuperset(of: [placeholder.contentKey, appointment.contentKey]))
+
+    // The takeover follows the tug start, never the display start.
+    let next = Scheduler.next(events: merged, settings: optedIn { $0.leadTime = 120 },
+                              ledger: TakeoverLedger(), now: date("2026-09-18T12:00:00Z"))
+    #expect(next?.fireAt == date("2026-09-18T12:58:00Z"))
+
+    // A fired member counts for the merged card.
+    var ledger = TakeoverLedger()
+    ledger.markFired(appointment, now: recordedAt)
+    #expect(ledger.hasFired(event))
+}
+
+@Test func mergedNoLinkEventFiresAtTheLongerCopyStart() {
+    let short = makeEvent("1", title: "Sync", start: "2026-09-18T13:00:00Z", minutes: 30, calendarID: "cal", externalUID: "u")
+    let long = makeEvent("2", title: "Sync", start: "2026-09-18T12:45:00Z", minutes: 60, calendarID: "other", externalUID: "u")
+    let merged = resolve([short, long]).events
+    let next = Scheduler.next(events: merged, settings: optedIn { $0.leadTime = 120 },
+                              ledger: TakeoverLedger(), now: date("2026-09-18T12:00:00Z"))
+    #expect(next?.fireAt == date("2026-09-18T12:43:00Z"))
+}

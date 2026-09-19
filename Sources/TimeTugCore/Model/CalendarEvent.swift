@@ -65,6 +65,9 @@ public struct CalendarEvent: Identifiable, Hashable, Sendable {
     /// Every original copy folded into this event (including itself); empty when never merged.
     public var mergedMembers: [MergedMember]
     public var mergeProvenance: MergeProvenance?
+    /// Where the range shown to the user starts when it differs from `start` (a merged meeting shows the
+    /// longer copy's range while `start` is the tug time); nil means the same as `start`.
+    public var displayStart: Date?
 
     public init(
         sourceEventID: String, sourceID: String, calendarID: String, title: String,
@@ -73,7 +76,8 @@ public struct CalendarEvent: Identifiable, Hashable, Sendable {
         notes: String? = nil, url: URL? = nil, conferenceURL: URL? = nil,
         additionalCalendarKeys: Set<String> = [],
         attendees: [Attendee] = [], organizerEmail: String? = nil, externalUID: String? = nil,
-        mergedMembers: [MergedMember] = [], mergeProvenance: MergeProvenance? = nil
+        mergedMembers: [MergedMember] = [], mergeProvenance: MergeProvenance? = nil,
+        displayStart: Date? = nil
     ) {
         self.sourceEventID = sourceEventID
         self.sourceID = sourceID
@@ -94,7 +98,11 @@ public struct CalendarEvent: Identifiable, Hashable, Sendable {
         self.externalUID = externalUID
         self.mergedMembers = mergedMembers
         self.mergeProvenance = mergeProvenance
+        self.displayStart = displayStart
     }
+
+    /// The start of the range to display: `displayStart` when set, else `start`.
+    public var shownStart: Date { displayStart ?? start }
 
     /// Unique per occurrence: recurring events share a source id but differ in start.
     public var id: String { "\(sourceID)/\(sourceEventID)/\(Int(start.timeIntervalSince1970))" }
