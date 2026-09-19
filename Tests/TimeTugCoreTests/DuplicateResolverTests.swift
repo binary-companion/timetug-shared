@@ -199,3 +199,46 @@ private let zoom = URL(string: "https://acme.zoom.us/j/123456")!
     #expect(result[0].mergedMembers.count == 3)
     #expect(result[0].mergeProvenance == .userConfirmed)
 }
+
+// MARK: conference link survives a merge
+
+private func mergedEvent(_ events: [CalendarEvent]) -> CalendarEvent {
+    let result = resolve(events).events
+    #expect(result.count == 1)
+    return result[0]
+}
+
+@Test func mergeKeepsALinkFoundOnlyInTheNonPrimaryCopysNotes() {
+    let personal = makeEvent("1", title: "Review", calendarID: "personal", others: 1,
+                             location: "Home office", notes: "prep slides", externalUID: "u1")
+    let work = makeEvent("2", title: "Review", calendarID: "cal", others: 4,
+                         notes: "Join https://teams.microsoft.com/l/meetup-join/abc", externalUID: "u1")
+    let merged = mergedEvent([personal, work])
+    #expect(merged.notes == "prep slides")   // personal is the primary
+    #expect(merged.conferenceURL?.host == "teams.microsoft.com")
+    #expect(TakeoverPolicy.qualifies(merged, settings: optedIn { $0.requireConferenceLink = true }))
+}
+
+@Test func aGenericURLOnThePrimaryNeverBeatsAProviderLinkOnAnotherCopy() {
+    let primary = makeEvent("1", title: "Review", calendarID: "personal", others: 1,
+                            location: "Home office", notes: "prep", url: URL(string: "https://example.com/agenda"), externalUID: "u1")
+    let other = makeEvent("2", title: "Review", calendarID: "work", others: 1,
+                          notes: "https://acme.zoom.us/j/123", externalUID: "u1")
+    #expect(mergedEvent([primary, other]).conferenceURL?.host == "acme.zoom.us")
+}
+
+@Test func theStructuredLinkOnAnyCopyCountsAndThePrimaryWinsTies() {
+    let a = makeEvent("1", title: "Review", calendarID: "personal", notes: "x", externalUID: "u1")
+    let b = makeEvent("2", title: "Review", calendarID: "work", conferenceURL: URL(string: "https://chime.aws/222"), externalUID: "u1")
+    #expect(mergedEvent([a, b]).conferenceURL?.absoluteString == "https://chime.aws/222")
+    let c = makeEvent("3", title: "Review", calendarID: "x", notes: "https://acme.zoom.us/j/1 more", externalUID: "u1")
+    let d = makeEvent("4", title: "Review", calendarID: "y", notes: "https://acme.zoom.us/j/2", externalUID: "u1")
+    #expect(mergedEvent([c, d]).conferenceURL?.absoluteString == "https://acme.zoom.us/j/1")
+}
+
+@Test func unmergedEventsKeepTheirOwnConferenceURL() {
+    let plain = makeEvent("1", title: "Solo", notes: "https://acme.zoom.us/j/9")
+    #expect(resolve([plain]).events[0].conferenceURL == nil)
+    let structured = makeEvent("2", title: "Other", start: "2026-09-18T15:00:00Z", conferenceURL: URL(string: "https://chime.aws/1"))
+    #expect(resolve([structured]).events[0].conferenceURL?.absoluteString == "https://chime.aws/1")
+}

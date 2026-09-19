@@ -185,6 +185,13 @@ private func unmergeExactDuplicates(_ a: CalendarEvent, _ b: CalendarEvent) asyn
     let split = await store.unmerge(merged.events[0], now: now)
     #expect(split.events.count == 2)
     #expect(await store.refresh(now: now, leadTime: 60).events.count == 2)   // persists across refresh
+    // Undo stays available: each half offers the other as a manual "Merge with".
+    let ids = split.events.map(\.id)
+    for event in split.events {
+        #expect(split.candidates[event.id]?.map(\.id) == ids.filter { $0 != event.id })
+    }
+    let rejoined = await store.merge(split.events[0], split.events[1], now: now)
+    #expect(rejoined.events.count == 1)
 }
 
 @Test func unmergingAllDayDuplicatesOnTwoCalendarsSticks() async {

@@ -92,7 +92,8 @@ public enum DuplicateResolver {
         for i in events.indices {
             for j in events.indices where j > i {
                 let oi = outputIndex[i], oj = outputIndex[j]
-                guard oi != oj, DuplicateRules.isCandidate(events[i], events[j]) else { continue }
+                guard oi != oj,
+                      DuplicateRules.isCandidate(events[i], events[j]) || events[i].contentKey == events[j].contentKey else { continue }
                 if !(candidates[output[oi].id] ?? []).contains(where: { $0.id == output[oj].id }) {
                     candidates[output[oi].id, default: []].append(output[oj])
                 }
@@ -125,14 +126,24 @@ public enum DuplicateResolver {
             result.location = result.location ?? other.location
             result.notes = result.notes ?? other.notes
             result.url = result.url ?? other.url
-            result.conferenceURL = result.conferenceURL ?? other.conferenceURL
         }
+        result.conferenceURL = bestConferenceLink(primary: group[primaryIndex], group: group)
         // Takeover qualification reads these two, so the merged event must not be weaker than any copy.
         result.otherAttendeeCount = group.map(\.otherAttendeeCount).max() ?? result.otherAttendeeCount
         result.responseStatus = group.map(\.responseStatus).max { attendance($0) < attendance($1) } ?? result.responseStatus
         result.mergedMembers = group.map { MergedMember($0) }
         result.mergeProvenance = strongest(provenance)
         return result
+    }
+
+    /// The best join link across the whole group: a recognised provider beats a generic link; ties keep the
+    /// primary's, then group order. Sources leave `conferenceURL` nil, so links are detected per member.
+    private static func bestConferenceLink(primary: CalendarEvent, group: [CalendarEvent]) -> URL? {
+        let ordered = [primary] + group.filter { $0.id != primary.id }
+        let links = ordered.compactMap { member in
+            member.conferenceURL ?? ConferenceLinkDetector.detect(location: member.location, url: member.url, notes: member.notes)
+        }
+        return links.first { ConferenceLinkDetector.isProvider($0) } ?? links.first
     }
 
     /// accepted > tentative > pending > unknown > declined.
