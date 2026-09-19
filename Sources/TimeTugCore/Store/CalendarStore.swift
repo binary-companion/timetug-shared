@@ -62,6 +62,7 @@ public actor CalendarStore {
     private var verdicts = VerdictCache()
     private var pending: [AdjudicationRequest] = []
     private var lastWindow: DateInterval?
+    private var isResolving = false
 
     public init(sources: [any CalendarSource], calendar: Calendar = .current,
                 adjudicator: (any DuplicateAdjudicator)? = nil) {
@@ -141,7 +142,9 @@ public actor CalendarStore {
     /// Asks the engine about the pairs still waiting for a verdict (one bounded pass). Returns a new
     /// snapshot only when a verdict was recorded; call again until nil to drain a backlog.
     public func resolvePending(now: Date) async -> CalendarSnapshot? {
-        guard let adjudicator, let engine = activeEngine, !pending.isEmpty else { return nil }
+        guard let adjudicator, let engine = activeEngine, !pending.isEmpty, !isResolving else { return nil }
+        isResolving = true
+        defer { isResolving = false }
         let batch = Array(pending.prefix(Self.maxPendingPerPass))
         let returned = await adjudicator.judge(batch)
         let byID = Dictionary(batch.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
@@ -156,7 +159,8 @@ public actor CalendarStore {
         return makeSnapshot(now: now)
     }
 
-    /// The user says this merged event is not one meeting: remember every cross-calendar pair in it.
+    /// The user says this merged event is not one meeting: remember every pair of its participants on
+    /// different calendars (same-calendar pairs are ignored by `LessonBook.record`).
     public func unmerge(_ event: CalendarEvent, now: Date) -> CalendarSnapshot {
         let parts = event.participants
         for (index, a) in parts.enumerated() {
@@ -192,6 +196,8 @@ public actor CalendarStore {
         var resolution = DuplicateResolver.resolve(
             events: raw, calendars: calendars, lessons: lessons, verdicts: activeEngine == nil ? nil : verdicts)
         lessons.touch(resolution.usedLessonKeys, now: now)
+        lessons.prune(now: now)
+        _ = verdicts.prune(now: now)
         pending = resolution.pending
         for index in resolution.events.indices where resolution.events[index].conferenceURL == nil {
             resolution.events[index].conferenceURL = ConferenceLinkDetector.detect(

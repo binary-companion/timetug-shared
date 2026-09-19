@@ -127,3 +127,14 @@ private func cache(answering answer: AdjudicationVerdict.Answer, for resolution:
     #expect(result.candidates[doctor.id]?.map(\.id) == [official.id])
     #expect(result.candidates[official.id]?.map(\.id) == [doctor.id])
 }
+
+@Test func equalStartAndTitleEventsSortDeterministicallyById() {
+    let a = makeEvent("1", title: "Sync", calendarID: "a")
+    let b = makeEvent("2", title: "Sync", calendarID: "b")
+    var lessons = LessonBook()
+    lessons.record(MergedMember(a), MergedMember(b), decision: .different, now: t0)
+    let forward = resolve([a, b], lessons: lessons).events.map(\.id)
+    let backward = resolve([b, a], lessons: lessons).events.map(\.id)
+    #expect(forward.count == 2)
+    #expect(forward == backward)
+}

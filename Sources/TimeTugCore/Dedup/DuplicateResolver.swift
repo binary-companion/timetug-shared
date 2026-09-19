@@ -1,7 +1,7 @@
 import Foundation
 
 public struct DuplicateResolution: Sendable {
-    /// Merged events, sorted by start then title.
+    /// Merged events, sorted by start, then title, then id.
     public var events: [CalendarEvent]
     /// Ambiguous pairs still waiting for a model verdict.
     public var pending: [AdjudicationRequest]
@@ -106,7 +106,7 @@ public enum DuplicateResolver {
             .map(\.request)
 
         return DuplicateResolution(
-            events: output.sorted { ($0.start, $0.title) < ($1.start, $1.title) },
+            events: output.sorted { ($0.start, $0.title, $0.id) < ($1.start, $1.title, $1.id) },
             pending: pending, candidates: candidates, usedLessonKeys: usedLessonKeys)
     }
 

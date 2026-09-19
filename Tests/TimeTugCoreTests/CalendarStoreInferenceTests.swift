@@ -122,3 +122,41 @@ private func makeStore(_ adjudicator: FakeAdjudicator?) async -> CalendarStore {
     await fresh.load(state)
     #expect(await fresh.refresh(now: now, leadTime: 60).events.count == 1)
 }
+
+final class SlowAdjudicator: DuplicateAdjudicator, @unchecked Sendable {
+    let availability: AdjudicatorAvailability = .available(FakeAdjudicator.engine)
+    private let lock = NSLock()
+    private var calls = 0
+    var callCount: Int { lock.withLock { calls } }
+
+    func judge(_ requests: [AdjudicationRequest]) async -> [AdjudicationVerdict] {
+        lock.withLock { calls += 1 }
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        return requests.map { AdjudicationVerdict(requestID: $0.id, answer: .same) }
+    }
+}
+
+@Test func concurrentResolvePendingRunsOnlyOnePass() async {
+    let slow = SlowAdjudicator()
+    let source = FakeSource()
+    await source.set(events: .success([doctor, official]))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar, adjudicator: slow)
+    _ = await store.setInferenceEnabled(true, now: now)
+    _ = await store.refresh(now: now, leadTime: 60)
+    async let first = store.resolvePending(now: now)
+    async let second = store.resolvePending(now: now)
+    let results = await [first, second]
+    #expect(slow.callCount == 1)
+    #expect(results.compactMap { $0 }.count == 1)
+}
+
+@Test func loadedStateIsPrunedOnTheNextSnapshot() async {
+    var stale = VerdictCache()
+    stale.store(AdjudicationVerdict(requestID: "old", answer: .same), engine: FakeAdjudicator.engine,
+                end: now.addingTimeInterval(-3600), now: now.addingTimeInterval(-7200))
+    #expect(stale.entry(for: "old") != nil)
+    let store = await makeStore(nil)
+    await store.load(DedupState(verdicts: stale))
+    _ = await store.refresh(now: now, leadTime: 60)
+    #expect(await store.state().verdicts.entry(for: "old") == nil)
+}
