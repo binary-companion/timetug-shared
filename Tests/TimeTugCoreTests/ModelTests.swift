@@ -45,7 +45,7 @@ import Testing
 @Test func contentKeysIncludeMergedMembers() {
     var event = makeEvent("1", title: "Doctor")
     #expect(event.allContentKeys == [event.contentKey])
-    event.mergedMembers = [MergedMember(title: "Intermountain Health", calendarKey: "fake/other", contentKey: "k2", details: "bare")]
+    event.mergedMembers = [MergedMember(title: "Intermountain Health", calendarKey: "fake/other", contentKey: "k2", details: "bare", start: Date(timeIntervalSince1970: 0), end: Date(timeIntervalSince1970: 3600))]
     #expect(event.allContentKeys == [event.contentKey, "k2"])
 }
 
@@ -53,7 +53,7 @@ import Testing
     let armed = makeEvent("1", title: "Scott: Doctor")
     var merged = makeEvent("2", title: "Intermountain Health")
     #expect(!merged.isSameMeeting(as: armed))
-    merged.mergedMembers = [MergedMember(title: armed.title, calendarKey: armed.calendarKey, contentKey: armed.contentKey, details: "bare")]
+    merged.mergedMembers = [MergedMember(title: armed.title, calendarKey: armed.calendarKey, contentKey: armed.contentKey, details: "bare", start: Date(timeIntervalSince1970: 0), end: Date(timeIntervalSince1970: 3600))]
     #expect(merged.isSameMeeting(as: armed))
     #expect(armed.isSameMeeting(as: merged))
 }

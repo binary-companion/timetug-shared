@@ -262,3 +262,60 @@ private func unmergeExactDuplicates(_ a: CalendarEvent, _ b: CalendarEvent) asyn
     #expect(merged?.events.first?.mergedMembers.count == 4)
     #expect(await store.resolvePending(now: now) == nil)
 }
+
+// MARK: - Separating one member of a merged card
+
+private func placeholderAndCopies(_ engine: FakeAdjudicator) async -> (CalendarStore, CalendarEvent) {
+    func copy(_ n: Int) -> CalendarEvent {
+        makeEvent("x\(n)", title: "Mando's Upcoming Appointment", start: "2026-09-18T13:00:00Z", minutes: 30,
+                  calendarID: "X\(n)", location: "Clinic, 5 Main St", notes: "Bring your card")
+    }
+    let spem = makeEvent("s", title: "Mando Spem Collection", start: "2026-09-18T12:45:00Z", minutes: 60, calendarID: "S")
+    let source = FakeSource()
+    await source.set(events: .success([spem, copy(1), copy(2), copy(3)]))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar, adjudicator: engine)
+    _ = await store.setInferenceEnabled(true, now: now)
+    _ = await store.refresh(now: now, leadTime: 60)
+    let merged = await store.resolvePending(now: now)!.events[0]
+    return (store, merged)
+}
+
+@Test func separatingThePlaceholderLeavesTheCopiesMergedAndPersists() async {
+    let (store, merged) = await placeholderAndCopies(FakeAdjudicator())
+    #expect(merged.mergedMembers.count == 4)
+    let placeholder = merged.mergedMembers.first { $0.calendarKey == "fake/S" }!
+    let split = await store.separate(placeholder, from: merged, now: now)
+    #expect(split.events.count == 2)
+    let copies = split.events.first { $0.mergedMembers.count == 3 }
+    #expect(copies != nil)
+    #expect(split.events.contains { $0.title == "Mando Spem Collection" && $0.mergedMembers.isEmpty })
+    let after = await store.refresh(now: now, leadTime: 60)
+    #expect(after.events.count == 2)
+    #expect(after.events.contains { $0.mergedMembers.count == 3 })
+    #expect(await store.state().lessons.lessons.count == 3)   // placeholder vs each of the three copies
+    // The split-off event can be offered for a manual re-merge.
+    let alone = after.events.first { $0.mergedMembers.isEmpty }!
+    #expect(after.candidates[alone.id]?.isEmpty == false)
+}
+
+@Test func separatingOneIdenticalCopyLeavesTheOthersMerged() async {
+    let (store, merged) = await placeholderAndCopies(FakeAdjudicator())
+    let one = merged.mergedMembers.first { $0.calendarKey == "fake/X1" }!
+    let split = await store.separate(one, from: merged, now: now)
+    #expect(split.events.count == 2)
+    let byMembers = Dictionary(grouping: split.events, by: { Set($0.participants.map(\.calendarKey)) })
+    #expect(byMembers[["fake/X1"]]?.count == 1)
+    #expect(byMembers[["fake/S", "fake/X2", "fake/X3"]]?.count == 1)
+    let after = await store.refresh(now: now, leadTime: 60)
+    #expect(Set(after.events.map { Set($0.participants.map(\.calendarKey)) }) == [["fake/X1"], ["fake/S", "fake/X2", "fake/X3"]])
+    let alone = after.events.first { $0.participants.count == 1 }!
+    #expect(after.candidates[alone.id]?.isEmpty == false)
+}
+
+@Test func unmergingTheWholeCardStillWorksAfterASeparation() async {
+    let (store, merged) = await placeholderAndCopies(FakeAdjudicator())
+    let placeholder = merged.mergedMembers.first { $0.calendarKey == "fake/S" }!
+    let split = await store.separate(placeholder, from: merged, now: now)
+    let copies = split.events.first { $0.mergedMembers.count == 3 }!
+    #expect(await store.unmerge(copies, now: now).events.count == 4)
+}

@@ -179,7 +179,7 @@ private func roundTrip(_ ledger: TakeoverLedger) throws -> TakeoverLedger {
 private func merged(_ primary: CalendarEvent, with others: [CalendarEvent]) -> CalendarEvent {
     var event = primary
     event.mergedMembers = ([primary] + others).map {
-        MergedMember(title: $0.title, calendarKey: $0.calendarKey, contentKey: $0.contentKey, details: "bare")
+        MergedMember($0)
     }
     return event
 }

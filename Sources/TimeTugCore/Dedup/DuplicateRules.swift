@@ -124,7 +124,7 @@ public enum DuplicateRules {
 extension MergedMember {
     public init(_ event: CalendarEvent) {
         self.init(title: event.title, calendarKey: event.calendarKey, contentKey: event.contentKey,
-                  details: DuplicateRules.detailSummary(event))
+                  details: DuplicateRules.detailSummary(event), start: event.start, end: event.end)
     }
 }
 

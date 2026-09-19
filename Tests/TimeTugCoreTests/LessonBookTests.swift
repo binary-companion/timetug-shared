@@ -5,7 +5,7 @@ import Testing
 private let t0 = date("2026-09-18T09:00:00Z")
 
 private func member(_ title: String, _ calendar: String, _ details: String = "bare") -> MergedMember {
-    MergedMember(title: title, calendarKey: calendar, contentKey: title, details: details)
+    MergedMember(title: title, calendarKey: calendar, contentKey: title, details: details, start: Date(timeIntervalSince1970: 0), end: Date(timeIntervalSince1970: 3600))
 }
 
 @Test func lessonIsLookedUpInEitherOrderByNormalizedTitles() {

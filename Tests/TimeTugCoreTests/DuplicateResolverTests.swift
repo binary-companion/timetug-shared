@@ -512,3 +512,18 @@ private let teamsLink = URL(string: "https://teams.microsoft.com/l/meetup-join/a
     #expect(request.secondDetails == "bare")
     #expect(request.hasConflictingDetails == false)
 }
+
+@Test func mergedMembersCarryEachCopysOwnTimes() {
+    let short = makeEvent("1", title: "Sync", start: "2026-09-18T13:00:00Z", minutes: 30, calendarID: "a")
+    let placeholder = makeEvent("2", title: "Sync", start: "2026-09-18T12:45:00Z", minutes: 60, calendarID: "b", others: 0)
+    let merged = resolve([short, placeholder], lessons: {
+        var book = LessonBook()
+        book.record(MergedMember(short), MergedMember(placeholder), decision: .same, now: t0)
+        return book
+    }()).events[0]
+    let byCalendar = Dictionary(uniqueKeysWithValues: merged.mergedMembers.map { ($0.calendarKey, $0) })
+    #expect(byCalendar["fake/a"]?.start == date("2026-09-18T13:00:00Z"))
+    #expect(byCalendar["fake/a"]?.end == date("2026-09-18T13:30:00Z"))
+    #expect(byCalendar["fake/b"]?.start == date("2026-09-18T12:45:00Z"))
+    #expect(byCalendar["fake/b"]?.end == date("2026-09-18T13:45:00Z"))
+}
