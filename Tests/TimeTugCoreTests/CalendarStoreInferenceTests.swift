@@ -153,10 +153,25 @@ final class SlowAdjudicator: DuplicateAdjudicator, @unchecked Sendable {
 @Test func loadedStateIsPrunedOnTheNextSnapshot() async {
     var stale = VerdictCache()
     stale.store(AdjudicationVerdict(requestID: "old", answer: .same), engine: FakeAdjudicator.engine,
-                end: now.addingTimeInterval(-3600), now: now.addingTimeInterval(-7200))
+                end: now.addingTimeInterval(-3600), now: now.addingTimeInterval(-VerdictCache.retention - 60))
     #expect(stale.entry(for: "old") != nil)
     let store = await makeStore(nil)
     await store.load(DedupState(verdicts: stale))
     _ = await store.refresh(now: now, leadTime: 60)
     #expect(await store.state().verdicts.entry(for: "old") == nil)
+}
+
+@Test func aPairThatAlreadyEndedTodayIsJudgedOnce() async {
+    let engine = FakeAdjudicator()
+    let store = await makeStore(engine)
+    let later = date("2026-09-18T15:00:00Z")   // both events ended hours ago but are still in today's window
+    _ = await store.setInferenceEnabled(true, now: later)
+    #expect(await store.refresh(now: later, leadTime: 60).events.count == 2)
+    var passes = 0
+    while await store.resolvePending(now: later) != nil, passes < 5 { passes += 1 }
+    #expect(passes == 1)
+    #expect(await store.resolvePending(now: later) == nil)
+    #expect(await store.refresh(now: later, leadTime: 60).events.count == 1)
+    #expect(await store.refresh(now: later, leadTime: 60).events.count == 1)
+    #expect(engine.requests.count == 1)
 }

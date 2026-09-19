@@ -77,7 +77,9 @@ public protocol DuplicateAdjudicator: Sendable {
     func judge(_ requests: [AdjudicationRequest]) async -> [AdjudicationVerdict]
 }
 
-/// Model verdicts, kept so each pair is judged once. Ended, old and surplus entries are pruned.
+/// Model verdicts, kept so each pair is judged once. Entries expire by age (`retention`) and the
+/// cap, never by event end: the fetch window includes events that already ended today, and dropping
+/// their verdicts would make the pair pending (and judged) again on every pass.
 public struct VerdictCache: Codable, Equatable, Sendable {
     public static let retention: TimeInterval = 7 * 24 * 60 * 60
     public static let maxEntries = 1000
@@ -103,7 +105,7 @@ public struct VerdictCache: Codable, Equatable, Sendable {
     @discardableResult
     public mutating func prune(now: Date) -> Bool {
         let before = entries.count
-        entries = entries.filter { $0.value.end > now && now.timeIntervalSince($0.value.decidedAt) <= Self.retention }
+        entries = entries.filter { now.timeIntervalSince($0.value.decidedAt) <= Self.retention }
         if entries.count > Self.maxEntries {
             let oldestFirst = entries.sorted { ($0.value.decidedAt, $0.key) < ($1.value.decidedAt, $1.key) }
             for (key, _) in oldestFirst.prefix(entries.count - Self.maxEntries) { entries[key] = nil }

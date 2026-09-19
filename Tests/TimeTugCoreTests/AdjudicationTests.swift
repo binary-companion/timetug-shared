@@ -16,18 +16,21 @@ private let engine = EngineInfo(id: "fake-ai", displayName: "Fake AI", isOnDevic
     #expect(projected.accountName == "iCloud")
 }
 
-@Test func verdictCacheStoresAndPrunesEndedAndOldEntries() {
+@Test func verdictCacheKeepsEntriesByAgeNotByEventEnd() {
     var cache = VerdictCache()
     cache.store(AdjudicationVerdict(requestID: "a", answer: .same), engine: engine, end: t0.addingTimeInterval(3600), now: t0)
     cache.store(AdjudicationVerdict(requestID: "b", answer: .unsure), engine: engine, end: t0.addingTimeInterval(60), now: t0)
     #expect(cache.entry(for: "a")?.answer == .same)
     #expect(cache.entry(for: "a")?.engine == engine)
-    let droppedEnded = cache.prune(now: t0.addingTimeInterval(120))
-    #expect(droppedEnded)
-    #expect(cache.entry(for: "b") == nil)
+    let droppedFresh = cache.prune(now: t0.addingTimeInterval(120))    // "b" ended but is still fresh
+    #expect(!droppedFresh)
+    #expect(cache.entry(for: "b") != nil)
+    let droppedAtLimit = cache.prune(now: t0.addingTimeInterval(VerdictCache.retention))
+    #expect(!droppedAtLimit)
     let droppedOld = cache.prune(now: t0.addingTimeInterval(VerdictCache.retention + 1))
     #expect(droppedOld)
     #expect(cache.entry(for: "a") == nil)
+    #expect(cache.entry(for: "b") == nil)
 }
 
 @Test func verdictCacheIsCappedOldestFirst() {
