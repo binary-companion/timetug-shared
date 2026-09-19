@@ -59,13 +59,21 @@ public struct CalendarEvent: Identifiable, Hashable, Sendable {
     public var conferenceURL: URL?
     /// Calendar keys of the other calendars where duplicate copies of this meeting appear.
     public var additionalCalendarKeys: Set<String>
+    public var attendees: [Attendee]
+    public var organizerEmail: String?
+    public var externalUID: String?
+    /// Every original copy folded into this event (including itself); empty when never merged.
+    public var mergedMembers: [MergedMember]
+    public var mergeProvenance: MergeProvenance?
 
     public init(
         sourceEventID: String, sourceID: String, calendarID: String, title: String,
         start: Date, end: Date, isAllDay: Bool = false, otherAttendeeCount: Int = 0,
         responseStatus: ResponseStatus = .unknown, location: String? = nil,
         notes: String? = nil, url: URL? = nil, conferenceURL: URL? = nil,
-        additionalCalendarKeys: Set<String> = []
+        additionalCalendarKeys: Set<String> = [],
+        attendees: [Attendee] = [], organizerEmail: String? = nil, externalUID: String? = nil,
+        mergedMembers: [MergedMember] = [], mergeProvenance: MergeProvenance? = nil
     ) {
         self.sourceEventID = sourceEventID
         self.sourceID = sourceID
@@ -81,6 +89,11 @@ public struct CalendarEvent: Identifiable, Hashable, Sendable {
         self.url = url
         self.conferenceURL = conferenceURL
         self.additionalCalendarKeys = additionalCalendarKeys
+        self.attendees = attendees
+        self.organizerEmail = organizerEmail
+        self.externalUID = externalUID
+        self.mergedMembers = mergedMembers
+        self.mergeProvenance = mergeProvenance
     }
 
     /// Unique per occurrence: recurring events share a source id but differ in start.
@@ -93,4 +106,13 @@ public struct CalendarEvent: Identifiable, Hashable, Sendable {
     public var calendarKey: String { CalendarInfo.key(sourceID: sourceID, calendarID: calendarID) }
     /// This event's own calendar plus every calendar its duplicates appear on.
     public var allCalendarKeys: Set<String> { additionalCalendarKeys.union([calendarKey]) }
+
+    /// Content keys of this event and every copy merged into it.
+    public var allContentKeys: Set<String> { Set(mergedMembers.map(\.contentKey)).union([contentKey]) }
+
+    /// True for the same occurrence or when any merged copy's content matches (an armed timer's
+    /// event may since have been merged into another, or split back out).
+    public func isSameMeeting(as other: CalendarEvent) -> Bool {
+        id == other.id || !allContentKeys.isDisjoint(with: other.allContentKeys)
+    }
 }

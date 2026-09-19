@@ -41,3 +41,27 @@ import Testing
     #expect(settings.skipDeclinedEvents)
     #expect(settings.skipAllDayEvents)
 }
+
+@Test func contentKeysIncludeMergedMembers() {
+    var event = makeEvent("1", title: "Doctor")
+    #expect(event.allContentKeys == [event.contentKey])
+    event.mergedMembers = [MergedMember(title: "Intermountain Health", calendarKey: "fake/other", contentKey: "k2", details: "bare")]
+    #expect(event.allContentKeys == [event.contentKey, "k2"])
+}
+
+@Test func isSameMeetingMatchesAnyMemberKey() {
+    let armed = makeEvent("1", title: "Scott: Doctor")
+    var merged = makeEvent("2", title: "Intermountain Health")
+    #expect(!merged.isSameMeeting(as: armed))
+    merged.mergedMembers = [MergedMember(title: armed.title, calendarKey: armed.calendarKey, contentKey: armed.contentKey, details: "bare")]
+    #expect(merged.isSameMeeting(as: armed))
+    #expect(armed.isSameMeeting(as: merged))
+}
+
+@Test func attendeeEmailNormalizationAndMailtoParsing() {
+    #expect(Attendee(email: "  Kristin@Example.COM ").email == "kristin@example.com")
+    #expect(Attendee(email: "   ").email == nil)
+    #expect(Attendee.email(fromMailto: "mailto:Bob@Example.com?subject=x") == "bob@example.com")
+    #expect(Attendee.email(fromMailto: "https://example.com/principal/1") == nil)
+    #expect(Attendee.email(fromMailto: nil) == nil)
+}

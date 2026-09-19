@@ -20,7 +20,7 @@ public enum TakeoverGuard {
     ) -> Decision {
         if overlayVisible { return .suppress(.overlayVisible) }
         guard let current = currentEvents.first(where: {
-            $0.id == event.id || $0.contentKey == event.contentKey
+            $0.isSameMeeting(as: event)
         }) else { return .suppress(.notInSnapshot) }
         if event.end <= now { return .suppress(.ended) }
         if !TakeoverPolicy.qualifies(current, settings: settings) { return .suppress(.noLongerQualifies) }

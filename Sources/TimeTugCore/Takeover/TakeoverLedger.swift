@@ -1,8 +1,9 @@
 import Foundation
 
 /// Remembers which events already took over (or are snoozed) so a refresh, or a relaunch, never
-/// repeats one. Every mutation is recorded under both `CalendarEvent.id` (includes the start time,
-/// so a rescheduled event is new) and `CalendarEvent.contentKey` (survives a changed source id).
+/// repeats one. Every mutation is recorded under `CalendarEvent.id` (includes the start time,
+/// so a rescheduled event is new) and every key in `allContentKeys` (survives a changed source id,
+/// so a merge or split never re-fires a meeting).
 /// Codable so the app can persist it; `prune` keeps the persisted form bounded.
 public struct TakeoverLedger: Equatable, Sendable, Codable {
     /// Entries older than this are dropped even if the event has not "ended" (bogus end dates).
@@ -92,12 +93,13 @@ public struct TakeoverLedger: Equatable, Sendable, Codable {
     public var keyCount: Int { records.count }
 
     func entry(for event: CalendarEvent) -> Entry? {
-        (records[event.id] ?? records[event.contentKey])?.entry
+        let found = ([event.id] + event.allContentKeys.sorted()).compactMap { records[$0]?.entry }
+        return found.first(where: { $0 == .fired }) ?? found.first
     }
 
     private mutating func record(_ entry: Entry, for event: CalendarEvent, now: Date) {
         let record = Record(entry: entry, end: event.end, recordedAt: now)
         records[event.id] = record
-        records[event.contentKey] = record
+        for key in event.allContentKeys { records[key] = record }
     }
 }
