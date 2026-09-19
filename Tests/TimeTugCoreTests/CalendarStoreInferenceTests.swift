@@ -284,7 +284,7 @@ private func placeholderAndCopies(_ engine: FakeAdjudicator) async -> (CalendarS
     let (store, merged) = await placeholderAndCopies(FakeAdjudicator())
     #expect(merged.mergedMembers.count == 4)
     let placeholder = merged.mergedMembers.first { $0.calendarKey == "fake/S" }!
-    let split = await store.separate(placeholder, from: merged, now: now)
+    let split = await store.separate([placeholder], from: merged, now: now)
     #expect(split.events.count == 2)
     let copies = split.events.first { $0.mergedMembers.count == 3 }
     #expect(copies != nil)
@@ -301,7 +301,7 @@ private func placeholderAndCopies(_ engine: FakeAdjudicator) async -> (CalendarS
 @Test func separatingOneIdenticalCopyLeavesTheOthersMerged() async {
     let (store, merged) = await placeholderAndCopies(FakeAdjudicator())
     let one = merged.mergedMembers.first { $0.calendarKey == "fake/X1" }!
-    let split = await store.separate(one, from: merged, now: now)
+    let split = await store.separate([one], from: merged, now: now)
     #expect(split.events.count == 2)
     let byMembers = Dictionary(grouping: split.events, by: { Set($0.participants.map(\.calendarKey)) })
     #expect(byMembers[["fake/X1"]]?.count == 1)
@@ -312,10 +312,24 @@ private func placeholderAndCopies(_ engine: FakeAdjudicator) async -> (CalendarS
     #expect(after.candidates[alone.id]?.isEmpty == false)
 }
 
+@Test func separatingAllIdenticalCopiesTogetherLeavesThemMergedAndThePlaceholderAlone() async {
+    let (store, merged) = await placeholderAndCopies(FakeAdjudicator())
+    let copies = merged.mergedMembers.filter { $0.calendarKey != "fake/S" }
+    #expect(copies.count == 3)
+    let split = await store.separate(copies, from: merged, now: now)
+    #expect(split.events.count == 2)
+    #expect(Set(split.events.map { Set($0.participants.map(\.calendarKey)) })
+            == [["fake/S"], ["fake/X1", "fake/X2", "fake/X3"]])
+    #expect(await store.state().lessons.lessons.count == 3)   // each copy vs the placeholder; none among the copies
+    let after = await store.refresh(now: now, leadTime: 60)
+    #expect(Set(after.events.map { Set($0.participants.map(\.calendarKey)) })
+            == [["fake/S"], ["fake/X1", "fake/X2", "fake/X3"]])
+}
+
 @Test func unmergingTheWholeCardStillWorksAfterASeparation() async {
     let (store, merged) = await placeholderAndCopies(FakeAdjudicator())
     let placeholder = merged.mergedMembers.first { $0.calendarKey == "fake/S" }!
-    let split = await store.separate(placeholder, from: merged, now: now)
+    let split = await store.separate([placeholder], from: merged, now: now)
     let copies = split.events.first { $0.mergedMembers.count == 3 }!
     #expect(await store.unmerge(copies, now: now).events.count == 4)
 }

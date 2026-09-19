@@ -169,11 +169,14 @@ public actor CalendarStore {
         return makeSnapshot(now: now)
     }
 
-    /// The user says one copy of a merged event is not the same meeting as the rest: remember a "different"
-    /// lesson between it and every other participant, leaving the others as they were.
-    public func separate(_ member: MergedMember, from event: CalendarEvent, now: Date) -> CalendarSnapshot {
-        for other in event.participants where other.contentKey != member.contentKey || other.calendarKey != member.calendarKey {
-            lessons.record(member, other, decision: .different, now: now)
+    /// The user says these copies of a merged event are not the same meeting as the rest: remember a "different"
+    /// lesson between each given copy and every other participant not in `members`. Pairs among the given
+    /// copies are not recorded, so they stay together.
+    public func separate(_ members: [MergedMember], from event: CalendarEvent, now: Date) -> CalendarSnapshot {
+        let chosen = Set(members.map { "\($0.calendarKey)|\($0.contentKey)" })
+        let rest = event.participants.filter { !chosen.contains("\($0.calendarKey)|\($0.contentKey)") }
+        for member in members {
+            for other in rest { lessons.record(member, other, decision: .different, now: now) }
         }
         return makeSnapshot(now: now)
     }
