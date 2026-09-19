@@ -70,3 +70,18 @@ private func member(_ title: String, _ calendar: String, _ details: String = "ba
     let decoded = try JSONDecoder().decode(LessonBook.self, from: JSONEncoder().encode(book))
     #expect(decoded == book)
 }
+
+@Test func relevantReturnsAtMostPromptLimitAndExcludesUnrelatedLessons() {
+    var book = LessonBook()
+    for i in 0..<8 {
+        book.record(member("Doctor \(i)", "fake/p\(i)"), member("Clinic \(i)", "fake/w\(i)"), decision: .same, now: t0.addingTimeInterval(TimeInterval(i)))
+    }
+    book.record(member("Dance", "fake/x"), member("Studio", "fake/y"), decision: .different, now: t0)
+    let a = makeEvent("1", title: "Doctor", calendarID: "personal")
+    let b = makeEvent("2", title: "Clinic", calendarID: "work")
+    let relevant = book.relevant(to: a, b)
+    #expect(relevant.count == LessonBook.promptLimit)
+    #expect(!relevant.contains { $0.titleA == "dance" })
+    let unrelated = makeEvent("3", title: "Zzz", calendarID: "personal")
+    #expect(book.relevant(to: unrelated, makeEvent("4", title: "Yyy", calendarID: "work")).isEmpty)
+}

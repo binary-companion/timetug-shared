@@ -198,3 +198,41 @@ private func unmergeExactDuplicates(_ a: CalendarEvent, _ b: CalendarEvent) asyn
         makeEvent("1", title: "Standup", calendarID: "work"),
         makeEvent("2", title: "Standup", calendarID: "work"))
 }
+
+@Test func forgettingLessonsAlsoForgetsCachedVerdicts() async {
+    let engine = FakeAdjudicator()
+    let store = await makeStore(engine)
+    _ = await store.setInferenceEnabled(true, now: now)
+    _ = await store.refresh(now: now, leadTime: 60)
+    #expect(await store.resolvePending(now: now)?.events.count == 1)
+    let forgotten = await store.forgetLessons(now: now)
+    #expect(forgotten.events.count == 2)                                  // not silently re-merged from cache
+    #expect(await store.state().verdicts.entries.isEmpty)
+    #expect(await store.resolvePending(now: now)?.events.count == 1)      // pending again, judged again
+    #expect(engine.requests.count == 2)
+}
+
+@Test func aBacklogLargerThanOnePassDrainsAcrossPasses() async {
+    // 25 look-alike pairs, 55 minutes apart so different pairs never fall inside each other's time gate.
+    let base = date("2026-09-18T00:10:00Z")
+    var events: [CalendarEvent] = []
+    for k in 0..<25 {
+        let start = base.addingTimeInterval(TimeInterval(k * 55 * 60))
+        for (calendarID, title) in [("personal", "Errand \(k)"), ("work", "Visit \(k)")] {
+            events.append(CalendarEvent(sourceEventID: "\(calendarID)\(k)", sourceID: "fake", calendarID: calendarID,
+                                        title: title, start: start, end: start.addingTimeInterval(20 * 60)))
+        }
+    }
+    let engine = FakeAdjudicator()
+    let source = FakeSource()
+    await source.set(events: .success(events))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar, adjudicator: engine)
+    _ = await store.setInferenceEnabled(true, now: now)
+    #expect(await store.refresh(now: now, leadTime: 60).events.count == 50)
+    var passes = 0
+    var latest: CalendarSnapshot?
+    while let next = await store.resolvePending(now: now), passes < 10 { latest = next; passes += 1 }
+    #expect(passes == 2)                       // 20 then 5
+    #expect(latest?.events.count == 25)
+    #expect(engine.requests.count == 25)
+}

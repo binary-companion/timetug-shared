@@ -63,3 +63,8 @@ private let engine = EngineInfo(id: "fake-ai", displayName: "Fake AI", isOnDevic
     #expect(Fingerprint.fnv1a("abc") == Fingerprint.fnv1a("abc"))
     #expect(Fingerprint.fnv1a("abc") != Fingerprint.fnv1a("abd"))
 }
+
+@Test func fingerprintMatchesKnownFNV1aVectors() {
+    #expect(Fingerprint.fnv1a("") == "cbf29ce484222325")
+    #expect(Fingerprint.fnv1a("a") == "af63dc4c8601ec8c")
+}

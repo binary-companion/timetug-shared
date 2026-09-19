@@ -176,3 +176,26 @@ private let zoom = URL(string: "https://acme.zoom.us/j/123456")!
     #expect(status([.tentative, .accepted, .declined]) == .accepted)
     #expect(status([.declined, .declined]) == .declined)
 }
+
+@Test func groupsAreCappedAtFourEventsAndTheRestStaySeparate() {
+    let events = (0..<5).map { makeEvent("e\($0)", title: "Sync", calendarID: "c\($0)") }
+    let result = resolve(events).events
+    #expect(result.count == 2)
+    let group = result.first { !$0.mergedMembers.isEmpty }!
+    #expect(group.mergedMembers.map(\.calendarKey) == ["fake/c0", "fake/c1", "fake/c2", "fake/c3"])
+    #expect(group.mergeProvenance == .rule)
+    let alone = result.first { $0.mergedMembers.isEmpty }!
+    #expect(alone.calendarKey == "fake/c4")
+}
+
+@Test func aUserConfirmedLinkMakesAThreeWayMergeUserConfirmed() {
+    let a = makeEvent("1", title: "Sync", calendarID: "a")
+    let b = makeEvent("2", title: "Sync", calendarID: "b")
+    let c = makeEvent("3", title: "Sync", calendarID: "c")
+    var lessons = LessonBook()
+    lessons.record(MergedMember(a), MergedMember(b), decision: .same, now: t0)
+    let result = resolve([a, b, c], lessons: lessons).events
+    #expect(result.count == 1)
+    #expect(result[0].mergedMembers.count == 3)
+    #expect(result[0].mergeProvenance == .userConfirmed)
+}

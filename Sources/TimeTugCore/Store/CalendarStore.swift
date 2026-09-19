@@ -175,8 +175,10 @@ public actor CalendarStore {
         return makeSnapshot(now: now)
     }
 
+    /// Also clears cached model verdicts, so a pair the model merged is asked about again.
     public func forgetLessons(now: Date) -> CalendarSnapshot {
         lessons = LessonBook()
+        verdicts = VerdictCache()
         return makeSnapshot(now: now)
     }
 

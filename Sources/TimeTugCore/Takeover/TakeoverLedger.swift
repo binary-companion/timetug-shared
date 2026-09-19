@@ -8,8 +8,9 @@ import Foundation
 public struct TakeoverLedger: Equatable, Sendable, Codable {
     /// Entries older than this are dropped even if the event has not "ended" (bogus end dates).
     public static let retention: TimeInterval = 7 * 24 * 60 * 60
-    /// Last-resort cap. It limits stored keys to `2 * maxEntries`: an event holds an id key plus one
-    /// content key per merged member (1 + N keys), so this is roughly per event. Oldest go first.
+    /// Last-resort cap on stored keys: `2 * maxEntries` (4000). An unmerged event stores 2 keys (its id
+    /// and its content key), so that is about 2000 events; a merged event stores up to 5 (its id plus
+    /// up to 4 content keys), so about 800 merged events in the worst case. Oldest go first.
     public static let maxEntries = 2000
 
     enum Entry: Equatable, Sendable, Codable {
@@ -90,7 +91,7 @@ public struct TakeoverLedger: Equatable, Sendable, Codable {
         return false
     }
 
-    /// Number of stored keys (per remembered event: its id key plus one content key per merged member). For diagnostics.
+    /// Number of stored keys (per remembered event: its id key plus one content key per merged member, at most 5). For diagnostics.
     public var keyCount: Int { records.count }
 
     func entry(for event: CalendarEvent) -> Entry? {
