@@ -175,3 +175,28 @@ private func roundTrip(_ ledger: TakeoverLedger) throws -> TakeoverLedger {
     let loaded = try JSONDecoder().decode(TakeoverLedger.self, from: Data(json.utf8))
     #expect(!loaded.hasFired(makeEvent())) // dropped rather than trusted
 }
+
+private func merged(_ primary: CalendarEvent, with others: [CalendarEvent]) -> CalendarEvent {
+    var event = primary
+    event.mergedMembers = ([primary] + others).map {
+        MergedMember($0)
+    }
+    return event
+}
+
+@Test func mergedEventCountsAsFiredWhenAnyMemberFired() {
+    let original = makeEvent("1", title: "Scott: Doctor")
+    let official = makeEvent("2", title: "Intermountain Health")
+    var ledger = TakeoverLedger()
+    ledger.markFired(original, now: recordedAt)
+    #expect(ledger.hasFired(merged(official, with: [original])))
+}
+
+@Test func firingMergedEventMarksEveryMember() {
+    let original = makeEvent("1", title: "Scott: Doctor")
+    let official = makeEvent("2", title: "Intermountain Health")
+    var ledger = TakeoverLedger()
+    ledger.markFired(merged(official, with: [original]), now: recordedAt)
+    #expect(ledger.hasFired(original))
+    #expect(ledger.hasFired(official))
+}

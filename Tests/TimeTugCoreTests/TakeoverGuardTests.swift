@@ -70,3 +70,15 @@ private func evaluate(
     ledger.snooze(makeEvent(), for: 60, now: now)
     #expect(evaluate(makeEvent(), ledger: ledger) == .present)
 }
+
+@Test func armedCopyStillMatchesAfterItWasMergedIntoAnotherEvent() {
+    let armed = makeEvent("1", title: "Scott: Doctor")
+    var current = makeEvent("2", title: "Intermountain Health")
+    current.mergedMembers = [armed, current].map {
+        MergedMember($0)
+    }
+    let decision = TakeoverGuard.evaluate(
+        event: armed, currentEvents: [current], settings: optedIn(), ledger: TakeoverLedger(),
+        now: date("2026-09-18T09:59:00Z"), overlayVisible: false)
+    #expect(decision != .suppress(.notInSnapshot))
+}

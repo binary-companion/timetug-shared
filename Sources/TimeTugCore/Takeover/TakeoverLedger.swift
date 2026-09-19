@@ -1,13 +1,16 @@
 import Foundation
 
 /// Remembers which events already took over (or are snoozed) so a refresh, or a relaunch, never
-/// repeats one. Every mutation is recorded under both `CalendarEvent.id` (includes the start time,
-/// so a rescheduled event is new) and `CalendarEvent.contentKey` (survives a changed source id).
+/// repeats one. Every mutation is recorded under `CalendarEvent.id` (includes the start time,
+/// so a rescheduled event is new) and every key in `allContentKeys` (survives a changed source id,
+/// so a merge or split never re-fires a meeting).
 /// Codable so the app can persist it; `prune` keeps the persisted form bounded.
 public struct TakeoverLedger: Equatable, Sendable, Codable {
     /// Entries older than this are dropped even if the event has not "ended" (bogus end dates).
     public static let retention: TimeInterval = 7 * 24 * 60 * 60
-    /// Last-resort cap, counted per event (an event holds two keys). Oldest go first.
+    /// Last-resort cap on stored keys: `2 * maxEntries` (4000). An unmerged event stores 2 keys (its id
+    /// and its content key), so that is about 2000 events; a merged event stores up to 5 (its id plus
+    /// up to 4 content keys), so about 800 merged events in the worst case. Oldest go first.
     public static let maxEntries = 2000
 
     enum Entry: Equatable, Sendable, Codable {
@@ -88,16 +91,17 @@ public struct TakeoverLedger: Equatable, Sendable, Codable {
         return false
     }
 
-    /// Number of stored keys (two per remembered event: id and content key). For diagnostics.
+    /// Number of stored keys (per remembered event: its id key plus one content key per merged member, at most 5). For diagnostics.
     public var keyCount: Int { records.count }
 
     func entry(for event: CalendarEvent) -> Entry? {
-        (records[event.id] ?? records[event.contentKey])?.entry
+        let found = ([event.id] + event.allContentKeys.sorted()).compactMap { records[$0]?.entry }
+        return found.first(where: { $0 == .fired }) ?? found.first
     }
 
     private mutating func record(_ entry: Entry, for event: CalendarEvent, now: Date) {
         let record = Record(entry: entry, end: event.end, recordedAt: now)
         records[event.id] = record
-        records[event.contentKey] = record
+        for key in event.allContentKeys { records[key] = record }
     }
 }

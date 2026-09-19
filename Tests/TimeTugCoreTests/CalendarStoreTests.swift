@@ -147,3 +147,29 @@ private let now = date("2026-09-18T10:00:00Z")
     #expect(events.count == 1)
     #expect(events.first?.conferenceURL?.host?.hasSuffix("zoom.us") == true)
 }
+
+@Test func sameCalendarImportedFromEverySourceCollapsesToOneCard() async {
+    // The user's Exchange, Gmail and iCloud calendars share a name; a hidden calendar still takes part in the merge.
+    let names = ["exchange", "gmail", "cloud", "cloud2", "cloud3"]
+    var sources: [FakeSource] = []
+    for name in names {
+        let source = FakeSource(id: name)
+        var event = makeEvent("\(name)-1", title: "O'Bryan Family Dinner", start: "2026-09-18T11:00:00Z", calendarID: "shared-\(name)")
+        event.sourceID = name
+        await source.set(events: .success([event]))
+        await source.set(calendars: [CalendarInfo(sourceID: name, calendarID: "shared-\(name)", title: "O'Bryan Shared")])
+        sources.append(source)
+    }
+    let store = CalendarStore(sources: sources, calendar: utcCalendar)
+    let snapshot = await store.refresh(now: now, leadTime: 60)
+    #expect(snapshot.events.count == 1)
+    let card = snapshot.events[0]
+    #expect(card.mergedMembers.count == 5)
+    #expect(card.additionalCalendarKeys.count == 4)
+    #expect(card.allCalendarKeys == Set(names.map { "\($0)/shared-\($0)" }))
+    // Hiding is a display concern: one visible copy keeps the merged card on the agenda.
+    var settings = TakeoverSettings()
+    settings.hiddenCalendarKeys = Set(names.dropFirst().map { "\($0)/shared-\($0)" })
+    let agenda = DayAgenda.make(events: snapshot.events, settings: settings, now: now, calendar: utcCalendar)
+    #expect(agenda.items.count == 1)
+}

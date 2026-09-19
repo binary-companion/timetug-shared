@@ -24,14 +24,17 @@ func makeEvent(
     location: String? = nil,
     notes: String? = nil,
     url: URL? = nil,
-    conferenceURL: URL? = nil
+    conferenceURL: URL? = nil,
+    attendees: [Attendee] = [],
+    externalUID: String? = nil
 ) -> CalendarEvent {
     let startDate = date(start)
     return CalendarEvent(
         sourceEventID: id, sourceID: "fake", calendarID: calendarID, title: title,
         start: startDate, end: startDate.addingTimeInterval(TimeInterval(minutes * 60)),
         isAllDay: isAllDay, otherAttendeeCount: others, responseStatus: status,
-        location: location, notes: notes, url: url, conferenceURL: conferenceURL
+        location: location, notes: notes, url: url, conferenceURL: conferenceURL,
+        attendees: attendees, externalUID: externalUID
     )
 }
 
