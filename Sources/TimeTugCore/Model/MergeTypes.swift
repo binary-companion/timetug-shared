@@ -3,7 +3,7 @@ import Foundation
 /// A meeting invitee other than the calendar owner. Emails are normalized (lowercased, trimmed).
 public struct Attendee: Hashable, Sendable {
     public var name: String?
-    public var email: String?
+    public private(set) var email: String?
 
     public init(name: String? = nil, email: String? = nil) {
         self.name = name

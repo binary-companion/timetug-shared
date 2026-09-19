@@ -37,7 +37,8 @@ public struct AdjudicationEvent: Equatable, Sendable {
         end = event.end
         location = event.location
         notes = event.notes.map { String($0.prefix(Self.maxNotesLength)) }
-        attendeeNames = event.attendees.compactMap(\.name).filter { !$0.isEmpty }
+        // Some calendar sources put the address in the name field, so drop anything email-shaped.
+        attendeeNames = event.attendees.compactMap(\.name).filter { !$0.isEmpty && !$0.contains("@") }
         calendarTitle = calendar?.title
         accountName = calendar?.accountName
     }

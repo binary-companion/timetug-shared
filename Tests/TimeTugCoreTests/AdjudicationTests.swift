@@ -16,6 +16,15 @@ private let engine = EngineInfo(id: "fake-ai", displayName: "Fake AI", isOnDevic
     #expect(projected.accountName == "iCloud")
 }
 
+@Test func adjudicationEventDropsAttendeeNamesThatAreEmailAddresses() {
+    let event = makeEvent("1", title: "Doctor", attendees: [
+        Attendee(name: "kristin@example.com", email: "kristin@example.com"),
+        Attendee(name: "Scott <scott@example.com>", email: nil),
+        Attendee(name: "", email: "e@x.com"),
+        Attendee(name: "Kristin", email: "k@x.com")])
+    #expect(AdjudicationEvent(event, calendar: nil).attendeeNames == ["Kristin"])
+}
+
 @Test func verdictCacheKeepsEntriesByAgeNotByEventEnd() {
     var cache = VerdictCache()
     cache.store(AdjudicationVerdict(requestID: "a", answer: .same), engine: engine, end: t0.addingTimeInterval(3600), now: t0)
