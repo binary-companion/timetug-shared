@@ -335,3 +335,29 @@ private func mergedEvent(_ events: [CalendarEvent]) -> CalendarEvent {
     let structured = makeEvent("2", title: "Other", start: "2026-09-18T15:00:00Z", conferenceURL: URL(string: "https://chime.aws/1"))
     #expect(resolve([structured]).events[0].conferenceURL?.absoluteString == "https://chime.aws/1")
 }
+
+// MARK: - Three literal phases
+
+@Test func resolveMergesExactCopiesBeforeOtherRulesAndIsOrderIndependent() {
+    // Three identical copies; only one carries the conference link that ties in D, and D's location
+    // conflicts with another copy. Exact copies must join first, so D stays out for every input order.
+    let a = makeEvent("a", title: "Sync", start: "2026-09-18T13:00:00Z", calendarID: "a", notes: "https://acme.zoom.us/j/555")
+    let b = makeEvent("b", title: "Sync", start: "2026-09-18T13:00:00Z", calendarID: "b", location: "Room 1")
+    let c = makeEvent("c", title: "Sync", start: "2026-09-18T13:00:00Z", calendarID: "c")
+    let d = makeEvent("d", title: "Sync call", start: "2026-09-18T13:25:00Z", calendarID: "d",
+                      location: "Room 9", notes: "https://acme.zoom.us/j/555")
+    let placeholder = makeEvent("p", title: "Team Sync", start: "2026-09-18T12:45:00Z", minutes: 60, calendarID: "e", others: 0)
+    let base = [a, b, c, d, placeholder]
+    let verdicts = cache(answering: .same, for: resolve(base, verdicts: VerdictCache()))
+
+    func memberSets(_ events: [CalendarEvent]) -> Set<Set<String>> {
+        let result = resolve(events, verdicts: verdicts)
+        return Set(result.events.map { Set($0.mergedMembers.isEmpty ? [$0.calendarKey] : $0.mergedMembers.map(\.calendarKey)) })
+    }
+    let expected: Set<Set<String>> = [["fake/a", "fake/b", "fake/c", "fake/e"], ["fake/d"]]
+    let orders: [[CalendarEvent]] = [
+        base, base.reversed(), [d, c, b, a, placeholder], [placeholder, d, a, c, b],
+        [c, placeholder, a, d, b], [b, d, placeholder, c, a],
+    ]
+    for order in orders { #expect(memberSets(order) == expected) }
+}

@@ -25,8 +25,8 @@ public enum DuplicateResolver {
 
     private struct MergeLink { let i: Int, j: Int, why: MergeProvenance }
 
-    /// Groups of event indexes. A group is one or more "clusters": phase 1 clusters are counted once each
-    /// when phase 2 checks the cap.
+    /// Groups of event indexes. A group is one or more "clusters": phase 1 and 2 groups are counted once each
+    /// when phase 3 checks the cap.
     private struct Grouping {
         var groupOf: [Int]
         var members: [Int: [Int]]
@@ -62,7 +62,8 @@ public enum DuplicateResolver {
         events: [CalendarEvent], calendars: [CalendarInfo], lessons: LessonBook, verdicts: VerdictCache?
     ) -> DuplicateResolution {
         let infoByKey = Dictionary(calendars.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
-        var certain: [MergeLink] = []      // rule and user-confirmed merges
+        var exact: [MergeLink] = []        // phase 1: identical content
+        var certain: [MergeLink] = []      // phase 2: other rules and user-confirmed merges
         var inference: [MergeLink] = []    // model "same" verdicts
         var blocked = Set<Pair>()          // hard: rules say separate, or a learned "different"
         var softDifferent = Set<Pair>()    // model "different" verdicts: votes only
@@ -81,6 +82,7 @@ public enum DuplicateResolver {
                     continue
                 }
                 switch DuplicateRules.decide(a, b) {
+                case .merge(.exactMatch): exact.append(MergeLink(i: i, j: j, why: .rule))
                 case .merge: certain.append(MergeLink(i: i, j: j, why: .rule))
                 case .separate: blocked.insert(Pair(i, j))
                 case .ambiguous:
@@ -102,18 +104,27 @@ public enum DuplicateResolver {
 
         var grouping = Grouping(count: events.count)
 
-        // Phase 1: certain links (rules, user lessons), uncapped, never across a hard-blocked pair.
-        for link in certain {
-            let gi = grouping.groupOf[link.i], gj = grouping.groupOf[link.j]
-            if gi == gj { grouping.provenance[gi, default: []].append(link.why); continue }
-            guard !grouping.hasBlockedPair(gi, gj, in: blocked) else { continue }
-            grouping.union(gi, gj, adding: [link.why])
+        // Three phases, each finished before the next starts, links in index order:
+        // 1. identical items (exact content match), uncapped;
+        // 2. those groups by the other rules and by the user's "same" lessons, uncapped;
+        // 3. the resulting groups by model verdicts (below).
+        // A hard block (a rules "separate" or a learned "different") stops any merge in any phase, checked
+        // across every member of both groups.
+        func union(_ links: [MergeLink]) {
+            for link in links {
+                let gi = grouping.groupOf[link.i], gj = grouping.groupOf[link.j]
+                if gi == gj { grouping.provenance[gi, default: []].append(link.why); continue }
+                guard !grouping.hasBlockedPair(gi, gj, in: blocked) else { continue }
+                grouping.union(gi, gj, adding: [link.why])
+            }
         }
+        union(exact)
+        union(certain)
 
-        // Each phase 1 group is now one cluster, however many exact duplicates it holds.
+        // Each certain group is now one cluster, however many copies it holds.
         for g in grouping.members.keys { grouping.clusters[g] = 1 }
 
-        // Phase 2: model verdicts are votes between groups. Merge when "same" outnumbers "different",
+        // Phase 3: model verdicts are votes between groups. Merge when "same" outnumbers "different",
         // nothing hard-blocks the pair and the cap on clusters holds. Restart after each merge because a
         // merged group carries all its members' votes.
         while let (g, h, links) = nextModelMerge(grouping, inference: inference, softDifferent: softDifferent, blocked: blocked) {
