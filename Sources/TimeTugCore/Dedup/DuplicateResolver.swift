@@ -3,7 +3,7 @@ import Foundation
 public struct DuplicateResolution: Sendable {
     /// Merged events, sorted by start, then title, then id.
     public var events: [CalendarEvent]
-    /// Ambiguous pairs still waiting for a model verdict.
+    /// Ambiguous group pairs still waiting for a model verdict (one request per pair of groups).
     public var pending: [AdjudicationRequest]
     /// Event id -> look-alike events kept separate (for a manual "Merge").
     public var candidates: [String: [CalendarEvent]]
@@ -64,10 +64,8 @@ public enum DuplicateResolver {
         let infoByKey = Dictionary(calendars.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
         var exact: [MergeLink] = []        // phase 1: identical content
         var certain: [MergeLink] = []      // phase 2: other rules and user-confirmed merges
-        var inference: [MergeLink] = []    // model "same" verdicts
         var blocked = Set<Pair>()          // hard: rules say separate, or a learned "different"
-        var softDifferent = Set<Pair>()    // model "different" verdicts: votes only
-        var pendingPairs: [(i: Int, j: Int, request: AdjudicationRequest)] = []
+        var ambiguous = Set<Pair>()        // pairs only a model could decide (inference on)
         var usedLessonKeys = Set<String>()
 
         for i in events.indices {
@@ -85,19 +83,7 @@ public enum DuplicateResolver {
                 case .merge(.exactMatch): exact.append(MergeLink(i: i, j: j, why: .rule))
                 case .merge: certain.append(MergeLink(i: i, j: j, why: .rule))
                 case .separate: blocked.insert(Pair(i, j))
-                case .ambiguous:
-                    guard let verdicts else { continue }
-                    let request = makeRequest(a, b, infoByKey: infoByKey, lessons: lessons)
-                    guard let entry = verdicts.entry(for: request.id) else {
-                        pendingPairs.append((i, j, request))
-                        continue
-                    }
-                    switch entry.answer {
-                    case .same:
-                        inference.append(MergeLink(i: i, j: j, why: .inference(engineID: entry.engine.id, engineName: entry.engine.displayName)))
-                    case .different: softDifferent.insert(Pair(i, j))
-                    case .unsure: break
-                    }
+                case .ambiguous: if verdicts != nil { ambiguous.insert(Pair(i, j)) }
                 }
             }
         }
@@ -124,11 +110,21 @@ public enum DuplicateResolver {
         // Each certain group is now one cluster, however many copies it holds.
         for g in grouping.members.keys { grouping.clusters[g] = 1 }
 
-        // Phase 3: model verdicts are votes between groups. Merge when "same" outnumbers "different",
-        // nothing hard-blocks the pair and the cap on clusters holds. Restart after each merge because a
-        // merged group carries all its members' votes.
-        while let (g, h, links) = nextModelMerge(grouping, inference: inference, softDifferent: softDifferent, blocked: blocked) {
-            grouping.union(g, h, adding: links.map(\.why))
+        // Phase 3: the model judges each pair of groups once, through its richest copies. "same" merges the
+        // two groups when the cap on clusters holds; "different" and "unsure" leave them apart. Restart after
+        // each merge because the merged group has a new representative and new neighbours.
+        var pending: [AdjudicationRequest] = []
+        if let verdicts {
+            while true {
+                let step = nextModelStep(grouping, events: events, ambiguous: ambiguous, blocked: blocked,
+                                         verdicts: verdicts, infoByKey: infoByKey, lessons: lessons)
+                if let merge = step.merge {
+                    grouping.union(merge.g, merge.h, adding: [merge.why])
+                } else {
+                    pending = step.pending
+                    break
+                }
+            }
         }
 
         let groups = grouping.orderedGroups.map { grouping.members[$0]! }
@@ -154,44 +150,50 @@ public enum DuplicateResolver {
             }
         }
 
-        var seen = Set<String>()
-        let pending = pendingPairs
-            .filter { outputIndex[$0.i] != outputIndex[$0.j] && seen.insert($0.request.id).inserted }
-            .map(\.request)
-
         return DuplicateResolution(
             events: output.sorted { ($0.start, $0.title, $0.id) < ($1.start, $1.title, $1.id) },
             pending: pending, candidates: candidates, usedLessonKeys: usedLessonKeys)
     }
 
-    /// The next pair of groups the model votes say to merge, with the inference links between them.
-    /// Pairs are tried in order of the groups' smallest member indexes.
-    private static func nextModelMerge(
-        _ grouping: Grouping, inference: [MergeLink], softDifferent: Set<Pair>, blocked: Set<Pair>
-    ) -> (Int, Int, [MergeLink])? {
-        var sameLinks: [Pair: [MergeLink]] = [:]   // keyed by (low group, high group) ids
-        for link in inference {
-            let gi = grouping.groupOf[link.i], gj = grouping.groupOf[link.j]
-            if gi != gj { sameLinks[Pair(gi, gj), default: []].append(link) }
-        }
+    /// The richest copy of a group; ties keep the earliest index (members are sorted).
+    private static func representative(_ members: [Int], in events: [CalendarEvent]) -> Int {
+        var best = members[0]
+        for k in members.dropFirst() where DuplicateRules.detailScore(events[k]) > DuplicateRules.detailScore(events[best]) { best = k }
+        return best
+    }
+
+    /// Walks the pairs of groups that hold an ambiguous cross pair, in order of the groups' smallest member
+    /// indexes. Returns the first cached "same" that may merge, else every request still without a verdict.
+    private static func nextModelStep(
+        _ grouping: Grouping, events: [CalendarEvent], ambiguous: Set<Pair>, blocked: Set<Pair>,
+        verdicts: VerdictCache, infoByKey: [String: CalendarInfo], lessons: LessonBook
+    ) -> (merge: (g: Int, h: Int, why: MergeProvenance)?, pending: [AdjudicationRequest]) {
         let rank = Dictionary(uniqueKeysWithValues: grouping.orderedGroups.enumerated().map { ($1, $0) })
-        let ordered = sameLinks.keys.sorted {
-            let l = (min(rank[$0.low]!, rank[$0.high]!), max(rank[$0.low]!, rank[$0.high]!))
-            let r = (min(rank[$1.low]!, rank[$1.high]!), max(rank[$1.low]!, rank[$1.high]!))
-            return l < r
+        var groupPairs = Set<Pair>()
+        for pair in ambiguous {
+            let g = grouping.groupOf[pair.low], h = grouping.groupOf[pair.high]
+            if g != h { groupPairs.insert(Pair(g, h)) }
         }
-        for pair in ordered {
-            let (g, h) = rank[pair.low]! < rank[pair.high]! ? (pair.low, pair.high) : (pair.high, pair.low)
-            let differentVotes = softDifferent.filter {
-                let a = grouping.groupOf[$0.low], b = grouping.groupOf[$0.high]
-                return (a == g && b == h) || (a == h && b == g)
-            }.count
-            guard let links = sameLinks[pair], links.count > differentVotes,
-                  (grouping.clusters[g] ?? 1) + (grouping.clusters[h] ?? 1) <= maxGroupSize,
+        let ordered = groupPairs.map { pair -> (g: Int, h: Int) in
+            rank[pair.low]! < rank[pair.high]! ? (pair.low, pair.high) : (pair.high, pair.low)
+        }.sorted { (rank[$0.g]!, rank[$0.h]!) < (rank[$1.g]!, rank[$1.h]!) }
+
+        var pending: [AdjudicationRequest] = []
+        var seen = Set<String>()
+        for (g, h) in ordered {
+            guard (grouping.clusters[g] ?? 1) + (grouping.clusters[h] ?? 1) <= maxGroupSize,
                   !grouping.hasBlockedPair(g, h, in: blocked) else { continue }
-            return (g, h, links)
+            let a = representative(grouping.members[g]!, in: events), b = representative(grouping.members[h]!, in: events)
+            let request = makeRequest(events[a], events[b], infoByKey: infoByKey, lessons: lessons)
+            guard let entry = verdicts.entry(for: request.id) else {
+                if seen.insert(request.id).inserted { pending.append(request) }
+                continue
+            }
+            if entry.answer == .same {
+                return ((g, h, .inference(engineID: entry.engine.id, engineName: entry.engine.displayName)), [])
+            }
         }
-        return nil
+        return (nil, pending)
     }
 
     private static func merged(_ group: [CalendarEvent], provenance: [MergeProvenance]) -> CalendarEvent {
@@ -267,18 +269,31 @@ public enum DuplicateResolver {
         _ a: CalendarEvent, _ b: CalendarEvent, infoByKey: [String: CalendarInfo], lessons: LessonBook
     ) -> AdjudicationRequest {
         let (first, second) = DuplicateRules.detailScore(a) >= DuplicateRules.detailScore(b) ? (a, b) : (b, a)
+        func minutes(_ seconds: TimeInterval) -> Int { Int((seconds / 60).rounded()) }
+        let overlap = min(first.end, second.end).timeIntervalSince(max(first.start, second.start))
+        var conflicting = false
+        if case .separate(let reason) = DuplicateRules.decide(a, b) {
+            conflicting = [.conflictingLocation, .conflictingConference, .conflictingAttendees].contains(reason)
+        }
         return AdjudicationRequest(
             id: fingerprint(a, b),
             first: AdjudicationEvent(first, calendar: infoByKey[first.calendarKey]),
             second: AdjudicationEvent(second, calendar: infoByKey[second.calendarKey]),
-            lessons: lessons.relevant(to: a, b))
+            lessons: lessons.relevant(to: a, b),
+            startOffsetMinutes: minutes(second.start.timeIntervalSince(first.start)),
+            endOffsetMinutes: minutes(second.end.timeIntervalSince(first.end)),
+            overlapMinutes: max(0, minutes(overlap)),
+            firstDetails: DuplicateRules.detailSummary(first),
+            secondDetails: DuplicateRules.detailSummary(second),
+            hasConflictingDetails: conflicting)
     }
 
     /// Order-independent digest of everything the judgment depends on; an edited event gets a new one.
+    /// Calendar keys are left out on purpose: identical copies must share one verdict whichever is the representative.
     private static func fingerprint(_ a: CalendarEvent, _ b: CalendarEvent) -> String {
         func part(_ e: CalendarEvent) -> String {
             [DuplicateRules.normalize(e.title), String(Int(e.start.timeIntervalSince1970)), String(Int(e.end.timeIntervalSince1970)),
-             e.calendarKey, DuplicateRules.normalizedLocation(e.location) ?? "",
+             DuplicateRules.normalizedLocation(e.location) ?? "",
              DuplicateRules.normalize(String((e.notes ?? "").prefix(AdjudicationEvent.maxNotesLength))),
              DuplicateRules.emails(e).sorted().joined(separator: ","), String(e.otherAttendeeCount)].joined(separator: "|")
         }

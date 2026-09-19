@@ -29,7 +29,6 @@ public struct AdjudicationEvent: Equatable, Sendable {
     public var notes: String?
     public var attendeeNames: [String]
     public var calendarTitle: String?
-    public var accountName: String?
 
     public init(_ event: CalendarEvent, calendar: CalendarInfo?) {
         title = event.title
@@ -40,23 +39,39 @@ public struct AdjudicationEvent: Equatable, Sendable {
         // Some calendar sources put the address in the name field, so drop anything email-shaped.
         attendeeNames = event.attendees.compactMap(\.name).filter { !$0.isEmpty && !$0.contains("@") }
         calendarTitle = calendar?.title
-        accountName = calendar?.accountName
     }
 }
 
 public struct AdjudicationRequest: Equatable, Sendable {
-    /// Fingerprint of both events' relevant content; the cache key.
+    /// Fingerprint of both events' relevant content (not their calendars); the cache key.
     public var id: String
     /// The more detailed event (ties: the earlier one); the other is `second`.
     public var first: AdjudicationEvent
     public var second: AdjudicationEvent
     public var lessons: [Lesson]
+    /// Rule-computed facts about the pair, free of display strings. Offsets are `second` minus `first`.
+    public var startOffsetMinutes: Int
+    public var endOffsetMinutes: Int
+    public var overlapMinutes: Int
+    /// `DuplicateRules.detailSummary` of each event, e.g. "bare" or "location+notes".
+    public var firstDetails: String
+    public var secondDetails: String
+    /// False for every ambiguous pair by construction; carried so the prompt can say so.
+    public var hasConflictingDetails: Bool
 
-    public init(id: String, first: AdjudicationEvent, second: AdjudicationEvent, lessons: [Lesson]) {
+    public init(id: String, first: AdjudicationEvent, second: AdjudicationEvent, lessons: [Lesson],
+                startOffsetMinutes: Int = 0, endOffsetMinutes: Int = 0, overlapMinutes: Int = 0,
+                firstDetails: String = "bare", secondDetails: String = "bare", hasConflictingDetails: Bool = false) {
         self.id = id
         self.first = first
         self.second = second
         self.lessons = lessons
+        self.startOffsetMinutes = startOffsetMinutes
+        self.endOffsetMinutes = endOffsetMinutes
+        self.overlapMinutes = overlapMinutes
+        self.firstDetails = firstDetails
+        self.secondDetails = secondDetails
+        self.hasConflictingDetails = hasConflictingDetails
     }
 }
 

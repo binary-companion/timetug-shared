@@ -243,3 +243,22 @@ private func unmergeExactDuplicates(_ a: CalendarEvent, _ b: CalendarEvent) asyn
     #expect(latest?.events.count == 25)
     #expect(engine.requests.count == 25)
 }
+
+@Test func threeIdenticalCopiesAndAPlaceholderAreJudgedOncePerGroupPair() async {
+    func copy(_ n: Int) -> CalendarEvent {
+        makeEvent("x\(n)", title: "Mando's Upcoming Appointment", start: "2026-09-18T13:00:00Z", minutes: 30,
+                  calendarID: "X\(n)", location: "Clinic, 5 Main St", notes: "Bring your card")
+    }
+    let spem = makeEvent("s", title: "Mando Spem Collection", start: "2026-09-18T12:45:00Z", minutes: 60, calendarID: "S")
+    let engine = FakeAdjudicator()
+    let source = FakeSource()
+    await source.set(events: .success([spem, copy(1), copy(2), copy(3)]))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar, adjudicator: engine)
+    _ = await store.setInferenceEnabled(true, now: now)
+    #expect(await store.refresh(now: now, leadTime: 60).events.count == 2)
+    let merged = await store.resolvePending(now: now)
+    #expect(engine.requests.count == 1)
+    #expect(merged?.events.count == 1)
+    #expect(merged?.events.first?.mergedMembers.count == 4)
+    #expect(await store.resolvePending(now: now) == nil)
+}

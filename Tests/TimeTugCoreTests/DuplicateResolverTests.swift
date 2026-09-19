@@ -199,26 +199,14 @@ private let zoom = URL(string: "https://acme.zoom.us/j/123456")!
     #expect(result.first { $0.mergedMembers.isEmpty }!.calendarKey == "fake/c4")
 }
 
-// MARK: model verdicts are votes between groups of certain duplicates
+// MARK: the model judges each pair of groups once
 
 private let apptTitle = "Mando (X1102)'s Upcoming Appointment"
-private func appointment(_ n: Int) -> CalendarEvent {
+private func appointment(_ n: Int, location: String = "Clinic, 5 Main St") -> CalendarEvent {
     makeEvent("x\(n)", title: apptTitle, start: "2026-09-18T13:00:00Z", minutes: 30, calendarID: "X\(n)",
-              location: "Clinic, 5 Main St", notes: "Bring your card")
+              location: location, notes: "Bring your card")
 }
 private let spem = makeEvent("s", title: "Mando Spem Collection", start: "2026-09-18T12:45:00Z", minutes: 60, calendarID: "S")
-
-/// A cache holding one verdict per (a, b) pair, in whatever order the events are later resolved.
-private func cache(_ answers: [(CalendarEvent, CalendarEvent, AdjudicationVerdict.Answer)]) -> VerdictCache {
-    var cache = VerdictCache()
-    for (a, b, answer) in answers {
-        let request = resolve([a, b], verdicts: VerdictCache()).pending
-        #expect(request.count == 1, "pair must be ambiguous")
-        cache.store(AdjudicationVerdict(requestID: request[0].id, answer: answer), engine: engine,
-                    end: t0.addingTimeInterval(86_400), now: t0)
-    }
-    return cache
-}
 
 private func permutations<T>(_ items: [T]) -> [[T]] {
     guard items.count > 1 else { return [items] }
@@ -229,51 +217,83 @@ private func permutations<T>(_ items: [T]) -> [[T]] {
     }
 }
 
-@Test func aMinorityDifferentVerdictNeverLeavesAnExactDuplicateStandingAlone() {
-    let x = (1...3).map(appointment)
-    let verdicts = cache([(spem, x[0], .same), (spem, x[1], .same), (spem, x[2], .different)])
+@Test func spemAndThreeIdenticalCopiesProduceOneRequestNotThree() {
+    let x = (1...3).map { appointment($0) }
     for order in permutations([spem] + x) {
-        let result = resolve(order, verdicts: verdicts).events
-        #expect(result.count == 1, "order \(order.map(\.sourceEventID))")
-        guard let card = result.first else { continue }
+        let result = resolve(order, verdicts: VerdictCache())
+        #expect(result.pending.count == 1, "order \(order.map(\.sourceEventID))")
+        #expect(result.events.count == 2)
+    }
+}
+
+@Test func oneSameVerdictMergesTheWholeGroupPair() {
+    let x = (1...3).map { appointment($0) }
+    let verdicts = cache(answering: .same, for: resolve([spem] + x, verdicts: VerdictCache()))
+    for order in permutations([spem] + x) {
+        let result = resolve(order, verdicts: verdicts)
+        #expect(result.events.count == 1, "order \(order.map(\.sourceEventID))")
+        #expect(result.pending.isEmpty)
+        guard let card = result.events.first else { continue }
         #expect(card.mergedMembers.count == 4)
         #expect(card.mergeProvenance == .inference(engineID: "test", engineName: "Test AI"))
         #expect(Set(card.allCalendarKeys) == ["fake/S", "fake/X1", "fake/X2", "fake/X3"])
-        #expect(card.additionalCalendarKeys.count == 3)
     }
 }
 
-@Test func aLoneDifferentVerdictAndATiedVoteStaySeparate() {
-    // 1 vs 1 between two unrelated events.
-    let x1 = appointment(1)
-    #expect(resolve([spem, x1], verdicts: cache([(spem, x1, .different)])).events.count == 2)
-    // 1 same vs 1 different between an exact-duplicate cluster and the placeholder: a tie does not merge.
-    let x2 = appointment(2)
-    let tied = cache([(spem, x1, .same), (spem, x2, .different)])
-    for order in permutations([spem, x1, x2]) {
-        let result = resolve(order, verdicts: tied).events
-        #expect(result.count == 2, "order \(order.map(\.sourceEventID))")
-        #expect(result.contains { $0.mergedMembers.count == 2 && $0.mergeProvenance == .rule })
-    }
+@Test func oneDifferentVerdictKeepsSpemApartAndTheCopiesMerged() {
+    let x = (1...3).map { appointment($0) }
+    let verdicts = cache(answering: .different, for: resolve([spem] + x, verdicts: VerdictCache()))
+    let result = resolve([spem] + x, verdicts: verdicts)
+    #expect(result.events.count == 2)
+    #expect(result.pending.isEmpty)
+    #expect(result.events.contains { $0.mergedMembers.count == 3 && $0.mergeProvenance == .rule })
+    #expect(result.events.contains { $0.mergedMembers.isEmpty && $0.calendarKey == "fake/S" })
 }
 
-@Test func aLessonDifferentIsAHardBlockThatVotesCannotOverride() {
-    // The three copies merge by rule; Spem cannot join a group that contains x3 (the lesson), however
-    // the other votes fall, so Spem stays a separate card and the copies stay one.
-    let x = (1...3).map(appointment)
+@Test func requestIDDoesNotDependOnWhichIdenticalCopyRepresents() {
+    let x = (1...3).map { appointment($0) }
+    let ids = permutations([spem] + x).map { resolve($0, verdicts: VerdictCache()).pending.map(\.id) }
+    #expect(Set(ids.flatMap { $0 }).count == 1)
+    // Same content on differently keyed calendars gives the same id.
+    let other = makeEvent("z", title: apptTitle, start: "2026-09-18T13:00:00Z", minutes: 30, calendarID: "Z9",
+                          location: "Clinic, 5 Main St", notes: "Bring your card")
+    #expect(resolve([spem, other], verdicts: VerdictCache()).pending.map(\.id) == ids[0])
+}
+
+@Test func anEditedEventGetsANewRequestID() {
+    let before = resolve([spem, appointment(1)], verdicts: VerdictCache()).pending.map(\.id)
+    let after = resolve([spem, appointment(1, location: "Other Clinic, 9 Elm St")], verdicts: VerdictCache()).pending.map(\.id)
+    #expect(before.count == 1 && after.count == 1)
+    #expect(before != after)
+}
+
+@Test func aVerdictOnAMergedGroupPairLeavesNewNeighboursPendingOnTheNextPass() {
+    // Spem + copies merge by "same"; a further unrelated look-alike then needs its own request.
+    let x = (1...2).map { appointment($0) }
+    let extra = makeEvent("q", title: "Something else", start: "2026-09-18T13:00:00Z", minutes: 30, calendarID: "Q")
+    let first = resolve([spem] + x + [extra], verdicts: VerdictCache())
+    var verdicts = VerdictCache()
+    let spemRequest = first.pending.first { Set([$0.first.title, $0.second.title]) == [apptTitle, spem.title] }!
+    verdicts.store(AdjudicationVerdict(requestID: spemRequest.id, answer: .same), engine: engine,
+                   end: t0.addingTimeInterval(86_400), now: t0)
+    let second = resolve([spem] + x + [extra], verdicts: verdicts)
+    #expect(second.events.count == 2)
+    #expect(second.pending.count == 1)
+}
+
+@Test func aLessonDifferentIsAHardBlockThatVerdictsCannotOverride() {
+    let x = (1...3).map { appointment($0) }
     var lessons = LessonBook()
     lessons.record(MergedMember(spem), MergedMember(x[2]), decision: .different, now: t0)
-    let verdicts = cache([(spem, x[0], .same), (spem, x[1], .same)])
-    for order in permutations([spem] + x) {
-        let result = resolve(order, lessons: lessons, verdicts: verdicts).events
-        #expect(result.count == 2, "order \(order.map(\.sourceEventID))")
-        #expect(result.contains { $0.mergedMembers.count == 3 && $0.mergeProvenance == .rule })
-        #expect(result.contains { $0.mergedMembers.isEmpty && $0.calendarKey == "fake/S" })
-    }
+    let pending = resolve([spem] + x, lessons: lessons, verdicts: VerdictCache()).pending
+    #expect(pending.isEmpty)   // blocked group pair is never asked about
+    let result = resolve([spem] + x, lessons: lessons, verdicts: VerdictCache())
+    #expect(result.events.count == 2)
+    #expect(result.events.contains { $0.mergedMembers.count == 3 && $0.mergeProvenance == .rule })
 }
 
 @Test func sixExactDuplicatesPlusAPlaceholderIsTwoClustersAndMerges() {
-    let x = (1...6).map(appointment)
+    let x = (1...6).map { appointment($0) }
     let verdicts = cache(answering: .same, for: resolve([spem] + x, verdicts: VerdictCache()))
     let result = resolve([spem] + x, verdicts: verdicts).events
     #expect(result.count == 1)
@@ -476,4 +496,19 @@ private let teamsLink = URL(string: "https://teams.microsoft.com/l/meetup-join/a
     let next = Scheduler.next(events: merged, settings: optedIn { $0.leadTime = 120 },
                               ledger: TakeoverLedger(), now: date("2026-09-18T12:00:00Z"))
     #expect(next?.fireAt == date("2026-09-18T12:43:00Z"))
+}
+
+@Test func requestCarriesRuleComputedFacts() {
+    // doctor 10:00-11:00 (bare) vs official 10:00-11:00 (location+notes): richer copy is first.
+    let a = makeEvent("1", title: "Scott: Doctor", start: "2026-09-18T10:00:00Z", minutes: 60, calendarID: "p", others: 0)
+    let b = makeEvent("2", title: "Intermountain", start: "2026-09-18T10:15:00Z", minutes: 30, calendarID: "w", others: 0,
+                      location: "1234 Main St", notes: "Bring card")
+    let request = resolve([a, b], verdicts: VerdictCache()).pending[0]
+    #expect(request.first.title == "Intermountain" && request.second.title == "Scott: Doctor")
+    #expect(request.startOffsetMinutes == -15)   // second (10:00) minus first (10:15)
+    #expect(request.endOffsetMinutes == 15)      // 11:00 minus 10:45
+    #expect(request.overlapMinutes == 30)
+    #expect(request.firstDetails == "location+notes")
+    #expect(request.secondDetails == "bare")
+    #expect(request.hasConflictingDetails == false)
 }

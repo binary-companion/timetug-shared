@@ -13,7 +13,6 @@ private let engine = EngineInfo(id: "fake-ai", displayName: "Fake AI", isOnDevic
     #expect(projected.notes?.count == AdjudicationEvent.maxNotesLength)
     #expect(projected.attendeeNames == ["Kristin"])
     #expect(projected.calendarTitle == "Personal")
-    #expect(projected.accountName == "iCloud")
 }
 
 @Test func adjudicationEventDropsAttendeeNamesThatAreEmailAddresses() {
