@@ -4,7 +4,7 @@ import Testing
 
 private let now = date("2026-09-18T12:00:00Z")
 
-private func make(_ events: [CalendarEvent], settings: TakeoverSettings = TakeoverSettings(),
+private func make(_ events: [TimeTugCalendarEvent], settings: TakeoverSettings = TakeoverSettings(),
                   calendars: [CalendarInfo] = []) -> WidgetSnapshot {
     WidgetSnapshot.make(events: events, calendars: calendars, settings: settings, now: now, calendar: utcCalendar)
 }

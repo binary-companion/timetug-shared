@@ -176,7 +176,7 @@ final class SlowAdjudicator: DuplicateAdjudicator, @unchecked Sendable {
     #expect(engine.requests.count == 1)
 }
 
-private func unmergeExactDuplicates(_ a: CalendarEvent, _ b: CalendarEvent) async {
+private func unmergeExactDuplicates(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) async {
     let source = FakeSource()
     await source.set(events: .success([a, b]))
     let store = CalendarStore(sources: [source], calendar: utcCalendar)
@@ -222,11 +222,11 @@ private func unmergeExactDuplicates(_ a: CalendarEvent, _ b: CalendarEvent) asyn
 @Test func aBacklogLargerThanOnePassDrainsAcrossPasses() async {
     // 25 look-alike pairs, 55 minutes apart so different pairs never fall inside each other's time gate.
     let base = date("2026-09-18T00:10:00Z")
-    var events: [CalendarEvent] = []
+    var events: [TimeTugCalendarEvent] = []
     for k in 0..<25 {
         let start = base.addingTimeInterval(TimeInterval(k * 55 * 60))
         for (calendarID, title) in [("personal", "Errand \(k)"), ("work", "Visit \(k)")] {
-            events.append(CalendarEvent(sourceEventID: "\(calendarID)\(k)", sourceID: "fake", calendarID: calendarID,
+            events.append(TimeTugCalendarEvent(sourceEventID: "\(calendarID)\(k)", sourceID: "fake", calendarID: calendarID,
                                         title: title, start: start, end: start.addingTimeInterval(20 * 60)))
         }
     }
@@ -245,7 +245,7 @@ private func unmergeExactDuplicates(_ a: CalendarEvent, _ b: CalendarEvent) asyn
 }
 
 @Test func threeIdenticalCopiesAndAPlaceholderAreJudgedOncePerGroupPair() async {
-    func copy(_ n: Int) -> CalendarEvent {
+    func copy(_ n: Int) -> TimeTugCalendarEvent {
         makeEvent("x\(n)", title: "Mando's Upcoming Appointment", start: "2026-09-18T13:00:00Z", minutes: 30,
                   calendarID: "X\(n)", location: "Clinic, 5 Main St", notes: "Bring your card")
     }
@@ -265,8 +265,8 @@ private func unmergeExactDuplicates(_ a: CalendarEvent, _ b: CalendarEvent) asyn
 
 // MARK: - Separating one member of a merged card
 
-private func placeholderAndCopies(_ engine: FakeAdjudicator) async -> (CalendarStore, CalendarEvent) {
-    func copy(_ n: Int) -> CalendarEvent {
+private func placeholderAndCopies(_ engine: FakeAdjudicator) async -> (CalendarStore, TimeTugCalendarEvent) {
+    func copy(_ n: Int) -> TimeTugCalendarEvent {
         makeEvent("x\(n)", title: "Mando's Upcoming Appointment", start: "2026-09-18T13:00:00Z", minutes: 30,
                   calendarID: "X\(n)", location: "Clinic, 5 Main St", notes: "Bring your card")
     }

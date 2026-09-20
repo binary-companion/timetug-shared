@@ -5,19 +5,19 @@ public struct DayAgenda: Equatable, Sendable {
     public enum State: Equatable, Sendable { case past, current, upcoming }
 
     public struct Item: Equatable, Sendable, Identifiable {
-        public let event: CalendarEvent
+        public let event: TimeTugCalendarEvent
         public let state: State
         public var id: String { event.id }
     }
 
     public let items: [Item]
     /// First timed (non-all-day) event that has not started yet.
-    public let next: CalendarEvent?
+    public let next: TimeTugCalendarEvent?
 
     public static let empty = DayAgenda(items: [], next: nil)
 
     public static func make(
-        events: [CalendarEvent], settings: TakeoverSettings, now: Date, calendar: Calendar
+        events: [TimeTugCalendarEvent], settings: TakeoverSettings, now: Date, calendar: Calendar
     ) -> DayAgenda {
         let dayStart = calendar.startOfDay(for: now)
         let nextDayStart = calendar.date(byAdding: .day, value: 1, to: dayStart)!

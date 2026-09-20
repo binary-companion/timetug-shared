@@ -1,7 +1,7 @@
 import Foundation
 
 /// Remembers which events already took over (or are snoozed) so a refresh, or a relaunch, never
-/// repeats one. Every mutation is recorded under `CalendarEvent.id` (includes the start time,
+/// repeats one. Every mutation is recorded under `TimeTugCalendarEvent.id` (includes the start time,
 /// so a rescheduled event is new) and every key in `allContentKeys` (survives a changed source id,
 /// so a merge or split never re-fires a meeting).
 /// Codable so the app can persist it; `prune` keeps the persisted form bounded.
@@ -42,12 +42,12 @@ public struct TakeoverLedger: Equatable, Sendable, Codable {
         records = try container.decode([String: LenientRecord].self, forKey: .records).compactMapValues(\.record)
     }
 
-    public mutating func markFired(_ event: CalendarEvent, now: Date) {
+    public mutating func markFired(_ event: TimeTugCalendarEvent, now: Date) {
         record(.fired, for: event, now: now)
     }
 
     /// Re-arms the event `duration` from now, never past the meeting's end.
-    public mutating func snooze(_ event: CalendarEvent, for duration: TimeInterval, now: Date) {
+    public mutating func snooze(_ event: TimeTugCalendarEvent, for duration: TimeInterval, now: Date) {
         record(.snoozed(until: min(now.addingTimeInterval(duration), event.end)), for: event, now: now)
     }
 
@@ -55,7 +55,7 @@ public struct TakeoverLedger: Equatable, Sendable, Codable {
     /// Used once per launch so a meeting already underway never takes over. Returns the count.
     @discardableResult
     public mutating func acknowledgeInProgress(
-        events: [CalendarEvent], now: Date, grace: TimeInterval
+        events: [TimeTugCalendarEvent], now: Date, grace: TimeInterval
     ) -> Int {
         var count = 0
         for event in events where entry(for: event) == nil
@@ -83,10 +83,10 @@ public struct TakeoverLedger: Equatable, Sendable, Codable {
     }
 
     /// True only for the `.fired` state; a snoozed event is pending.
-    public func hasFired(_ event: CalendarEvent) -> Bool { entry(for: event) == .fired }
+    public func hasFired(_ event: TimeTugCalendarEvent) -> Bool { entry(for: event) == .fired }
 
     /// True while the event is snoozed (pending, not fired).
-    public func isSnoozed(_ event: CalendarEvent) -> Bool {
+    public func isSnoozed(_ event: TimeTugCalendarEvent) -> Bool {
         if case .snoozed = entry(for: event) { return true }
         return false
     }
@@ -94,12 +94,12 @@ public struct TakeoverLedger: Equatable, Sendable, Codable {
     /// Number of stored keys (per remembered event: its id key plus one content key per merged member, at most 5). For diagnostics.
     public var keyCount: Int { records.count }
 
-    func entry(for event: CalendarEvent) -> Entry? {
+    func entry(for event: TimeTugCalendarEvent) -> Entry? {
         let found = ([event.id] + event.allContentKeys.sorted()).compactMap { records[$0]?.entry }
         return found.first(where: { $0 == .fired }) ?? found.first
     }
 
-    private mutating func record(_ entry: Entry, for event: CalendarEvent, now: Date) {
+    private mutating func record(_ entry: Entry, for event: TimeTugCalendarEvent, now: Date) {
         let record = Record(entry: entry, end: event.end, recordedAt: now)
         records[event.id] = record
         for key in event.allContentKeys { records[key] = record }

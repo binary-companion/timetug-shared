@@ -5,7 +5,7 @@ import Testing
 private let now = date("2026-09-18T09:59:00Z")
 
 private func evaluate(
-    _ event: CalendarEvent, current: [CalendarEvent]? = nil, settings: TakeoverSettings = optedIn(),
+    _ event: TimeTugCalendarEvent, current: [TimeTugCalendarEvent]? = nil, settings: TakeoverSettings = optedIn(),
     ledger: TakeoverLedger = TakeoverLedger(), now: Date = now, overlayVisible: Bool = false
 ) -> TakeoverGuard.Decision {
     TakeoverGuard.evaluate(event: event, currentEvents: current ?? [event], settings: settings,

@@ -1,7 +1,7 @@
 import Foundation
 
 public struct ScheduledTakeover: Equatable, Sendable {
-    public let event: CalendarEvent
+    public let event: TimeTugCalendarEvent
     public let fireAt: Date
 }
 
@@ -9,7 +9,7 @@ public enum Scheduler {
     /// The next takeover to arm, or nil. `fireAt` is never earlier than `now` (late fires are
     /// immediate while the meeting is still in progress).
     public static func next(
-        events: [CalendarEvent], settings: TakeoverSettings, ledger: TakeoverLedger, now: Date
+        events: [TimeTugCalendarEvent], settings: TakeoverSettings, ledger: TakeoverLedger, now: Date
     ) -> ScheduledTakeover? {
         var best: ScheduledTakeover?
         for event in events where event.end > now && TakeoverPolicy.qualifies(event, settings: settings) {

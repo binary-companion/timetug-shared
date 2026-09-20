@@ -4,7 +4,7 @@ import Testing
 
 private let now = date("2026-09-18T10:15:00Z")
 
-private func agenda(_ events: [CalendarEvent], settings: TakeoverSettings = optedIn(),
+private func agenda(_ events: [TimeTugCalendarEvent], settings: TakeoverSettings = optedIn(),
                     at time: Date = now) -> DayAgenda {
     DayAgenda.make(events: events, settings: settings, now: time, calendar: utcCalendar)
 }

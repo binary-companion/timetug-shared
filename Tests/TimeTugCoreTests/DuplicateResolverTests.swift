@@ -10,7 +10,7 @@ private let official = makeEvent("2", title: "Intermountain Health", minutes: 60
                                  location: "1234 Main St, Logan", notes: "Bring insurance card")
 private let dance = makeEvent("3", title: "Kristin: Logan Dance", minutes: 60, calendarID: "personal", others: 0)
 
-private func resolve(_ events: [CalendarEvent], lessons: LessonBook = LessonBook(),
+private func resolve(_ events: [TimeTugCalendarEvent], lessons: LessonBook = LessonBook(),
                      verdicts: VerdictCache? = nil) -> DuplicateResolution {
     DuplicateResolver.resolve(events: events, calendars: [], lessons: lessons, verdicts: verdicts)
 }
@@ -202,7 +202,7 @@ private let zoom = URL(string: "https://acme.zoom.us/j/123456")!
 // MARK: the model judges each pair of groups once
 
 private let apptTitle = "Mando (X1102)'s Upcoming Appointment"
-private func appointment(_ n: Int, location: String = "Clinic, 5 Main St") -> CalendarEvent {
+private func appointment(_ n: Int, location: String = "Clinic, 5 Main St") -> TimeTugCalendarEvent {
     makeEvent("x\(n)", title: apptTitle, start: "2026-09-18T13:00:00Z", minutes: 30, calendarID: "X\(n)",
               location: location, notes: "Bring your card")
 }
@@ -315,7 +315,7 @@ private func permutations<T>(_ items: [T]) -> [[T]] {
 
 // MARK: conference link survives a merge
 
-private func mergedEvent(_ events: [CalendarEvent]) -> CalendarEvent {
+private func mergedEvent(_ events: [TimeTugCalendarEvent]) -> TimeTugCalendarEvent {
     let result = resolve(events).events
     #expect(result.count == 1)
     return result[0]
@@ -370,12 +370,12 @@ private func mergedEvent(_ events: [CalendarEvent]) -> CalendarEvent {
     let base = [a, b, c, d, placeholder]
     let verdicts = cache(answering: .same, for: resolve(base, verdicts: VerdictCache()))
 
-    func memberSets(_ events: [CalendarEvent]) -> Set<Set<String>> {
+    func memberSets(_ events: [TimeTugCalendarEvent]) -> Set<Set<String>> {
         let result = resolve(events, verdicts: verdicts)
         return Set(result.events.map { Set($0.mergedMembers.isEmpty ? [$0.calendarKey] : $0.mergedMembers.map(\.calendarKey)) })
     }
     let expected: Set<Set<String>> = [["fake/a", "fake/b", "fake/c", "fake/e"], ["fake/d"]]
-    let orders: [[CalendarEvent]] = [
+    let orders: [[TimeTugCalendarEvent]] = [
         base, base.reversed(), [d, c, b, a, placeholder], [placeholder, d, a, c, b],
         [c, placeholder, a, d, b], [b, d, placeholder, c, a],
     ]

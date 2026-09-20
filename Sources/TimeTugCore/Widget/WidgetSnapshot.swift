@@ -42,7 +42,7 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
     }
 
     public static func make(
-        events: [CalendarEvent], calendars: [CalendarInfo], settings: TakeoverSettings,
+        events: [TimeTugCalendarEvent], calendars: [CalendarInfo], settings: TakeoverSettings,
         now: Date, calendar: Calendar
     ) -> WidgetSnapshot {
         let dayStart = calendar.startOfDay(for: now)

@@ -47,13 +47,13 @@ public struct LessonBook: Codable, Equatable, Sendable {
     }
 
     /// The recorded decision for this pair of events, if any.
-    public func decision(_ a: CalendarEvent, _ b: CalendarEvent) -> Lesson? {
+    public func decision(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Lesson? {
         let key = Self.pairKey(titleA: a.title, calendarKeyA: a.calendarKey, titleB: b.title, calendarKeyB: b.calendarKey)
         return lessons.first { $0.pairKey == key }
     }
 
     /// Up to `promptLimit` lessons most similar to this pair (shared title words, same calendar pair).
-    public func relevant(to a: CalendarEvent, _ b: CalendarEvent) -> [Lesson] {
+    public func relevant(to a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> [Lesson] {
         let words = Set(DuplicateRules.normalize(a.title).split(separator: " ") + DuplicateRules.normalize(b.title).split(separator: " "))
         let calendars: Set<String> = [a.calendarKey, b.calendarKey]
         let scored: [(lesson: Lesson, score: Int)] = lessons.map { lesson in

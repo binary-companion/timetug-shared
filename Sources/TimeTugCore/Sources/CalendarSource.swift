@@ -18,7 +18,7 @@ public protocol CalendarSource: Sendable {
     var id: String { get }
     var displayName: String { get }
     func calendars() async throws -> [CalendarInfo]
-    func events(in interval: DateInterval) async throws -> [CalendarEvent]
+    func events(in interval: DateInterval) async throws -> [TimeTugCalendarEvent]
     /// Yields whenever the source's data may have changed.
     func changes() -> AsyncStream<Void>
 }

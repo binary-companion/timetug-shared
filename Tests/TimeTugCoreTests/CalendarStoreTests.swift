@@ -6,7 +6,7 @@ actor FakeSource: CalendarSource {
     nonisolated let id: String
     nonisolated let displayName: String
     var calendarsResult: Result<[CalendarInfo], Error> = .success([])
-    var eventsResult: Result<[CalendarEvent], Error> = .success([])
+    var eventsResult: Result<[TimeTugCalendarEvent], Error> = .success([])
     private(set) var requestedIntervals: [DateInterval] = []
 
     init(id: String = "fake") {
@@ -14,11 +14,11 @@ actor FakeSource: CalendarSource {
         self.displayName = "Fake \(id)"
     }
 
-    func set(events: Result<[CalendarEvent], Error>) { eventsResult = events }
+    func set(events: Result<[TimeTugCalendarEvent], Error>) { eventsResult = events }
     func set(calendars: [CalendarInfo]) { calendarsResult = .success(calendars) }
 
     func calendars() async throws -> [CalendarInfo] { try calendarsResult.get() }
-    func events(in interval: DateInterval) async throws -> [CalendarEvent] {
+    func events(in interval: DateInterval) async throws -> [TimeTugCalendarEvent] {
         requestedIntervals.append(interval)
         return try eventsResult.get()
     }

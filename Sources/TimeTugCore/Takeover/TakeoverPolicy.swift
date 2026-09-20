@@ -2,7 +2,7 @@ import Foundation
 
 /// Decides whether an event may take over the screen. Pure and platform-neutral.
 public enum TakeoverPolicy {
-    public static func qualifies(_ event: CalendarEvent, settings: TakeoverSettings) -> Bool {
+    public static func qualifies(_ event: TimeTugCalendarEvent, settings: TakeoverSettings) -> Bool {
         if settings.disabled { return false }
         guard !settings.takeoverCalendarKeys.isDisjoint(with: event.allCalendarKeys) else { return false }
         // All-day events never take over, regardless of settings.

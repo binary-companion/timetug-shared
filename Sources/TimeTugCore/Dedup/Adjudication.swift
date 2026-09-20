@@ -30,7 +30,7 @@ public struct AdjudicationEvent: Equatable, Sendable {
     public var attendeeNames: [String]
     public var calendarTitle: String?
 
-    public init(_ event: CalendarEvent, calendar: CalendarInfo?) {
+    public init(_ event: TimeTugCalendarEvent, calendar: CalendarInfo?) {
         title = event.title
         start = event.start
         end = event.end

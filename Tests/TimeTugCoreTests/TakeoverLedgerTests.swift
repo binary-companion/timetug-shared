@@ -176,7 +176,7 @@ private func roundTrip(_ ledger: TakeoverLedger) throws -> TakeoverLedger {
     #expect(!loaded.hasFired(makeEvent())) // dropped rather than trusted
 }
 
-private func merged(_ primary: CalendarEvent, with others: [CalendarEvent]) -> CalendarEvent {
+private func merged(_ primary: TimeTugCalendarEvent, with others: [TimeTugCalendarEvent]) -> TimeTugCalendarEvent {
     var event = primary
     event.mergedMembers = ([primary] + others).map {
         MergedMember($0)

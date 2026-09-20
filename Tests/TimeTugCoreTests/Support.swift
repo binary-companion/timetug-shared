@@ -27,9 +27,9 @@ func makeEvent(
     conferenceURL: URL? = nil,
     attendees: [Attendee] = [],
     externalUID: String? = nil
-) -> CalendarEvent {
+) -> TimeTugCalendarEvent {
     let startDate = date(start)
-    return CalendarEvent(
+    return TimeTugCalendarEvent(
         sourceEventID: id, sourceID: "fake", calendarID: calendarID, title: title,
         start: startDate, end: startDate.addingTimeInterval(TimeInterval(minutes * 60)),
         isAllDay: isAllDay, otherAttendeeCount: others, responseStatus: status,

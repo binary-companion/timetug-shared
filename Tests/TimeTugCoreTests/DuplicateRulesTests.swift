@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import TimeTugCore
 
-private func decide(_ a: CalendarEvent, _ b: CalendarEvent) -> PairDecision { DuplicateRules.decide(a, b) }
+private func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> PairDecision { DuplicateRules.decide(a, b) }
 
 @Test func exactMatchMergesEvenOnOneCalendar() {
     #expect(decide(makeEvent("1", title: "Sync"), makeEvent("2", title: "sync", calendarID: "other")) == .merge(.exactMatch))

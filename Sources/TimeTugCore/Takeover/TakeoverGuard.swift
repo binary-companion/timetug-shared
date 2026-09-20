@@ -15,7 +15,7 @@ public enum TakeoverGuard {
     /// `.suppress(.overlayVisible)` must not be marked fired by the caller: the event stays pending
     /// and is picked up when the overlay closes.
     public static func evaluate(
-        event: CalendarEvent, currentEvents: [CalendarEvent], settings: TakeoverSettings,
+        event: TimeTugCalendarEvent, currentEvents: [TimeTugCalendarEvent], settings: TakeoverSettings,
         ledger: TakeoverLedger, now: Date, overlayVisible: Bool
     ) -> Decision {
         if overlayVisible { return .suppress(.overlayVisible) }

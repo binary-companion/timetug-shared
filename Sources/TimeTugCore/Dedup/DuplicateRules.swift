@@ -18,18 +18,18 @@ public enum DuplicateRules {
     private static let minContainedLocationLength = 6
 
     /// Different calendars, timed, and inside the time gate.
-    public static func isCandidate(_ a: CalendarEvent, _ b: CalendarEvent) -> Bool {
+    public static func isCandidate(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Bool {
         a.calendarKey != b.calendarKey && !a.isAllDay && !b.isAllDay && withinTimeGate(a, b)
     }
 
     /// Overlapping, starts within 30 min, ends within 60 min (end times are uncertain and may include travel).
-    public static func withinTimeGate(_ a: CalendarEvent, _ b: CalendarEvent) -> Bool {
+    public static func withinTimeGate(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Bool {
         a.start < b.end && b.start < a.end
             && abs(a.start.timeIntervalSince(b.start)) <= maxStartDifference
             && abs(a.end.timeIntervalSince(b.end)) <= maxEndDifference
     }
 
-    public static func decide(_ a: CalendarEvent, _ b: CalendarEvent) -> PairDecision {
+    public static func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> PairDecision {
         if a.contentKey == b.contentKey { return .merge(.exactMatch) }
         if a.calendarKey == b.calendarKey { return .separate(.sameCalendar) }
         if a.isAllDay || b.isAllDay { return .separate(.allDay) }
@@ -57,15 +57,15 @@ public enum DuplicateRules {
             .split(separator: " ").joined(separator: " ")
     }
 
-    public static func detailScore(_ event: CalendarEvent) -> Int { detailParts(event).count }
+    public static func detailScore(_ event: TimeTugCalendarEvent) -> Int { detailParts(event).count }
 
     /// "bare" or a "+"-joined list of location, conference, attendees, notes.
-    public static func detailSummary(_ event: CalendarEvent) -> String {
+    public static func detailSummary(_ event: TimeTugCalendarEvent) -> String {
         let parts = detailParts(event)
         return parts.isEmpty ? "bare" : parts.joined(separator: "+")
     }
 
-    private static func detailParts(_ event: CalendarEvent) -> [String] {
+    private static func detailParts(_ event: TimeTugCalendarEvent) -> [String] {
         var parts: [String] = []
         if normalizedLocation(event.location) != nil { parts.append("location") }
         if conferenceIdentity(event) != nil { parts.append("conference") }
@@ -77,7 +77,7 @@ public enum DuplicateRules {
     /// host + path of the conference link (lowercased), from the structured link or one found in the
     /// location, url or notes. A structured link always counts; a detected one must be a recognised provider (not a generic
     /// `url` field). Webex keeps the meeting id in the `MTID` query item, so that is part of the identity.
-    static func conferenceIdentity(_ event: CalendarEvent) -> String? {
+    static func conferenceIdentity(_ event: TimeTugCalendarEvent) -> String? {
         // A source-supplied link is trusted as is (unlisted providers like Chime still identify a meeting);
         // a link detected from free text must be a recognised provider (not a generic `url`).
         let url: URL?
@@ -99,7 +99,7 @@ public enum DuplicateRules {
         return identity
     }
 
-    static func emails(_ event: CalendarEvent) -> Set<String> {
+    static func emails(_ event: TimeTugCalendarEvent) -> Set<String> {
         Set((event.attendees.map(\.email) + [event.organizerEmail]).compactMap(Attendee.normalizedEmail))
     }
 
@@ -122,13 +122,13 @@ public enum DuplicateRules {
 }
 
 extension MergedMember {
-    public init(_ event: CalendarEvent) {
+    public init(_ event: TimeTugCalendarEvent) {
         self.init(title: event.title, calendarKey: event.calendarKey, contentKey: event.contentKey,
                   details: DuplicateRules.detailSummary(event), start: event.start, end: event.end)
     }
 }
 
-extension CalendarEvent {
+extension TimeTugCalendarEvent {
     /// The (title, calendar) copies this event stands for: itself when it was never merged.
     public var participants: [MergedMember] { mergedMembers.isEmpty ? [MergedMember(self)] : mergedMembers }
 }

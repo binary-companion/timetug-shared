@@ -57,4 +57,18 @@ public struct TakeoverSettings: Codable, Equatable, Sendable {
             takeoverCalendarKeys.remove(key)
         }
     }
+
+    /// Removes every stored calendar key whose source id (the text before the first "/") satisfies `isRemoved`.
+    public mutating func removeCalendars(whereSourceID isRemoved: (String) -> Bool) {
+        func sourceID(of key: String) -> String {
+            key.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? key
+        }
+        takeoverCalendarKeys = takeoverCalendarKeys.filter { !isRemoved(sourceID(of: $0)) }
+        hiddenCalendarKeys = hiddenCalendarKeys.filter { !isRemoved(sourceID(of: $0)) }
+    }
+
+    /// Forgets the Tug and visibility choices of one source (a removed account).
+    public mutating func removeCalendars(forSourceID sourceID: String) {
+        removeCalendars(whereSourceID: { $0 == sourceID })
+    }
 }

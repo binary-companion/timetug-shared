@@ -1,7 +1,7 @@
 import Foundation
 
 public struct CalendarSnapshot: Sendable {
-    public let events: [CalendarEvent]
+    public let events: [TimeTugCalendarEvent]
     public let calendars: [CalendarInfo]
     /// Keyed by `CalendarSource.id`.
     public let statuses: [String: SourceStatus]
@@ -9,10 +9,10 @@ public struct CalendarSnapshot: Sendable {
     public let sourceNames: [String: String]
     public let fetchedAt: Date
     /// Look-alike events kept separate (event id -> other events), for a manual "Merge".
-    public let candidates: [String: [CalendarEvent]]
+    public let candidates: [String: [TimeTugCalendarEvent]]
 
-    public init(events: [CalendarEvent], calendars: [CalendarInfo], statuses: [String: SourceStatus],
-                sourceNames: [String: String], fetchedAt: Date, candidates: [String: [CalendarEvent]] = [:]) {
+    public init(events: [TimeTugCalendarEvent], calendars: [CalendarInfo], statuses: [String: SourceStatus],
+                sourceNames: [String: String], fetchedAt: Date, candidates: [String: [TimeTugCalendarEvent]] = [:]) {
         self.events = events
         self.calendars = calendars
         self.statuses = statuses
@@ -49,9 +49,10 @@ public actor CalendarStore {
     /// Extra time past the lead time so events just after midnight are already loaded.
     public static let fetchBuffer: TimeInterval = 300
 
-    private let sources: [any CalendarSource]
+    private var sources: [any CalendarSource]
+    private var generation = 0
     private let calendar: Calendar
-    private var lastEvents: [String: [CalendarEvent]] = [:]
+    private var lastEvents: [String: [TimeTugCalendarEvent]] = [:]
     private var lastCalendars: [String: [CalendarInfo]] = [:]
     private var statuses: [String: SourceStatus] = [:]
 
@@ -71,6 +72,17 @@ public actor CalendarStore {
         self.adjudicator = adjudicator
     }
 
+    /// Replaces the source set. Removed sources lose their cached events, calendars and status. Bumps the
+    /// generation so a `refresh` that was suspended when this ran discards its results instead of restoring them.
+    public func setSources(_ newSources: [any CalendarSource]) {
+        let keep = Set(newSources.map(\.id))
+        lastEvents = lastEvents.filter { keep.contains($0.key) }
+        lastCalendars = lastCalendars.filter { keep.contains($0.key) }
+        statuses = statuses.filter { keep.contains($0.key) }
+        sources = newSources
+        generation += 1
+    }
+
     /// Local midnight today through next local midnight + lead time + buffer.
     public func fetchWindow(now: Date, leadTime: TimeInterval) -> DateInterval {
         let dayStart = calendar.startOfDay(for: now)
@@ -80,11 +92,13 @@ public actor CalendarStore {
 
     public func refresh(now: Date, leadTime: TimeInterval) async -> CalendarSnapshot {
         let window = fetchWindow(now: now, leadTime: leadTime)
+        let startedGeneration = generation
+        let current = sources
 
         let results = await withTaskGroup(
-            of: (String, Result<([CalendarInfo], [CalendarEvent]), Error>).self
+            of: (String, Result<([CalendarInfo], [TimeTugCalendarEvent]), Error>).self
         ) { group in
-            for source in sources {
+            for source in current {
                 group.addTask {
                     do {
                         let calendars = try await source.calendars()
@@ -95,22 +109,24 @@ public actor CalendarStore {
                     }
                 }
             }
-            var collected: [(String, Result<([CalendarInfo], [CalendarEvent]), Error>)] = []
+            var collected: [(String, Result<([CalendarInfo], [TimeTugCalendarEvent]), Error>)] = []
             for await result in group { collected.append(result) }
             return collected
         }
 
-        for (sourceID, result) in results {
-            switch result {
-            case .success(let (calendars, events)):
-                lastCalendars[sourceID] = calendars
-                lastEvents[sourceID] = events
-                statuses[sourceID] = .ok
-            case .failure(let error):
-                switch error {
-                case SourceError.needsPermission: statuses[sourceID] = .needsPermission
-                case SourceError.authExpired: statuses[sourceID] = .authExpired
-                default: statuses[sourceID] = .failing(String(describing: error))
+        if generation == startedGeneration {
+            for (sourceID, result) in results {
+                switch result {
+                case .success(let (calendars, events)):
+                    lastCalendars[sourceID] = calendars
+                    lastEvents[sourceID] = events
+                    statuses[sourceID] = .ok
+                case .failure(let error):
+                    switch error {
+                    case SourceError.needsPermission: statuses[sourceID] = .needsPermission
+                    case SourceError.authExpired: statuses[sourceID] = .authExpired
+                    default: statuses[sourceID] = .failing(String(describing: error))
+                    }
                 }
             }
         }
@@ -161,7 +177,7 @@ public actor CalendarStore {
 
     /// The user says this merged event is not one meeting: remember every pair of its participants.
     /// `LessonBook.record` skips same-calendar pairs unless they are exact duplicates.
-    public func unmerge(_ event: CalendarEvent, now: Date) -> CalendarSnapshot {
+    public func unmerge(_ event: TimeTugCalendarEvent, now: Date) -> CalendarSnapshot {
         let parts = event.participants
         for (index, a) in parts.enumerated() {
             for b in parts[(index + 1)...] { lessons.record(a, b, decision: .different, now: now) }
@@ -172,7 +188,7 @@ public actor CalendarStore {
     /// The user says these copies of a merged event are not the same meeting as the rest: remember a "different"
     /// lesson between each given copy and every other participant not in `members`. Pairs among the given
     /// copies are not recorded, so they stay together.
-    public func separate(_ members: [MergedMember], from event: CalendarEvent, now: Date) -> CalendarSnapshot {
+    public func separate(_ members: [MergedMember], from event: TimeTugCalendarEvent, now: Date) -> CalendarSnapshot {
         let chosen = Set(members.map { "\($0.calendarKey)|\($0.contentKey)" })
         let rest = event.participants.filter { !chosen.contains("\($0.calendarKey)|\($0.contentKey)") }
         for member in members {
@@ -182,7 +198,7 @@ public actor CalendarStore {
     }
 
     /// The user says these two displayed events are one meeting.
-    public func merge(_ a: CalendarEvent, _ b: CalendarEvent, now: Date) -> CalendarSnapshot {
+    public func merge(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent, now: Date) -> CalendarSnapshot {
         for x in a.participants { for y in b.participants { lessons.record(x, y, decision: .same, now: now) } }
         return makeSnapshot(now: now)
     }
@@ -203,6 +219,7 @@ public actor CalendarStore {
 
     private func makeSnapshot(now: Date) -> CalendarSnapshot {
         let window = lastWindow ?? DateInterval(start: now, duration: 0)
+        let ids = Set(sources.map(\.id))
         let calendars = sources.flatMap { lastCalendars[$0.id] ?? [] }
         let raw = sources.flatMap { source in
             (lastEvents[source.id] ?? []).filter { $0.end > window.start && $0.start < window.end }
@@ -219,7 +236,7 @@ public actor CalendarStore {
                 notes: resolution.events[index].notes)
         }
         return CalendarSnapshot(
-            events: resolution.events, calendars: calendars, statuses: statuses,
+            events: resolution.events, calendars: calendars, statuses: statuses.filter { ids.contains($0.key) },
             sourceNames: Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0.displayName) }),
             fetchedAt: now, candidates: resolution.candidates)
     }
