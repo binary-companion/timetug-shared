@@ -1,3 +1,4 @@
+import CalendarCore
 import Foundation
 
 /// Today's events as plain data for any front end. Presentation (greying, text) is the app's job.
@@ -22,11 +23,16 @@ public struct DayAgenda: Equatable, Sendable {
         let dayStart = calendar.startOfDay(for: now)
         let nextDayStart = calendar.date(byAdding: .day, value: 1, to: dayStart)!
 
+        let today = AllDay.date(of: dayStart, in: calendar.timeZone)
+
         let items = events
             // A merged meeting is hidden only if every calendar it appears on is hidden.
             .filter { !$0.allCalendarKeys.isSubset(of: settings.hiddenCalendarKeys) }
             .filter { !(settings.skipAllDayEvents && $0.isAllDay) }
             .filter { event in
+                if let dates = event.allDayDates {
+                    return dates.first <= today && today < dates.endExclusive
+                }
                 if event.end > dayStart && event.start < nextDayStart { return true }
                 // After-midnight events show only once inside their lead-time period.
                 return !event.isAllDay
@@ -35,7 +41,12 @@ public struct DayAgenda: Equatable, Sendable {
             }
             .sorted { ($0.start, $0.title) < ($1.start, $1.title) }
             .map { event -> Item in
-                let state: State = event.end <= now ? .past : (event.start <= now ? .current : .upcoming)
+                let state: State
+                if let dates = event.allDayDates {
+                    state = dates.endExclusive <= today ? .past : (dates.first <= today ? .current : .upcoming)
+                } else {
+                    state = event.end <= now ? .past : (event.start <= now ? .current : .upcoming)
+                }
                 return Item(event: event, state: state)
             }
 

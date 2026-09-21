@@ -1,3 +1,4 @@
+import CalendarCore
 import Foundation
 import Testing
 @testable import TimeTugCore
@@ -40,35 +41,35 @@ private func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Pai
 }
 
 @Test func sharedAttendeeEmailMergesCaseInsensitively() {
-    let a = makeEvent("1", title: "A", attendees: [Attendee(email: "Kristin@x.com")])
-    let b = makeEvent("2", title: "B", calendarID: "o", attendees: [Attendee(email: "kristin@X.com"), Attendee(email: "z@x.com")])
+    let a = makeEvent("1", title: "A", attendees: [CalendarCore.Attendee(email: "Kristin@x.com")])
+    let b = makeEvent("2", title: "B", calendarID: "o", attendees: [CalendarCore.Attendee(email: "kristin@X.com"), CalendarCore.Attendee(email: "z@x.com")])
     #expect(decide(a, b) == .merge(.sharedAttendee))
 }
 
 @Test func sharedAttendeeDoesNotOverrideAConflictingLocation() {
-    let a = makeEvent("1", title: "A", location: "Room 101 East", attendees: [Attendee(email: "k@x.com")])
-    let b = makeEvent("2", title: "B", calendarID: "o", location: "Dentist Office", attendees: [Attendee(email: "k@x.com")])
+    let a = makeEvent("1", title: "A", location: "Room 101 East", attendees: [CalendarCore.Attendee(email: "k@x.com")])
+    let b = makeEvent("2", title: "B", calendarID: "o", location: "Dentist Office", attendees: [CalendarCore.Attendee(email: "k@x.com")])
     #expect(decide(a, b) == .separate(.conflictingLocation))
 }
 
 @Test func sharedAttendeeDoesNotOverrideDifferentConferenceLinks() {
-    let a = makeEvent("1", title: "A", conferenceURL: URL(string: "https://acme.zoom.us/j/1"), attendees: [Attendee(email: "k@x.com")])
-    let b = makeEvent("2", title: "B", calendarID: "o", conferenceURL: URL(string: "https://acme.zoom.us/j/2"), attendees: [Attendee(email: "k@x.com")])
+    let a = makeEvent("1", title: "A", conferenceURL: URL(string: "https://acme.zoom.us/j/1"), attendees: [CalendarCore.Attendee(email: "k@x.com")])
+    let b = makeEvent("2", title: "B", calendarID: "o", conferenceURL: URL(string: "https://acme.zoom.us/j/2"), attendees: [CalendarCore.Attendee(email: "k@x.com")])
     #expect(decide(a, b) == .separate(.conflictingConference))
 }
 
 @Test func sharedOrganizerAloneMergesWhenNothingConflicts() {
     var a = makeEvent("1", title: "A")
-    a.organizerEmail = "Boss@x.com"
+    a.event.organizer = CalendarCore.Attendee(email: "Boss@x.com", isOrganizer: true)
     var b = makeEvent("2", title: "B", calendarID: "o")
-    b.organizerEmail = "boss@x.com"
+    b.event.organizer = CalendarCore.Attendee(email: "boss@x.com", isOrganizer: true)
     #expect(decide(a, b) == .merge(.sharedAttendee))
 }
 
 @Test func sharedAttendeeWithSameLocationReportsSharedAttendee() {
     // Shared attendee is checked before same location, so it supplies the reason.
-    let a = makeEvent("1", title: "A", location: "Room 101 East", attendees: [Attendee(email: "k@x.com")])
-    let b = makeEvent("2", title: "B", calendarID: "o", location: "Room 101 East", attendees: [Attendee(email: "k@x.com")])
+    let a = makeEvent("1", title: "A", location: "Room 101 East", attendees: [CalendarCore.Attendee(email: "k@x.com")])
+    let b = makeEvent("2", title: "B", calendarID: "o", location: "Room 101 East", attendees: [CalendarCore.Attendee(email: "k@x.com")])
     #expect(decide(a, b) == .merge(.sharedAttendee))
 }
 
@@ -93,8 +94,8 @@ private func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Pai
     let z2 = makeEvent("2", title: "B", calendarID: "o", conferenceURL: URL(string: "https://acme.zoom.us/j/2"))
     #expect(decide(z1, z2) == .separate(.conflictingConference))
 
-    let p1 = makeEvent("1", title: "A", attendees: [Attendee(email: "a@x.com")])
-    let p2 = makeEvent("2", title: "B", calendarID: "o", attendees: [Attendee(email: "b@x.com")])
+    let p1 = makeEvent("1", title: "A", attendees: [CalendarCore.Attendee(email: "a@x.com")])
+    let p2 = makeEvent("2", title: "B", calendarID: "o", attendees: [CalendarCore.Attendee(email: "b@x.com")])
     #expect(decide(p1, p2) == .separate(.conflictingAttendees))
 
     // Absent on one side is not a veto.
@@ -132,7 +133,7 @@ private func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Pai
 }
 
 @Test func unlistedProvidersStillVetoWhenTheSourceSuppliesTheLink() {
-    let mail = [Attendee(email: "k@x.com")]
+    let mail = [CalendarCore.Attendee(email: "k@x.com")]
     let a = makeEvent("1", title: "A", conferenceURL: URL(string: "https://chime.aws/111"), attendees: mail)
     let b = makeEvent("2", title: "B", calendarID: "o", conferenceURL: URL(string: "https://chime.aws/222"), attendees: mail)
     #expect(decide(a, b) == .separate(.conflictingConference))

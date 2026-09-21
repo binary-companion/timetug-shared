@@ -1,3 +1,4 @@
+import CalendarCore
 import Foundation
 
 /// One event as a widget needs it. Times are the ones shown to the user.
@@ -49,15 +50,26 @@ public struct WidgetSnapshot: Codable, Equatable, Sendable {
         let horizonEnd = calendar.date(byAdding: .day, value: horizonDays, to: dayStart)!
         let colors = Dictionary(calendars.compactMap { info in info.colorHex.map { (info.key, $0) } },
                                 uniquingKeysWith: { first, _ in first })
+        let today = AllDay.date(of: dayStart, in: calendar.timeZone)
+        let horizon = AllDay.date(of: horizonEnd, in: calendar.timeZone)
         let included = events
             .filter { !$0.allCalendarKeys.isSubset(of: settings.hiddenCalendarKeys) }
             .filter { !(settings.skipAllDayEvents && $0.isAllDay) }
-            .filter { $0.end > dayStart && $0.shownStart < horizonEnd }
-            .sorted { ($0.shownStart, $0.title, $0.id) < ($1.shownStart, $1.title, $1.id) }
-            .map { event in
-                WidgetEvent(id: event.id, title: event.title, start: event.shownStart, end: event.end,
-                            isAllDay: event.isAllDay, colorHex: colors[event.calendarKey], joinURL: event.conferenceURL)
+            .filter { event in
+                if let dates = event.allDayDates { return dates.endExclusive > today && dates.first < horizon }
+                return event.end > dayStart && event.shownStart < horizonEnd
             }
+            .map { event -> WidgetEvent in
+                var start = event.shownStart, end = event.end
+                if let dates = event.allDayDates,
+                   let localStart = AllDay.startOfDay(dates.first, in: calendar.timeZone),
+                   let localEnd = AllDay.startOfDay(dates.endExclusive, in: calendar.timeZone) {
+                    (start, end) = (localStart, localEnd)   // the snapshot is a view model: local midnights for the same dates
+                }
+                return WidgetEvent(id: event.id, title: event.title, start: start, end: end, isAllDay: event.isAllDay,
+                                   colorHex: colors[event.calendarKey], joinURL: event.conferenceURL)
+            }
+            .sorted { ($0.start, $0.title, $0.id) < ($1.start, $1.title, $1.id) }
         return WidgetSnapshot(generatedAt: now, events: included)
     }
 }

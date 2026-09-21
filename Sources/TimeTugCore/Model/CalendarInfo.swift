@@ -1,9 +1,5 @@
 import Foundation
 
-public enum ResponseStatus: String, Codable, Sendable {
-    case accepted, tentative, declined, pending, unknown
-}
-
 public struct CalendarInfo: Hashable, Sendable, Identifiable {
     public let sourceID: String
     public let calendarID: String

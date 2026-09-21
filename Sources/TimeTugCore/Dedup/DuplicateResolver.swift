@@ -1,3 +1,4 @@
+import CalendarCore
 import Foundation
 
 public struct DuplicateResolution: Sendable {
@@ -229,14 +230,15 @@ public enum DuplicateResolver {
         result.displayStart = longer.start == result.start ? nil : longer.start
         // Takeover qualification reads these two, so the merged event must not be weaker than any copy.
         result.otherAttendeeCount = group.map(\.otherAttendeeCount).max() ?? result.otherAttendeeCount
-        result.responseStatus = group.map(\.responseStatus).max { attendance($0) < attendance($1) } ?? result.responseStatus
+        if let best = group.map(\.responseStatus).max(by: { attendance($0) < attendance($1) }) { result.responseStatus = best }
         result.mergedMembers = group.map { MergedMember($0) }
         result.mergeProvenance = strongest(provenance)
         return result
     }
 
     /// The best join link across the whole group: a recognised provider beats a generic link; ties keep the
-    /// primary's, then group order. Sources leave `conferenceURL` nil, so links are detected per member.
+    /// primary's, then group order. A member's own `conferenceURL` (the provider's link, when it has one) comes first;
+    /// otherwise a link is detected in its location, url or notes.
     private static func bestConferenceLink(primary: TimeTugCalendarEvent, group: [TimeTugCalendarEvent]) -> URL? {
         let ordered = [primary] + group.filter { $0.id != primary.id }
         let links = ordered.compactMap(joinLink(of:))
@@ -248,13 +250,13 @@ public enum DuplicateResolver {
         member.conferenceURL ?? ConferenceLinkDetector.detect(location: member.location, url: member.url, notes: member.notes)
     }
 
-    /// accepted > tentative > pending > unknown > declined.
-    private static func attendance(_ status: ResponseStatus) -> Int {
+    /// accepted > tentative > needsAction > unknown (nil) > declined.
+    private static func attendance(_ status: CalendarCore.ResponseStatus?) -> Int {
         switch status {
         case .accepted: 4
         case .tentative: 3
-        case .pending: 2
-        case .unknown: 1
+        case .needsAction: 2
+        case nil: 1
         case .declined: 0
         }
     }

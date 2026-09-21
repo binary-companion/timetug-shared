@@ -100,7 +100,7 @@ public enum DuplicateRules {
     }
 
     static func emails(_ event: TimeTugCalendarEvent) -> Set<String> {
-        Set((event.attendees.map(\.email) + [event.organizerEmail]).compactMap(Attendee.normalizedEmail))
+        Set((event.attendees.map(\.email) + [event.organizerEmail]).compactMap { $0 })
     }
 
     private enum LocationRelation { case unknown, same, conflict }

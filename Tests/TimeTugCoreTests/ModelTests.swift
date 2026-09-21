@@ -1,3 +1,4 @@
+import CalendarCore
 import Foundation
 import Testing
 @testable import TimeTugCore
@@ -58,10 +59,7 @@ import Testing
     #expect(armed.isSameMeeting(as: merged))
 }
 
-@Test func attendeeEmailNormalizationAndMailtoParsing() {
-    #expect(Attendee(email: "  Kristin@Example.COM ").email == "kristin@example.com")
-    #expect(Attendee(email: "   ").email == nil)
-    #expect(Attendee.email(fromMailto: "mailto:Bob@Example.com?subject=x") == "bob@example.com")
-    #expect(Attendee.email(fromMailto: "https://example.com/principal/1") == nil)
-    #expect(Attendee.email(fromMailto: nil) == nil)
+@Test func libraryAttendeeNormalizesEmails() {
+    #expect(CalendarCore.Attendee(email: "  Kristin@Example.COM ").email == "kristin@example.com")
+    #expect(CalendarCore.Attendee(email: "   ").email == nil)
 }

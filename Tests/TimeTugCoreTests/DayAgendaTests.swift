@@ -86,3 +86,34 @@ private func agenda(_ events: [TimeTugCalendarEvent], settings: TakeoverSettings
     #expect(agenda([timed], settings: skip).items.count == 1)
     #expect(agenda([timed], settings: keep).items.count == 1)
 }
+
+private let la = calendar(in: "America/Los_Angeles")
+
+// The first test below fails against the old instant-based rule; the second and third are regression guards that
+// pin behaviour that must not change (exclusive end date, skipAllDayEvents).
+
+private func laAgenda(_ events: [TimeTugCalendarEvent], at time: String) -> DayAgenda {
+    DayAgenda.make(events: events, settings: optedIn { $0.skipAllDayEvents = false }, now: date(time), calendar: la)
+}
+
+@Test func allDayEventStaysOnItsOwnDateForAViewerInAnotherZone() {
+    let tokyoSep21 = makeAllDay(zone: "Asia/Tokyo", first: day(2026, 9, 21), endExclusive: day(2026, 9, 22))
+    // 10:00Z on Sep 21 is 03:00 in Los Angeles: still Sep 21 there.
+    let onTheDay = laAgenda([tokyoSep21], at: "2026-09-21T10:00:00Z")
+    #expect(onTheDay.items.map(\.state) == [.current])
+    // 10:00Z on Sep 20 is Sep 20 in Los Angeles: not shown (the Tokyo event's instants begin at 15:00Z on Sep 20,
+    // which the old instant rule would have shown as today's).
+    #expect(laAgenda([tokyoSep21], at: "2026-09-20T10:00:00Z").items.isEmpty)
+}
+
+@Test func allDayEventEndingAtLocalMidnightIsNotShownOnTheExclusiveEndDate() {
+    let twoDays = makeAllDay(zone: "America/Los_Angeles", first: day(2026, 9, 19), endExclusive: day(2026, 9, 21))
+    #expect(laAgenda([twoDays], at: "2026-09-20T18:00:00Z").items.count == 1)   // Sep 20 in LA
+    #expect(laAgenda([twoDays], at: "2026-09-21T18:00:00Z").items.isEmpty)      // Sep 21 in LA
+}
+
+@Test func allDayItemsAreHiddenWhenSkipAllDayIsOn() {
+    let holiday = makeAllDay(zone: "America/Los_Angeles", first: day(2026, 9, 21), endExclusive: day(2026, 9, 22))
+    let result = DayAgenda.make(events: [holiday], settings: optedIn(), now: date("2026-09-21T18:00:00Z"), calendar: la)
+    #expect(result.items.isEmpty)
+}

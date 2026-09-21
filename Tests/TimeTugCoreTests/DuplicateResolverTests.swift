@@ -1,3 +1,4 @@
+import CalendarCore
 import Foundation
 import Testing
 @testable import TimeTugCore
@@ -166,13 +167,13 @@ private let zoom = URL(string: "https://acme.zoom.us/j/123456")!
 }
 
 @Test func mergedResponseStatusPrefersTheMostAttending() {
-    func status(_ list: [ResponseStatus]) -> ResponseStatus {
+    func status(_ list: [CalendarCore.ResponseStatus?]) -> CalendarCore.ResponseStatus? {
         let events = list.enumerated().map { makeEvent("\($0.offset)", title: "Sync", calendarID: "c\($0.offset)", status: $0.element) }
         return resolve(events).events[0].responseStatus
     }
-    #expect(status([.declined, .unknown]) == .unknown)
-    #expect(status([.unknown, .pending]) == .pending)
-    #expect(status([.pending, .tentative]) == .tentative)
+    #expect(status([.declined, nil]) == nil)
+    #expect(status([nil, .needsAction]) == .needsAction)
+    #expect(status([.needsAction, .tentative]) == .tentative)
     #expect(status([.tentative, .accepted, .declined]) == .accepted)
     #expect(status([.declined, .declined]) == .declined)
 }

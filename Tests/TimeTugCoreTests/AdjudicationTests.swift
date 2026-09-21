@@ -1,3 +1,4 @@
+import CalendarCore
 import Foundation
 import Testing
 @testable import TimeTugCore
@@ -7,7 +8,7 @@ private let engine = EngineInfo(id: "fake-ai", displayName: "Fake AI", isOnDevic
 
 @Test func adjudicationEventTruncatesNotesAndDropsEmailsByConstruction() {
     let event = makeEvent("1", title: "Doctor", notes: String(repeating: "x", count: 900),
-                          attendees: [Attendee(name: "Kristin", email: "k@x.com"), Attendee(name: nil, email: "n@x.com")])
+                          attendees: [CalendarCore.Attendee(name: "Kristin", email: "k@x.com"), CalendarCore.Attendee(name: nil, email: "n@x.com")])
     let info = CalendarInfo(sourceID: "fake", calendarID: "cal", title: "Personal", accountName: "iCloud")
     let projected = AdjudicationEvent(event, calendar: info)
     #expect(projected.notes?.count == AdjudicationEvent.maxNotesLength)
@@ -17,10 +18,10 @@ private let engine = EngineInfo(id: "fake-ai", displayName: "Fake AI", isOnDevic
 
 @Test func adjudicationEventDropsAttendeeNamesThatAreEmailAddresses() {
     let event = makeEvent("1", title: "Doctor", attendees: [
-        Attendee(name: "kristin@example.com", email: "kristin@example.com"),
-        Attendee(name: "Scott <scott@example.com>", email: nil),
-        Attendee(name: "", email: "e@x.com"),
-        Attendee(name: "Kristin", email: "k@x.com")])
+        CalendarCore.Attendee(name: "kristin@example.com", email: "kristin@example.com"),
+        CalendarCore.Attendee(name: "Scott <scott@example.com>", email: nil),
+        CalendarCore.Attendee(name: "", email: "e@x.com"),
+        CalendarCore.Attendee(name: "Kristin", email: "k@x.com")])
     #expect(AdjudicationEvent(event, calendar: nil).attendeeNames == ["Kristin"])
 }
 

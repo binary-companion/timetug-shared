@@ -1,3 +1,4 @@
+import CalendarCore
 import Foundation
 import Testing
 @testable import TimeTugCore
@@ -95,4 +96,21 @@ private func make(_ events: [TimeTugCalendarEvent], settings: TakeoverSettings =
     #expect(make([merged], settings: settings).events.map(\.id) == [merged.id])
     settings.setShownInList(false, forCalendar: "fake/other")
     #expect(make([merged], settings: settings).events.isEmpty)
+}
+
+@Test func snapshotShowsAnAllDayEventOnItsOwnDatesInTheViewersMidnights() {
+    let la = calendar(in: "America/Los_Angeles")
+    let tokyoSep21 = makeAllDay(zone: "Asia/Tokyo", first: day(2026, 9, 21), endExclusive: day(2026, 9, 22))
+    var settings = TakeoverSettings()
+    settings.skipAllDayEvents = false
+    func snapshot(_ time: String) -> WidgetSnapshot {
+        WidgetSnapshot.make(events: [tokyoSep21], calendars: [], settings: settings, now: date(time), calendar: la)
+    }
+    let events = snapshot("2026-09-21T18:00:00Z").events
+    #expect(events.count == 1)
+    #expect(events[0].isAllDay)
+    #expect(events[0].start == AllDay.startOfDay(day(2026, 9, 21), in: la.timeZone))
+    #expect(events[0].end == AllDay.startOfDay(day(2026, 9, 22), in: la.timeZone))
+    #expect(snapshot("2026-09-19T18:00:00Z").events.count == 1)   // Sep 19 + 3-day horizon reaches Sep 21
+    #expect(snapshot("2026-09-18T18:00:00Z").events.isEmpty)      // horizon ends before Sep 21
 }

@@ -38,7 +38,8 @@ private let now = date("2026-09-18T10:00:00Z")
     let source = FakeSource()
     let store = CalendarStore(sources: [source], calendar: utcCalendar)
     _ = await store.refresh(now: now, leadTime: 60)
-    #expect(await source.requestedIntervals.first?.end == date("2026-09-19T00:06:00Z"))
+    #expect(await source.requestedIntervals.first?.end
+        == date("2026-09-19T00:06:00Z").addingTimeInterval(CalendarStore.sourceQueryMargin))
 }
 
 @Test func mergesSortsAndDedupesAcrossCalendars() async {
@@ -172,4 +173,25 @@ private let now = date("2026-09-18T10:00:00Z")
     settings.hiddenCalendarKeys = Set(names.dropFirst().map { "\($0)/shared-\($0)" })
     let agenda = DayAgenda.make(events: snapshot.events, settings: settings, now: now, calendar: utcCalendar)
     #expect(agenda.items.count == 1)
+}
+
+@Test func sourcesAreQueriedWithAZoneMargin() async {
+    let source = FakeSource()
+    let store = CalendarStore(sources: [source], calendar: utcCalendar)
+    _ = await store.refresh(now: now, leadTime: 600)
+    let window = await store.fetchWindow(now: now, leadTime: 600)
+    let requested = await source.requestedIntervals.first
+    #expect(requested?.start == window.start.addingTimeInterval(-CalendarStore.sourceQueryMargin))
+    #expect(requested?.end == window.end.addingTimeInterval(CalendarStore.sourceQueryMargin))
+}
+
+@Test func farZoneAllDayEventOnTodaysDateIsKept() async {
+    // Viewer in UTC+14, calendar in UTC-11: the event's instants start after the viewer's day window ends.
+    let kiritimati = calendar(in: "Pacific/Kiritimati")
+    let midway = makeAllDay(zone: "Pacific/Midway", first: day(2026, 9, 18), endExclusive: day(2026, 9, 19))
+    let source = FakeSource()
+    await source.set(events: .success([midway]))
+    let store = CalendarStore(sources: [source], calendar: kiritimati)
+    let snapshot = await store.refresh(now: date("2026-09-18T02:00:00Z"), leadTime: 60)   // Sep 18 16:00 there
+    #expect(snapshot.events.map(\.sourceEventID) == ["d"])
 }

@@ -1,3 +1,4 @@
+import CalendarCore
 import Foundation
 
 public struct CalendarSnapshot: Sendable {
@@ -48,6 +49,8 @@ public struct DedupState: Codable, Equatable, Sendable {
 public actor CalendarStore {
     /// Extra time past the lead time so events just after midnight are already loaded.
     public static let fetchBuffer: TimeInterval = 300
+    /// The widest gap between two zones, so an all-day event on one of today's dates in a far zone is still fetched.
+    public static let sourceQueryMargin: TimeInterval = 26 * 3600
 
     private var sources: [any CalendarSource]
     private var generation = 0
@@ -92,6 +95,9 @@ public actor CalendarStore {
 
     public func refresh(now: Date, leadTime: TimeInterval) async -> CalendarSnapshot {
         let window = fetchWindow(now: now, leadTime: leadTime)
+        let queryWindow = DateInterval(
+            start: window.start.addingTimeInterval(-Self.sourceQueryMargin),
+            end: window.end.addingTimeInterval(Self.sourceQueryMargin))
         let startedGeneration = generation
         let current = sources
 
@@ -102,7 +108,7 @@ public actor CalendarStore {
                 group.addTask {
                     do {
                         let calendars = try await source.calendars()
-                        let events = try await source.events(in: window)
+                        let events = try await source.events(in: queryWindow)
                         return (source.id, .success((calendars, events)))
                     } catch {
                         return (source.id, .failure(error))
@@ -221,8 +227,13 @@ public actor CalendarStore {
         let window = lastWindow ?? DateInterval(start: now, duration: 0)
         let ids = Set(sources.map(\.id))
         let calendars = sources.flatMap { lastCalendars[$0.id] ?? [] }
+        let firstDate = AllDay.date(of: window.start, in: calendar.timeZone)
+        let lastDate = AllDay.date(of: window.end.addingTimeInterval(-1), in: calendar.timeZone)
         let raw = sources.flatMap { source in
-            (lastEvents[source.id] ?? []).filter { $0.end > window.start && $0.start < window.end }
+            (lastEvents[source.id] ?? []).filter { event in
+                if let dates = event.allDayDates { return dates.endExclusive > firstDate && dates.first <= lastDate }
+                return event.end > window.start && event.start < window.end
+            }
         }
         var resolution = DuplicateResolver.resolve(
             events: raw, calendars: calendars, lessons: lessons, verdicts: activeEngine == nil ? nil : verdicts)
