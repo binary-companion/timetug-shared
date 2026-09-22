@@ -25,8 +25,9 @@ import Testing
 @Test func settingsDefaults() {
     let settings = TakeoverSettings()
     #expect(settings.leadTime == 60)
-    #expect(settings.skipSoloEvents && settings.skipDeclinedEvents)
+    #expect(settings.enabled)
     #expect(!settings.requireConferenceLink)
+    #expect(!settings.requireOtherAttendees)
     #expect(settings.takeoverCalendarKeys.isEmpty)
     #expect(settings.skipAllDayEvents)
 }
@@ -38,8 +39,8 @@ import Testing
     #expect(settings.takeoverCalendarKeys == ["a/b"])
     #expect(settings.hiddenCalendarKeys.isEmpty)
     #expect(!settings.requireConferenceLink)
-    #expect(settings.skipSoloEvents)
-    #expect(settings.skipDeclinedEvents)
+    #expect(settings.enabled)
+    #expect(!settings.requireOtherAttendees)
     #expect(settings.skipAllDayEvents)
 }
 
@@ -62,4 +63,11 @@ import Testing
 @Test func libraryAttendeeNormalizesEmails() {
     #expect(CalendarCore.Attendee(email: "  Kristin@Example.COM ").email == "kristin@example.com")
     #expect(CalendarCore.Attendee(email: "   ").email == nil)
+}
+
+@Test func calendarInfoDefaultsToStandardKind() {
+    #expect(CalendarInfo(sourceID: "s", calendarID: "c", title: "T").kind == .standard)
+    #expect(CalendarInfo(sourceID: "s", calendarID: "c", title: "T", kind: .subscribed).kind == .subscribed)
+    // Kind is descriptive, like color: it is not part of the stored key.
+    #expect(CalendarInfo(sourceID: "s", calendarID: "c", title: "T", kind: .birthdays).key == "s/c")
 }

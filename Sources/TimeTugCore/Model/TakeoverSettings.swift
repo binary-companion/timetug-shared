@@ -9,14 +9,19 @@ public struct TakeoverSettings: Codable, Equatable, Sendable {
     /// `CalendarInfo.key` values hidden from the day list (default: none hidden).
     public var hiddenCalendarKeys: Set<String> = []
     public var requireConferenceLink = false
-    public var skipSoloEvents = true
-    public var skipDeclinedEvents = true
+    /// When true, events with no attendees besides the owner never take over. Declined events never do either; that is not a setting.
+    public var requireOtherAttendees = false
     /// Hides all-day events from the day list only. All-day events never trigger a takeover, regardless of this setting.
     public var skipAllDayEvents = true
-    /// Master switch: while true no takeover or pre-meeting popup fires. The agenda is unaffected.
-    public var disabled = false
+    /// Master switch: while false no takeover or pre-meeting popup fires. The agenda is unaffected.
+    public var enabled = true
 
     public init() {}
+
+    /// Keys written by earlier versions; read only to carry the user's choice forward, never written.
+    private enum LegacyKeys: String, CodingKey {
+        case disabled, skipSoloEvents
+    }
 
     // Persisted as JSON: every field must decode with decodeIfPresent and its default, so saved settings survive newly added fields.
     public init(from decoder: Decoder) throws {
@@ -26,12 +31,14 @@ public struct TakeoverSettings: Codable, Equatable, Sendable {
         takeoverCalendarKeys = try c.decodeIfPresent(Set<String>.self, forKey: .takeoverCalendarKeys) ?? d.takeoverCalendarKeys
         hiddenCalendarKeys = try c.decodeIfPresent(Set<String>.self, forKey: .hiddenCalendarKeys) ?? d.hiddenCalendarKeys
         requireConferenceLink = try c.decodeIfPresent(Bool.self, forKey: .requireConferenceLink) ?? d.requireConferenceLink
-        skipSoloEvents = try c.decodeIfPresent(Bool.self, forKey: .skipSoloEvents) ?? d.skipSoloEvents
-        skipDeclinedEvents = try c.decodeIfPresent(Bool.self, forKey: .skipDeclinedEvents) ?? d.skipDeclinedEvents
+        let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+        requireOtherAttendees = try c.decodeIfPresent(Bool.self, forKey: .requireOtherAttendees)
+            ?? legacy.decodeIfPresent(Bool.self, forKey: .skipSoloEvents) ?? d.requireOtherAttendees
         skipAllDayEvents = try c.decodeIfPresent(Bool.self, forKey: .skipAllDayEvents) ?? d.skipAllDayEvents
-        disabled = try c.decodeIfPresent(Bool.self, forKey: .disabled) ?? d.disabled
-        // Legacy data may hide a takeover calendar; takeover wins so a meeting alert is never silently lost.
-        hiddenCalendarKeys.subtract(takeoverCalendarKeys)
+        enabled = try c.decodeIfPresent(Bool.self, forKey: .enabled)
+            ?? legacy.decodeIfPresent(Bool.self, forKey: .disabled).map { !$0 } ?? d.enabled
+        // A calendar that is not shown never tugs, so saved data that both hides and opts in a calendar keeps it hidden.
+        takeoverCalendarKeys.subtract(hiddenCalendarKeys)
     }
 
     public func isShownInList(_ key: String) -> Bool {
@@ -46,6 +53,10 @@ public struct TakeoverSettings: Codable, Equatable, Sendable {
         } else {
             takeoverCalendarKeys.remove(key)
         }
+    }
+
+    public mutating func setTakeover(_ enabled: Bool, forCalendars keys: [String]) {
+        for key in keys { setTakeover(enabled, forCalendar: key) }
     }
 
     /// Hiding a calendar also turns takeover off for it; showing leaves takeover alone.

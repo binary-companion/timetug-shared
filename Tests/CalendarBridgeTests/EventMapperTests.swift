@@ -72,3 +72,9 @@ private func allDay(first: (Int, Int, Int), endExclusive: (Int, Int, Int), zone 
     #expect(a.sourceID != b.sourceID)
     #expect(DuplicateRules.decide(a, b) == .merge(.exactMatch))
 }
+
+@Test func calendarInfoCarriesTheCalendarKind() {
+    let d = CalendarDescriptor(id: "c", title: "Birthdays", kind: .birthdays)
+    #expect(mapper().calendarInfo(d, sourceID: "eventkit").kind == .birthdays)
+    #expect(mapper().calendarInfo(CalendarDescriptor(id: "c", title: "Work"), sourceID: "eventkit").kind == .standard)
+}

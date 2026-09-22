@@ -1,3 +1,4 @@
+import CalendarCore
 import Foundation
 
 public struct CalendarInfo: Hashable, Sendable, Identifiable {
@@ -8,16 +9,19 @@ public struct CalendarInfo: Hashable, Sendable, Identifiable {
     public let accountName: String?
     /// Calendar color as "#RRGGBB" (uppercase, sRGB); nil when unknown. Not part of `key`.
     public let colorHex: String?
+    /// Birthdays and subscribed feeds are system-style calendars. Descriptive only; not part of `key`.
+    public let kind: CalendarKind
 
     public init(
         sourceID: String, calendarID: String, title: String,
-        accountName: String? = nil, colorHex: String? = nil
+        accountName: String? = nil, colorHex: String? = nil, kind: CalendarKind = .standard
     ) {
         self.sourceID = sourceID
         self.calendarID = calendarID
         self.title = title
         self.accountName = accountName
         self.colorHex = Self.normalizedHex(colorHex)
+        self.kind = kind
     }
 
     /// Normalizes "#RGB", "#RRGGBB" or "RRGGBB" (any case, surrounding whitespace ok)

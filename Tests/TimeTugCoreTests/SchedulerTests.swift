@@ -110,8 +110,8 @@ private let tenAM = date("2026-09-18T10:00:00Z")
     #expect(late.snoozeOptions == [60])
 }
 
-@Test func nothingIsScheduledWhileDisabled() {
-    let next = Scheduler.next(events: [makeEvent()], settings: optedIn { $0.disabled = true },
+@Test func nothingIsScheduledWhileTugIsOff() {
+    let next = Scheduler.next(events: [makeEvent()], settings: optedIn { $0.enabled = false },
                               ledger: TakeoverLedger(), now: date("2026-09-18T09:00:00Z"))
     #expect(next == nil)
 }
