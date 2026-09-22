@@ -20,13 +20,22 @@ public enum ConferenceLinkDetector {
         Provider(host: "app.slack.com", pathPrefix: "/huddle"),
     ]
 
-    /// Scans location, then url, then notes for an allowlisted link. If none is found but the
-    /// event's own `url` is a web link, returns that (the invite put it there on purpose).
+    /// Hosts that only ever link back to a calendar's own web view of the event (Google's `htmlLink`, synced
+    /// through both the direct connector and CalDAV), never a meeting join link, even though every Google event
+    /// carries one whether or not it has a real conference. Guards only the raw-`url` fallback below; a redirect
+    /// through one of these hosts to a real provider is still found by the text scan above.
+    static let nonConferenceEventLinkHosts: Set<String> = ["www.google.com", "calendar.google.com"]
+
+    /// Scans location, then url, then notes for an allowlisted link. If none is found but the event's own `url`
+    /// is a web link and not just the calendar's own permalink for the event, returns that (the invite put it
+    /// there on purpose).
     public static func detect(location: String?, url: URL?, notes: String?) -> URL? {
         for text in [location, url?.absoluteString, notes] {
             if let text, let link = firstProviderLink(in: text) { return link }
         }
-        if let url, let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+        if let url, let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
+           let host = url.host?.lowercased(), !nonConferenceEventLinkHosts.contains(host)
+        {
             return url
         }
         return nil

@@ -55,6 +55,19 @@ private func detect(location: String? = nil, url: String? = nil, notes: String? 
     #expect(detect(url: "https://example.com/meeting/42")?.absoluteString == "https://example.com/meeting/42")
 }
 
+@Test func eventURLFallbackExcludesGoogleCalendarsOwnPermalink() {
+    // Google sets an event's `url` to a link back to its own web UI (the API's `htmlLink`) on every event,
+    // even one with no real conference; that is never a join link, so it must not win the raw-url fallback.
+    #expect(detect(url: "https://www.google.com/calendar/event?eid=abc123") == nil)
+    #expect(detect(url: "https://calendar.google.com/calendar/u/0/r/eventedit/abc123") == nil)
+}
+
+@Test func googleRedirectInsideEventURLStillUnwrapsToARealProvider() {
+    // The exclusion only guards the raw fallback: a genuine www.google.com/url redirect to a
+    // provider (as Google sometimes wraps links in notes) is still found via the text scan.
+    #expect(detect(url: "https://www.google.com/url?q=https://acme.zoom.us/j/1&sa=D")?.host == "acme.zoom.us")
+}
+
 @Test func slackHuddleNeedsHuddlePath() {
     #expect(detect(notes: "https://app.slack.com/huddle/T1/C1") != nil)
     #expect(detect(notes: "https://app.slack.com/client/T1/C1") == nil)
