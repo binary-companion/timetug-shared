@@ -7,8 +7,11 @@ import Foundation
 public struct TimeTugCalendarEvent: Identifiable, Hashable, Sendable {
     public var event: CalendarCore.CalendarEvent
     public var sourceID: String
-    /// Starts from the provider's conference link; Core also fills it from detected links and merged copies.
-    public var conferenceURL: URL?
+    /// The join links, most likely first: the library's own list (structured links, then links found in the text),
+    /// merged across copies by the duplicate resolver.
+    public var conferences: [ConferenceInfo]
+    /// The first join link.
+    public var conferenceURL: URL? { conferences.first?.url }
     /// Non-self attendees; the merge step raises it to the largest count across a group.
     public var otherAttendeeCount: Int
     /// The account owner's response; nil when the provider does not say. The merge step keeps the best across a group.
@@ -18,6 +21,10 @@ public struct TimeTugCalendarEvent: Identifiable, Hashable, Sendable {
     /// Every original copy folded into this event (including itself); empty when never merged.
     public var mergedMembers: [MergedMember]
     public var mergeProvenance: MergeProvenance?
+    /// The connector and host of this event's calendar (the raw `CalendarService` and `CalendarProvider` values), filled
+    /// by the store from `CalendarInfo`; used only to decide where a `uid` is comparable.
+    public var calendarService: String?
+    public var calendarProvider: String?
     /// Where the range shown to the user starts when it differs from `start` (a merged meeting shows the
     /// longer copy's range while `start` is the tug time); nil means the same as `start`.
     public var displayStart: Date?
@@ -25,13 +32,15 @@ public struct TimeTugCalendarEvent: Identifiable, Hashable, Sendable {
     public init(event: CalendarCore.CalendarEvent, sourceID: String) {
         self.event = event
         self.sourceID = sourceID
-        self.conferenceURL = event.conference?.url
+        self.conferences = event.conferences
         self.otherAttendeeCount = event.attendees.filter { !$0.isSelf }.count
         self.responseStatus = event.myResponse ?? event.attendees.first(where: \.isSelf)?.response
         self.additionalCalendarKeys = []
         self.mergedMembers = []
         self.mergeProvenance = nil
         self.displayStart = nil
+        self.calendarService = nil
+        self.calendarProvider = nil
     }
 
     public var title: String { get { event.title } set { event.title = newValue } }
@@ -39,7 +48,7 @@ public struct TimeTugCalendarEvent: Identifiable, Hashable, Sendable {
     public var end: Date { get { event.end } set { event.end = newValue } }
     /// All-day events use the library's canonical form: midnight of the first day in `timeZone`, `end` exclusive.
     public var isAllDay: Bool { get { event.isAllDay } set { event.isAllDay = newValue } }
-    public var timeZone: TimeZone? { get { event.timeZone } set { event.timeZone = newValue } }
+    public var timeZone: TimeZone { get { event.timeZone } set { event.timeZone = newValue } }
     public var location: String? { get { event.location } set { event.location = newValue } }
     public var notes: String? { get { event.notes } set { event.notes = newValue } }
     public var url: URL? { get { event.url } set { event.url = newValue } }
@@ -47,6 +56,14 @@ public struct TimeTugCalendarEvent: Identifiable, Hashable, Sendable {
 
     public var sourceEventID: String { event.eventID }
     public var externalUID: String? { event.uid }
+    /// What two events' `uid`s are compared by. A `.global` uid (an iCalendar UID) matches across any source; a
+    /// provider-specific one (Exchange) or an unknown scope only matches events from the same service and provider.
+    /// nil when there is no uid.
+    public var uidMatchKey: String? {
+        guard let uid = event.uid, !uid.isEmpty else { return nil }
+        if event.uidScope == .global { return uid }
+        return "\(calendarService ?? "?")|\(calendarProvider ?? "?")|\(uid)"
+    }
     /// Attendees other than the calendar owner.
     public var attendees: [CalendarCore.Attendee] { event.attendees.filter { !$0.isSelf } }
     public var organizerEmail: String? { event.organizer.flatMap { $0.isSelf ? nil : $0.email } }

@@ -128,7 +128,7 @@ private func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Pai
     let page = URL(string: "https://example.com/event/42")!
     let a = makeEvent("1", title: "Weekly", calendarID: "a", url: page)
     let b = makeEvent("2", title: "Team sync", calendarID: "b", url: page)
-    #expect(DuplicateRules.conferenceIdentity(a) == nil)
+    #expect(DuplicateRules.conferenceIdentities(a).isEmpty)
     #expect(decide(a, b) != .merge(.conferenceLink))
 }
 
@@ -143,7 +143,7 @@ private func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Pai
 
 @Test func aDetectedGenericURLIsNotAConferenceIdentity() {
     let a = makeEvent("1", title: "A", url: URL(string: "https://example.com/x"))
-    #expect(DuplicateRules.conferenceIdentity(a) == nil)
+    #expect(DuplicateRules.conferenceIdentities(a).isEmpty)
 }
 
 @Test func sameTitleInsideTheTimeGateMergesEvenWhenTheEndsDiffer() {
@@ -166,4 +166,39 @@ private func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Pai
     #expect(decide(a, otherRoom) == .separate(.conflictingLocation))
     let otherPeople = makeEvent("3", title: "Standup", minutes: 45, calendarID: "o", attendees: [CalendarCore.Attendee(email: "y@acme.com")])
     #expect(decide(a, otherPeople) == .separate(.conflictingAttendees))
+}
+
+// UID scope (Issue 9).
+
+@Test func uidMatchKeyDependsOnTheScope() {
+    #expect(makeEvent("1", externalUID: "u", uidScope: .global).uidMatchKey == "u")
+    #expect(makeEvent("1", externalUID: "u", uidScope: .provider, service: "eventkit", provider: "microsoft").uidMatchKey == "eventkit|microsoft|u")
+    #expect(makeEvent("1", externalUID: "u", uidScope: nil, service: "eventkit").uidMatchKey == "eventkit|?|u")
+    #expect(makeEvent("1", externalUID: "u").uidMatchKey == "?|?|u")
+    #expect(makeEvent("1").uidMatchKey == nil)
+}
+
+@Test func exchangeCopiesInsideOneStoreStillMergeOnTheirID() {
+    let a = makeEvent("1", title: "A", externalUID: "exch-1", uidScope: .provider, service: "eventkit", provider: "microsoft")
+    let b = makeEvent("2", title: "B", calendarID: "o", externalUID: "exch-1", uidScope: .provider, service: "eventkit", provider: "microsoft")
+    #expect(decide(a, b) == .merge(.externalUID))
+}
+
+@Test func anExchangeIDNeverMatchesAnotherServicesUID() {
+    let exchange = makeEvent("1", title: "A", externalUID: "same", uidScope: .provider, service: "eventkit", provider: "microsoft")
+    let google = makeEvent("2", title: "B", calendarID: "o", externalUID: "same", uidScope: .global, service: "google", provider: "google")
+    #expect(decide(exchange, google) != .merge(.externalUID))
+}
+
+@Test func globalUIDsMatchAcrossServices() {
+    let a = makeEvent("1", title: "A", externalUID: "same", uidScope: .global, service: "eventkit", provider: "icloud")
+    let b = makeEvent("2", title: "B", calendarID: "o", externalUID: "same", uidScope: .global, service: "google", provider: "google")
+    #expect(decide(a, b) == .merge(.externalUID))
+}
+
+@Test func copiesWhoseAttendeeIsAnEmailOnEachSideMergeOnTheSharedAttendee() {
+    // One copy's attendee came from a mailto address, the other's was resolved from Contacts: both are just emails.
+    let a = makeEvent("1", title: "Review", attendees: [CalendarCore.Attendee(email: "bo@x.test")])
+    let b = makeEvent("2", title: "Design review", calendarID: "o", attendees: [CalendarCore.Attendee(email: "Bo@X.test")])
+    #expect(decide(a, b) == .merge(.sharedAttendee))
 }

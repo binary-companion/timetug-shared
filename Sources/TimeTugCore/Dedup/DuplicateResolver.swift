@@ -74,7 +74,7 @@ public enum DuplicateResolver {
             for j in events.indices where j > i {
                 let a = events[i], b = events[j]
                 // Exact duplicates (even all-day or on one calendar) merge by rule, so a lesson must be able to undo that.
-                let lessonApplies = DuplicateRules.isCandidate(a, b) || a.contentKey == b.contentKey
+                let lessonApplies = DuplicateRules.isManualCandidate(a, b) || a.contentKey == b.contentKey
                 if lessonApplies, let lesson = lessons.decision(a, b) {
                     usedLessonKeys.insert(lesson.pairKey)
                     if lesson.decision == .same { certain.append(MergeLink(i: i, j: j, why: .userConfirmed)) }
@@ -145,7 +145,7 @@ public enum DuplicateResolver {
             for j in events.indices where j > i {
                 let oi = outputIndex[i], oj = outputIndex[j]
                 guard oi != oj,
-                      DuplicateRules.isCandidate(events[i], events[j]) || events[i].contentKey == events[j].contentKey else { continue }
+                      DuplicateRules.isManualCandidate(events[i], events[j]) || events[i].contentKey == events[j].contentKey else { continue }
                 if !(candidates[output[oi].id] ?? []).contains(where: { $0.id == output[oj].id }) {
                     candidates[output[oi].id, default: []].append(output[oj])
                 }
@@ -215,7 +215,7 @@ public enum DuplicateResolver {
             result.notes = result.notes ?? other.notes
             result.url = result.url ?? other.url
         }
-        result.conferenceURL = bestConferenceLink(primary: group[primaryIndex], group: group)
+        result.conferences = mergedConferences(primary: group[primaryIndex], group: group)
         // The card shows the longer copy's range; the takeover (`start`) fires when the copy with a join link
         // starts (the actual appointment), else when the longer copy starts. Everything that schedules or
         // counts down reads `start`/`end`, so it follows the tug time without further change.
@@ -226,9 +226,15 @@ public enum DuplicateResolver {
             if (l.offset == primaryIndex) != (r.offset == primaryIndex) { return l.offset == primaryIndex }
             return l.element.start < r.element.start
         }!.element
-        let carrier = joinLink(of: primary) != nil
-            ? primary
-            : group.filter { joinLink(of: $0) != nil }.min { $0.start < $1.start }
+        // The carrier is the copy with a join link: the primary when it has one, else the earliest other copy. A copy
+        // whose only link is the event's own generic url counts only when no copy has a real link, so the tug time
+        // agrees with the real link the card opens.
+        func hasRealLink(_ member: TimeTugCalendarEvent) -> Bool { member.conferences.contains { $0.origin != .eventURL } }
+        func hasAnyLink(_ member: TimeTugCalendarEvent) -> Bool { !member.conferences.isEmpty }
+        func carrier(_ has: (TimeTugCalendarEvent) -> Bool) -> TimeTugCalendarEvent? {
+            has(primary) ? primary : group.filter(has).min { $0.start < $1.start }
+        }
+        let carrier = carrier(hasRealLink) ?? carrier(hasAnyLink)
         result.end = longer.end
         result.start = carrier?.start ?? longer.start
         result.displayStart = longer.start == result.start ? nil : longer.start
@@ -240,18 +246,13 @@ public enum DuplicateResolver {
         return result
     }
 
-    /// The best join link across the whole group: a recognised provider beats a generic link; ties keep the
-    /// primary's, then group order. A member's own `conferenceURL` (the provider's link, when it has one) comes first;
-    /// otherwise a link is detected in its location, url or notes.
-    private static func bestConferenceLink(primary: TimeTugCalendarEvent, group: [TimeTugCalendarEvent]) -> URL? {
+    /// The join links of the whole group: the primary's, then the other copies' in group order, duplicates removed by
+    /// identity, then (stable) recognised providers before generic links.
+    private static func mergedConferences(primary: TimeTugCalendarEvent, group: [TimeTugCalendarEvent]) -> [ConferenceInfo] {
         let ordered = [primary] + group.filter { $0.id != primary.id }
-        let links = ordered.compactMap(joinLink(of:))
-        return links.first { ConferenceLinkDetector.isProvider($0) } ?? links.first
-    }
-
-    /// One member's join link: the structured `conferenceURL`, else one detected in its location, url or notes.
-    private static func joinLink(of member: TimeTugCalendarEvent) -> URL? {
-        member.conferenceURL ?? ConferenceLinkDetector.detect(location: member.location, url: member.url, notes: member.notes)
+        var seen = Set<String>()
+        let all = ordered.flatMap(\.conferences).filter { seen.insert($0.identity).inserted }
+        return all.filter { $0.provider != .other } + all.filter { $0.provider == .other }
     }
 
     /// accepted > tentative > needsAction > unknown (nil) > declined.

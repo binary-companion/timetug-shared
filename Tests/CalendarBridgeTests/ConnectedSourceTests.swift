@@ -39,7 +39,7 @@ private func thrown(_ body: () async throws -> Void) async -> Error? {
 
 @Test func forwardsIdentityAndMapsCalendarsAndEvents() async throws {
     let fake = FakeLibrarySource(id: "google-1")
-    fake.calendarsResult = .success([CalendarDescriptor(id: "c", title: "Work", accountName: "me@x.test")])
+    fake.calendarsResult = .success([CalendarDescriptor(id: "c", title: "Work", service: .google, accountName: "me@x.test")])
     fake.eventsResult = .success([CalendarCore.CalendarEvent(eventID: "e", calendarID: "c", title: "T",
         start: Date(timeIntervalSince1970: 1_000), end: Date(timeIntervalSince1970: 2_000))])
     let source = ConnectedSource(fake)

@@ -8,7 +8,8 @@ public struct EventMapper: Sendable {
     public init() {}
 
     public func calendarInfo(_ d: CalendarDescriptor, sourceID: String) -> CalendarInfo {
-        CalendarInfo(sourceID: sourceID, calendarID: d.id, title: d.title, accountName: d.accountName, colorHex: d.colorHex, kind: d.kind)
+        CalendarInfo(sourceID: sourceID, calendarID: d.id, title: d.title, accountName: d.accountName, colorHex: d.colorHex, kind: d.kind,
+                     service: d.service, provider: d.provider)
     }
 
     /// nil for cancelled events. Titles are never rewritten: each connector chooses its own placeholder.

@@ -22,6 +22,14 @@ public enum DuplicateRules {
         a.calendarKey != b.calendarKey && !a.isAllDay && !b.isAllDay && withinTimeGate(a, b)
     }
 
+    /// What the user may merge by hand: two timed events whose ranges actually overlap, on any calendar (the same
+    /// one included) and with none of the automatic gate's limits. Back-to-back events (one ends as the other
+    /// starts) do not overlap. The context menu and the resolver's use of a user's "same" lesson both use this,
+    /// so the menu only offers pairs the resolver will honor.
+    public static func isManualCandidate(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Bool {
+        !a.isAllDay && !b.isAllDay && a.start < b.end && b.start < a.end
+    }
+
     /// Overlapping, starts within 30 min, ends within 60 min (end times are uncertain and may include travel).
     public static func withinTimeGate(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Bool {
         a.start < b.end && b.start < a.end
@@ -35,14 +43,15 @@ public enum DuplicateRules {
         if a.isAllDay || b.isAllDay { return .separate(.allDay) }
         if !withinTimeGate(a, b) { return .separate(.outsideTimeGate) }
 
-        if let uid = a.externalUID, uid == b.externalUID { return .merge(.externalUID) }
-        let confA = conferenceIdentity(a), confB = conferenceIdentity(b)
-        if let confA, confA == confB { return .merge(.conferenceLink) }
+        if let key = a.uidMatchKey, key == b.uidMatchKey { return .merge(.externalUID) }
+        let confA = conferenceIdentities(a), confB = conferenceIdentities(b)
+        if !confA.isDisjoint(with: confB) { return .merge(.conferenceLink) }
         // Vetoes run before the weaker merge signals: a shared person or place merges two events
         // only when nothing conflicts (user decision 2026-09-19).
         let location = locationRelation(a.location, b.location)
         if location == .conflict { return .separate(.conflictingLocation) }
-        if let confA, let confB, confA != confB { return .separate(.conflictingConference) }
+        // Both have links and none is shared (the shared case merged above).
+        if !confA.isEmpty, !confB.isEmpty { return .separate(.conflictingConference) }
         let emailsA = emails(a), emailsB = emails(b)
         if !emailsA.isDisjoint(with: emailsB) { return .merge(.sharedAttendee) }
         if location == .same { return .merge(.sameLocation) }
@@ -72,35 +81,17 @@ public enum DuplicateRules {
     private static func detailParts(_ event: TimeTugCalendarEvent) -> [String] {
         var parts: [String] = []
         if normalizedLocation(event.location) != nil { parts.append("location") }
-        if conferenceIdentity(event) != nil { parts.append("conference") }
+        if !conferenceIdentities(event).isEmpty { parts.append("conference") }
         if event.otherAttendeeCount > 0 || !event.attendees.isEmpty { parts.append("attendees") }
         if !(event.notes?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true) { parts.append("notes") }
         return parts
     }
 
-    /// host + path of the conference link (lowercased), from the structured link or one found in the
-    /// location, url or notes. A structured link always counts; a detected one must be a recognised provider (not a generic
-    /// `url` field). Webex keeps the meeting id in the `MTID` query item, so that is part of the identity.
-    static func conferenceIdentity(_ event: TimeTugCalendarEvent) -> String? {
-        // A source-supplied link is trusted as is (unlisted providers like Chime still identify a meeting);
-        // a link detected from free text must be a recognised provider (not a generic `url`).
-        let url: URL?
-        if let structured = event.conferenceURL {
-            url = structured
-        } else {
-            url = ConferenceLinkDetector.detect(location: event.location, url: event.url, notes: event.notes)
-                .flatMap { ConferenceLinkDetector.isProvider($0) ? $0 : nil }
-        }
-        guard let url, let host = url.host?.lowercased() else { return nil }
-        var path = url.path.lowercased()
-        while path.hasSuffix("/") { path.removeLast() }
-        var identity = host + path
-        if host == "webex.com" || host.hasSuffix(".webex.com"),
-           let meetingID = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?
-               .first(where: { $0.name.lowercased() == "mtid" })?.value {
-            identity += "?mtid=" + meetingID.lowercased()
-        }
-        return identity
+    /// The identity of each conference link the event has (see `ConferenceInfo.identity`). The event's own
+    /// generic `url` (origin `.eventURL`) never identifies a meeting; a provider-supplied link counts even for a
+    /// provider not on the allowlist (Chime, say).
+    static func conferenceIdentities(_ event: TimeTugCalendarEvent) -> Set<String> {
+        Set(event.conferences.filter { $0.origin != .eventURL }.map(\.identity))
     }
 
     static func emails(_ event: TimeTugCalendarEvent) -> Set<String> {
