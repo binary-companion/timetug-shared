@@ -42,7 +42,7 @@ public struct TimeTugCalendarEvent: Identifiable, Hashable, Sendable {
     public var end: Date { get { event.end } set { event.end = newValue } }
     /// All-day events use the library's canonical form: midnight of the first day in `timeZone`, `end` exclusive.
     public var isAllDay: Bool { get { event.isAllDay } set { event.isAllDay = newValue } }
-    public var timeZone: TimeZone? { get { event.timeZone } set { event.timeZone = newValue } }
+    public var timeZone: TimeZone { get { event.timeZone } set { event.timeZone = newValue } }
     public var location: String? { get { event.location } set { event.location = newValue } }
     public var notes: String? { get { event.notes } set { event.notes = newValue } }
     public var url: URL? { get { event.url } set { event.url = newValue } }

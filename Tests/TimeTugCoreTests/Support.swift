@@ -33,7 +33,7 @@ func makeEvent(
     let base = CalendarCore.CalendarEvent(
         eventID: id, uid: externalUID, calendarID: calendarID, title: title, notes: notes, location: location,
         start: startDate, end: startDate.addingTimeInterval(TimeInterval(minutes * 60)),
-        timeZone: isAllDay ? TimeZone(identifier: "UTC")! : nil, isAllDay: isAllDay, attendees: attendees, url: url)
+        timeZone: TimeZone(identifier: "UTC")!, isAllDay: isAllDay, attendees: attendees, url: url)
     var event = TimeTugCalendarEvent(event: base, sourceID: "fake")
     event.otherAttendeeCount = others
     event.responseStatus = status
