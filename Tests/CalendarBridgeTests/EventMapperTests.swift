@@ -47,9 +47,9 @@ private func allDay(first: (Int, Int, Int), endExclusive: (Int, Int, Int), zone 
 }
 
 @Test func mapsCalendarDescriptors() {
-    let d = CalendarDescriptor(id: "c", title: "Work", colorHex: "#abc", accountName: "me@x.test")
+    let d = CalendarDescriptor(id: "c", title: "Work", service: .google, colorHex: "#abc", accountName: "me@x.test", provider: .google)
     let info = mapper().calendarInfo(d, sourceID: "google-1")
-    #expect(info == CalendarInfo(sourceID: "google-1", calendarID: "c", title: "Work", accountName: "me@x.test", colorHex: "#AABBCC"))
+    #expect(info == CalendarInfo(sourceID: "google-1", calendarID: "c", title: "Work", accountName: "me@x.test", colorHex: "#AABBCC", service: .google, provider: .google))
 }
 
 @Test func eventKitAndGoogleShapedEventsAgreeOnSharedKeysAndDedupAsExact() throws {
@@ -74,7 +74,7 @@ private func allDay(first: (Int, Int, Int), endExclusive: (Int, Int, Int), zone 
 }
 
 @Test func calendarInfoCarriesTheCalendarKind() {
-    let d = CalendarDescriptor(id: "c", title: "Birthdays", kind: .birthdays)
+    let d = CalendarDescriptor(id: "c", title: "Birthdays", service: .google, kind: .birthdays)
     #expect(mapper().calendarInfo(d, sourceID: "eventkit").kind == .birthdays)
-    #expect(mapper().calendarInfo(CalendarDescriptor(id: "c", title: "Work"), sourceID: "eventkit").kind == .standard)
+    #expect(mapper().calendarInfo(CalendarDescriptor(id: "c", title: "Work", service: .google), sourceID: "eventkit").kind == .standard)
 }

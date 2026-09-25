@@ -11,10 +11,15 @@ public struct CalendarInfo: Hashable, Sendable, Identifiable {
     public let colorHex: String?
     /// Birthdays and subscribed feeds are system-style calendars. Descriptive only; not part of `key`.
     public let kind: CalendarKind
+    /// The connector the calendar is read through, and who hosts it (nil when the source cannot tell). Descriptive
+    /// only; not part of `key`. Lets Core see which calendars are the same account across sources.
+    public let service: CalendarService?
+    public let provider: CalendarProvider?
 
     public init(
         sourceID: String, calendarID: String, title: String,
-        accountName: String? = nil, colorHex: String? = nil, kind: CalendarKind = .standard
+        accountName: String? = nil, colorHex: String? = nil, kind: CalendarKind = .standard,
+        service: CalendarService? = nil, provider: CalendarProvider? = nil
     ) {
         self.sourceID = sourceID
         self.calendarID = calendarID
@@ -22,6 +27,8 @@ public struct CalendarInfo: Hashable, Sendable, Identifiable {
         self.accountName = accountName
         self.colorHex = Self.normalizedHex(colorHex)
         self.kind = kind
+        self.service = service
+        self.provider = provider
     }
 
     /// Normalizes "#RGB", "#RRGGBB" or "RRGGBB" (any case, surrounding whitespace ok)
