@@ -195,3 +195,10 @@ private func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Pai
     let b = makeEvent("2", title: "B", calendarID: "o", externalUID: "same", uidScope: .global, service: "google", provider: "google")
     #expect(decide(a, b) == .merge(.externalUID))
 }
+
+@Test func copiesWhoseAttendeeIsAnEmailOnEachSideMergeOnTheSharedAttendee() {
+    // One copy's attendee came from a mailto address, the other's was resolved from Contacts: both are just emails.
+    let a = makeEvent("1", title: "Review", attendees: [CalendarCore.Attendee(email: "bo@x.test")])
+    let b = makeEvent("2", title: "Design review", calendarID: "o", attendees: [CalendarCore.Attendee(email: "Bo@X.test")])
+    #expect(decide(a, b) == .merge(.sharedAttendee))
+}
