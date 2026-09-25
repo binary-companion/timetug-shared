@@ -63,7 +63,7 @@ private func allDay(first: (Int, Int, Int), endExclusive: (Int, Int, Int), zone 
         return e
     }
     let eventKit = library { $0.attendees = [me, other] }
-    let google = library { $0.attendees = [other]; $0.myResponse = .accepted }
+    let google = library { $0.attendees = [other]; $0.participation = .invited(.accepted) }
     let a = try #require(mapper().event(eventKit, sourceID: "eventkit"))
     let b = try #require(mapper().event(google, sourceID: "google-1"))
     #expect(a.externalUID == "UID-1" && a.externalUID == b.externalUID)

@@ -12,7 +12,7 @@ private func library(
     return CalendarCore.CalendarEvent(
         eventID: id, uid: "uid-1", calendarID: "cal", title: "Standup", start: s,
         end: s.addingTimeInterval(TimeInterval(minutes * 60)), attendees: attendees, organizer: organizer,
-        conferences: conference.map { [ConferenceInfo(url: $0, provider: .other)] } ?? [], myResponse: myResponse)
+        conferences: conference.map { [ConferenceInfo(url: $0, provider: .other)] } ?? [], participation: myResponse.map { .invited($0) })
 }
 
 @Test func forwardsAndSetsTheEventsFields() {
