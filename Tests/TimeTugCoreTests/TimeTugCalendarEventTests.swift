@@ -12,7 +12,7 @@ private func library(
     return CalendarCore.CalendarEvent(
         eventID: id, uid: "uid-1", calendarID: "cal", title: "Standup", start: s,
         end: s.addingTimeInterval(TimeInterval(minutes * 60)), attendees: attendees, organizer: organizer,
-        conference: conference.map { ConferenceInfo(url: $0, provider: .other) }, myResponse: myResponse)
+        conferences: conference.map { [ConferenceInfo(url: $0, provider: .other)] } ?? [], myResponse: myResponse)
 }
 
 @Test func forwardsAndSetsTheEventsFields() {
@@ -42,12 +42,13 @@ private func library(
     #expect(TimeTugCalendarEvent(event: library(), sourceID: "s").responseStatus == nil)
 }
 
-@Test func conferenceURLStartsFromTheEventAndIsSettable() {
+@Test func conferencesStartFromTheEventAndTheFirstIsTheJoinURL() {
     let url = URL(string: "https://meet.google.com/aaa-bbbb-ccc")!
     var e = TimeTugCalendarEvent(event: library(conference: url), sourceID: "s")
     #expect(e.conferenceURL == url)
-    e.conferenceURL = nil
-    #expect(e.event.conference?.url == url)
+    e.conferences = []
+    #expect(e.conferenceURL == nil)
+    #expect(e.event.conferences.first?.url == url)
 }
 
 @Test func isSameMeetingMatchesByIdOrByAnyMergedContentKey() {

@@ -7,8 +7,11 @@ import Foundation
 public struct TimeTugCalendarEvent: Identifiable, Hashable, Sendable {
     public var event: CalendarCore.CalendarEvent
     public var sourceID: String
-    /// Starts from the provider's conference link; Core also fills it from detected links and merged copies.
-    public var conferenceURL: URL?
+    /// The join links, most likely first: the library's own list (structured links, then links found in the text),
+    /// merged across copies by the duplicate resolver.
+    public var conferences: [ConferenceInfo]
+    /// The first join link.
+    public var conferenceURL: URL? { conferences.first?.url }
     /// Non-self attendees; the merge step raises it to the largest count across a group.
     public var otherAttendeeCount: Int
     /// The account owner's response; nil when the provider does not say. The merge step keeps the best across a group.
@@ -25,7 +28,7 @@ public struct TimeTugCalendarEvent: Identifiable, Hashable, Sendable {
     public init(event: CalendarCore.CalendarEvent, sourceID: String) {
         self.event = event
         self.sourceID = sourceID
-        self.conferenceURL = event.conference?.url
+        self.conferences = event.conferences
         self.otherAttendeeCount = event.attendees.filter { !$0.isSelf }.count
         self.responseStatus = event.myResponse ?? event.attendees.first(where: \.isSelf)?.response
         self.additionalCalendarKeys = []

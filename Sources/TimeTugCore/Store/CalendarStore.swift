@@ -235,17 +235,12 @@ public actor CalendarStore {
                 return event.end > window.start && event.start < window.end
             }
         }
-        var resolution = DuplicateResolver.resolve(
+        let resolution = DuplicateResolver.resolve(
             events: raw, calendars: calendars, lessons: lessons, verdicts: activeEngine == nil ? nil : verdicts)
         lessons.touch(resolution.usedLessonKeys, now: now)
         lessons.prune(now: now)
         _ = verdicts.prune(now: now)
         pending = resolution.pending
-        for index in resolution.events.indices where resolution.events[index].conferenceURL == nil {
-            resolution.events[index].conferenceURL = ConferenceLinkDetector.detect(
-                location: resolution.events[index].location, url: resolution.events[index].url,
-                notes: resolution.events[index].notes)
-        }
         return CalendarSnapshot(
             events: resolution.events, calendars: calendars, statuses: statuses.filter { ids.contains($0.key) },
             sourceNames: Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0.displayName) }),

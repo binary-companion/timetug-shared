@@ -128,7 +128,7 @@ private func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Pai
     let page = URL(string: "https://example.com/event/42")!
     let a = makeEvent("1", title: "Weekly", calendarID: "a", url: page)
     let b = makeEvent("2", title: "Team sync", calendarID: "b", url: page)
-    #expect(DuplicateRules.conferenceIdentity(a) == nil)
+    #expect(DuplicateRules.conferenceIdentities(a).isEmpty)
     #expect(decide(a, b) != .merge(.conferenceLink))
 }
 
@@ -143,7 +143,7 @@ private func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Pai
 
 @Test func aDetectedGenericURLIsNotAConferenceIdentity() {
     let a = makeEvent("1", title: "A", url: URL(string: "https://example.com/x"))
-    #expect(DuplicateRules.conferenceIdentity(a) == nil)
+    #expect(DuplicateRules.conferenceIdentities(a).isEmpty)
 }
 
 @Test func sameTitleInsideTheTimeGateMergesEvenWhenTheEndsDiffer() {

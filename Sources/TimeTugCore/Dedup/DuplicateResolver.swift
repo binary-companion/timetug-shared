@@ -215,7 +215,7 @@ public enum DuplicateResolver {
             result.notes = result.notes ?? other.notes
             result.url = result.url ?? other.url
         }
-        result.conferenceURL = bestConferenceLink(primary: group[primaryIndex], group: group)
+        result.conferences = mergedConferences(primary: group[primaryIndex], group: group)
         // The card shows the longer copy's range; the takeover (`start`) fires when the copy with a join link
         // starts (the actual appointment), else when the longer copy starts. Everything that schedules or
         // counts down reads `start`/`end`, so it follows the tug time without further change.
@@ -240,19 +240,17 @@ public enum DuplicateResolver {
         return result
     }
 
-    /// The best join link across the whole group: a recognised provider beats a generic link; ties keep the
-    /// primary's, then group order. A member's own `conferenceURL` (the provider's link, when it has one) comes first;
-    /// otherwise a link is detected in its location, url or notes.
-    private static func bestConferenceLink(primary: TimeTugCalendarEvent, group: [TimeTugCalendarEvent]) -> URL? {
+    /// The join links of the whole group: the primary's, then the other copies' in group order, duplicates removed by
+    /// identity, then (stable) recognised providers before generic links.
+    private static func mergedConferences(primary: TimeTugCalendarEvent, group: [TimeTugCalendarEvent]) -> [ConferenceInfo] {
         let ordered = [primary] + group.filter { $0.id != primary.id }
-        let links = ordered.compactMap(joinLink(of:))
-        return links.first { ConferenceLinkDetector.isProvider($0) } ?? links.first
+        var seen = Set<String>()
+        let all = ordered.flatMap(\.conferences).filter { seen.insert($0.identity).inserted }
+        return all.filter { $0.provider != .other } + all.filter { $0.provider == .other }
     }
 
-    /// One member's join link: the structured `conferenceURL`, else one detected in its location, url or notes.
-    private static func joinLink(of member: TimeTugCalendarEvent) -> URL? {
-        member.conferenceURL ?? ConferenceLinkDetector.detect(location: member.location, url: member.url, notes: member.notes)
-    }
+    /// One member's join link: its own first link.
+    private static func joinLink(of member: TimeTugCalendarEvent) -> URL? { member.conferenceURL }
 
     /// accepted > tentative > needsAction > unknown (nil) > declined.
     private static func attendance(_ status: CalendarCore.ResponseStatus?) -> Int {

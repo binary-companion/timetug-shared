@@ -24,7 +24,7 @@ private func allDay(first: (Int, Int, Int), endExclusive: (Int, Int, Int), zone 
 }
 
 @Test func wrapsTimedEventUnchanged() throws {
-    let source = timed { $0.conference = ConferenceInfo(url: URL(string: "https://meet.example/x")!, provider: .meet) }
+    let source = timed { $0.conferences = [ConferenceInfo(url: URL(string: "https://meet.example/x")!, provider: .meet)] }
     let mapped = try #require(mapper().event(source, sourceID: "google-1"))
     #expect(mapped.event == source)
     #expect(mapped.sourceID == "google-1")

@@ -37,7 +37,9 @@ func makeEvent(
     var event = TimeTugCalendarEvent(event: base, sourceID: "fake")
     event.otherAttendeeCount = others
     event.responseStatus = status
-    event.conferenceURL = conferenceURL
+    // What a connector does: the provider's link first, then links found in the text.
+    let structured = conferenceURL.map { [ConferenceInfo(url: $0, provider: ConferenceDetector.provider(of: $0) ?? .other)] } ?? []
+    event.conferences = ConferenceDetector.conferences(structured: structured, location: location, url: url, notes: notes)
     return event
 }
 

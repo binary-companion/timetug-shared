@@ -350,9 +350,13 @@ private func mergedEvent(_ events: [TimeTugCalendarEvent]) -> TimeTugCalendarEve
     #expect(mergedEvent([c, d]).conferenceURL?.absoluteString == "https://acme.zoom.us/j/1")
 }
 
-@Test func unmergedEventsKeepTheirOwnConferenceURL() {
+@Test func unmergedEventsKeepTheirOwnConferenceLinksAndTheResolverDetectsNoneItself() {
+    // The connector's list is used as it is: makeEvent runs the detector like a connector, a bare event has no link.
     let plain = makeEvent("1", title: "Solo", notes: "https://acme.zoom.us/j/9")
-    #expect(resolve([plain]).events[0].conferenceURL == nil)
+    #expect(resolve([plain]).events[0].conferenceURL?.host == "acme.zoom.us")
+    var bare = makeEvent("3", title: "Bare", start: "2026-09-18T17:00:00Z", notes: "https://acme.zoom.us/j/9")
+    bare.conferences = []
+    #expect(resolve([bare]).events[0].conferenceURL == nil)
     let structured = makeEvent("2", title: "Other", start: "2026-09-18T15:00:00Z", conferenceURL: URL(string: "https://chime.aws/1"))
     #expect(resolve([structured]).events[0].conferenceURL?.absoluteString == "https://chime.aws/1")
 }
@@ -554,4 +558,23 @@ private let teamsLink = URL(string: "https://teams.microsoft.com/l/meetup-join/a
     let other = makeEvent("4", title: "Scott: Careerminds", calendarID: "other", others: 0)
     lessons.record(MergedMember(other), MergedMember(a), decision: .same, now: t0)
     #expect(resolve([a, b, other], lessons: lessons).events.count == 2)
+}
+
+@Test func copiesSharingASecondRankedLinkMerge() {
+    let a = makeEvent("1", title: "Review", calendarID: "a", location: "https://acme.zoom.us/j/1", notes: "or https://meet.google.com/aaa-bbbb-ccc")
+    let b = makeEvent("2", title: "Sync", calendarID: "b", notes: "https://meet.google.com/aaa-bbbb-ccc")
+    #expect(DuplicateRules.decide(a, b) == .merge(.conferenceLink))
+}
+
+@Test func listsWithNoSharedLinkVeto() {
+    let a = makeEvent("1", title: "Review", calendarID: "a", location: "https://acme.zoom.us/j/1", notes: "https://meet.google.com/aaa-bbbb-ccc")
+    let b = makeEvent("2", title: "Sync", calendarID: "b", notes: "https://acme.webex.com/meet/x")
+    #expect(DuplicateRules.decide(a, b) == .separate(.conflictingConference))
+}
+
+@Test func theMergedLinkListIsDedupedWithRecognisedProvidersFirst() {
+    let a = makeEvent("1", title: "Review", calendarID: "a", others: 1, notes: "x", conferenceURL: URL(string: "https://chime.aws/1"), externalUID: "u1")
+    let b = makeEvent("2", title: "Review", calendarID: "b", notes: "https://acme.zoom.us/j/1 and https://chime.aws/1", externalUID: "u1")
+    let merged = mergedEvent([a, b])
+    #expect(merged.conferences.map(\.identity) == ["acme.zoom.us/j/1", "chime.aws/1"])
 }
