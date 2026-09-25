@@ -43,7 +43,7 @@ public enum DuplicateRules {
         if a.isAllDay || b.isAllDay { return .separate(.allDay) }
         if !withinTimeGate(a, b) { return .separate(.outsideTimeGate) }
 
-        if let uid = a.externalUID, uid == b.externalUID { return .merge(.externalUID) }
+        if let key = a.uidMatchKey, key == b.uidMatchKey { return .merge(.externalUID) }
         let confA = conferenceIdentities(a), confB = conferenceIdentities(b)
         if !confA.isDisjoint(with: confB) { return .merge(.conferenceLink) }
         // Vetoes run before the weaker merge signals: a shared person or place merges two events

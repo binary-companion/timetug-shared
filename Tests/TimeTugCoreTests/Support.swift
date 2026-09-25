@@ -27,15 +27,20 @@ func makeEvent(
     url: URL? = nil,
     conferenceURL: URL? = nil,
     attendees: [CalendarCore.Attendee] = [],
-    externalUID: String? = nil
+    externalUID: String? = nil,
+    uidScope: UIDScope? = nil,
+    service: String? = nil,
+    provider: String? = nil
 ) -> TimeTugCalendarEvent {
     let startDate = date(start)
     let base = CalendarCore.CalendarEvent(
-        eventID: id, uid: externalUID, calendarID: calendarID, title: title, notes: notes, location: location,
+        eventID: id, uid: externalUID, uidScope: uidScope, calendarID: calendarID, title: title, notes: notes, location: location,
         start: startDate, end: startDate.addingTimeInterval(TimeInterval(minutes * 60)),
         timeZone: TimeZone(identifier: "UTC")!, isAllDay: isAllDay, attendees: attendees, url: url)
     var event = TimeTugCalendarEvent(event: base, sourceID: "fake")
     event.otherAttendeeCount = others
+    event.calendarService = service
+    event.calendarProvider = provider
     event.responseStatus = status
     // What a connector does: the provider's link first, then links found in the text.
     let structured = conferenceURL.map { [ConferenceInfo(url: $0, provider: ConferenceDetector.provider(of: $0) ?? .other)] } ?? []

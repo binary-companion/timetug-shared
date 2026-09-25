@@ -214,3 +214,13 @@ private let now = date("2026-09-18T10:00:00Z")
     #expect(after.events[0].mergedMembers.count == 3)
     #expect(await store.refresh(now: now, leadTime: 60).events.count == 1)   // and it sticks on the next refresh
 }
+
+@Test func theStoreFillsServiceAndProviderFromTheCalendarInfo() async {
+    let source = FakeSource()
+    await source.set(calendars: [CalendarInfo(sourceID: "fake", calendarID: "cal", title: "Work", service: .eventKit, provider: .microsoft)])
+    await source.set(events: .success([makeEvent("1", title: "A", externalUID: "x", uidScope: .provider)]))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar)
+    let snapshot = await store.refresh(now: now, leadTime: 60)
+    #expect(snapshot.events[0].calendarService == "eventkit" && snapshot.events[0].calendarProvider == "microsoft")
+    #expect(snapshot.events[0].uidMatchKey == "eventkit|microsoft|x")
+}

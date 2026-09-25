@@ -229,11 +229,17 @@ public actor CalendarStore {
         let calendars = sources.flatMap { lastCalendars[$0.id] ?? [] }
         let firstDate = AllDay.date(of: window.start, in: calendar.timeZone)
         let lastDate = AllDay.date(of: window.end.addingTimeInterval(-1), in: calendar.timeZone)
-        let raw = sources.flatMap { source in
+        var raw = sources.flatMap { source in
             (lastEvents[source.id] ?? []).filter { event in
                 if let dates = event.allDayDates { return dates.endExclusive > firstDate && dates.first <= lastDate }
                 return event.end > window.start && event.start < window.end
             }
+        }
+        let infoByKey = Dictionary(calendars.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
+        for index in raw.indices {
+            let info = infoByKey[raw[index].calendarKey]
+            raw[index].calendarService = info?.service?.rawValue
+            raw[index].calendarProvider = info?.provider?.rawValue
         }
         let resolution = DuplicateResolver.resolve(
             events: raw, calendars: calendars, lessons: lessons, verdicts: activeEngine == nil ? nil : verdicts)

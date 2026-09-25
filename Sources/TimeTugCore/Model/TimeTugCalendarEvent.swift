@@ -21,6 +21,10 @@ public struct TimeTugCalendarEvent: Identifiable, Hashable, Sendable {
     /// Every original copy folded into this event (including itself); empty when never merged.
     public var mergedMembers: [MergedMember]
     public var mergeProvenance: MergeProvenance?
+    /// The connector and host of this event's calendar (the raw `CalendarService` and `CalendarProvider` values), filled
+    /// by the store from `CalendarInfo`; used only to decide where a `uid` is comparable.
+    public var calendarService: String?
+    public var calendarProvider: String?
     /// Where the range shown to the user starts when it differs from `start` (a merged meeting shows the
     /// longer copy's range while `start` is the tug time); nil means the same as `start`.
     public var displayStart: Date?
@@ -35,6 +39,8 @@ public struct TimeTugCalendarEvent: Identifiable, Hashable, Sendable {
         self.mergedMembers = []
         self.mergeProvenance = nil
         self.displayStart = nil
+        self.calendarService = nil
+        self.calendarProvider = nil
     }
 
     public var title: String { get { event.title } set { event.title = newValue } }
@@ -50,6 +56,14 @@ public struct TimeTugCalendarEvent: Identifiable, Hashable, Sendable {
 
     public var sourceEventID: String { event.eventID }
     public var externalUID: String? { event.uid }
+    /// What two events' `uid`s are compared by. A `.global` uid (an iCalendar UID) matches across any source; a
+    /// provider-specific one (Exchange) or an unknown scope only matches events from the same service and provider.
+    /// nil when there is no uid.
+    public var uidMatchKey: String? {
+        guard let uid = event.uid, !uid.isEmpty else { return nil }
+        if event.uidScope == .global { return uid }
+        return "\(calendarService ?? "?")|\(calendarProvider ?? "?")|\(uid)"
+    }
     /// Attendees other than the calendar owner.
     public var attendees: [CalendarCore.Attendee] { event.attendees.filter { !$0.isSelf } }
     public var organizerEmail: String? { event.organizer.flatMap { $0.isSelf ? nil : $0.email } }
