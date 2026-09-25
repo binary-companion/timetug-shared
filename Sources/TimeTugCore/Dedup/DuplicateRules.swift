@@ -1,6 +1,6 @@
 import Foundation
 
-public enum MergeReason: String, Sendable { case exactMatch, externalUID, conferenceLink, sharedAttendee, sameLocation }
+public enum MergeReason: String, Sendable { case exactMatch, externalUID, conferenceLink, sharedAttendee, sameLocation, sameTitle }
 public enum SeparateReason: String, Sendable {
     case sameCalendar, allDay, outsideTimeGate, conflictingLocation, conflictingConference, conflictingAttendees
 }
@@ -47,6 +47,10 @@ public enum DuplicateRules {
         if !emailsA.isDisjoint(with: emailsB) { return .merge(.sharedAttendee) }
         if location == .same { return .merge(.sameLocation) }
         if !emailsA.isEmpty, !emailsB.isEmpty { return .separate(.conflictingAttendees) }
+        // The same title inside the time gate is one event copied onto two calendars (the ends often differ);
+        // it comes after every veto so two same-named meetings with different rooms or people stay apart.
+        let title = normalize(a.title)
+        if !title.isEmpty, title == normalize(b.title) { return .merge(.sameTitle) }
         return .ambiguous
     }
 

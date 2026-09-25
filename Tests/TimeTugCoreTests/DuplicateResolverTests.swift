@@ -528,3 +528,30 @@ private let teamsLink = URL(string: "https://teams.microsoft.com/l/meetup-join/a
     #expect(byCalendar["fake/b"]?.start == date("2026-09-18T12:45:00Z"))
     #expect(byCalendar["fake/b"]?.end == date("2026-09-18T13:45:00Z"))
 }
+
+@Test func sameTitleCopiesMergeByRuleAndShowTheLongerTimes() {
+    let short = makeEvent("1", title: "Dance Party", start: "2026-09-18T19:15:00Z", minutes: 45, calendarID: "shared")
+    let long = makeEvent("2", title: "Dance Party", start: "2026-09-18T19:15:00Z", minutes: 60, calendarID: "blackout")
+    let result = resolve([short, long], verdicts: nil)
+    #expect(result.events.count == 1)
+    #expect(result.events[0].end == long.end)
+    #expect(result.events[0].start == short.start)
+    #expect(result.events[0].mergeProvenance == .rule)
+    #expect(result.events[0].mergedMembers.count == 2)
+}
+
+@Test func aUserSameOverridesARulesBlockBetweenOtherMembersButNotALearnedDifferent() {
+    let zoom = URL(string: "https://acme.zoom.us/j/1")!
+    let a = makeEvent("1", title: "Consultation", calendarID: "personal", notes: "n", conferenceURL: zoom)
+    let b = makeEvent("2", title: "Consultation", calendarID: "shared", notes: "n", conferenceURL: zoom)
+    let placeholder = makeEvent("3", title: "Scott: Careerminds", calendarID: "shared", others: 0)
+    var lessons = LessonBook()
+    lessons.record(MergedMember(a), MergedMember(placeholder), decision: .same, now: t0)
+    // b and the placeholder share a calendar (a rules "separate"), which must not veto the user's merge.
+    #expect(resolve([a, b, placeholder], lessons: lessons).events.count == 1)
+    // A learned "different" between any two members still does.
+    lessons.record(MergedMember(b), MergedMember(makeEvent("4", title: "Scott: Careerminds", calendarID: "other")), decision: .different, now: t0)
+    let other = makeEvent("4", title: "Scott: Careerminds", calendarID: "other", others: 0)
+    lessons.record(MergedMember(other), MergedMember(a), decision: .same, now: t0)
+    #expect(resolve([a, b, other], lessons: lessons).events.count == 2)
+}

@@ -195,3 +195,22 @@ private let now = date("2026-09-18T10:00:00Z")
     let snapshot = await store.refresh(now: date("2026-09-18T02:00:00Z"), leadTime: 60)   // Sep 18 16:00 there
     #expect(snapshot.events.map(\.sourceEventID) == ["d"])
 }
+
+@Test func manualMergeWorksWhenOneCopyOfTheFirstEventSharesACalendarWithTheSecond() async {
+    // The booking copy of a meeting and its placeholder sit on one shared calendar, and the booking is also
+    // copied onto other calendars. The user says they are one meeting: the same-calendar copy must not veto it.
+    let zoom = URL(string: "https://acme.zoom.us/j/1")!
+    let elsewhere = makeEvent("1", title: "Consultation with Michael", calendarID: "personal", notes: "n", conferenceURL: zoom)
+    let onShared = makeEvent("2", title: "Consultation with Michael", calendarID: "shared", notes: "n", conferenceURL: zoom)
+    let placeholder = makeEvent("3", title: "Scott: Careerminds consultation", calendarID: "shared", others: 0)
+    let source = FakeSource()
+    await source.set(events: .success([elsewhere, onShared, placeholder]))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar)
+    let before = await store.refresh(now: now, leadTime: 60)
+    #expect(before.events.count == 2)
+    let after = await store.merge(before.events[0], before.events[1], now: now)
+    #expect(after.events.count == 1)
+    #expect(after.events[0].mergeProvenance == .userConfirmed)
+    #expect(after.events[0].mergedMembers.count == 3)
+    #expect(await store.refresh(now: now, leadTime: 60).events.count == 1)   // and it sticks on the next refresh
+}

@@ -66,6 +66,7 @@ public enum DuplicateResolver {
         var exact: [MergeLink] = []        // phase 1: identical content
         var certain: [MergeLink] = []      // phase 2: other rules and user-confirmed merges
         var blocked = Set<Pair>()          // hard: rules say separate, or a learned "different"
+        var learnedBlocked = Set<Pair>()   // the learned "different" subset: the only block a user's "same" respects
         var ambiguous = Set<Pair>()        // pairs only a model could decide (inference on)
         var usedLessonKeys = Set<String>()
 
@@ -77,7 +78,7 @@ public enum DuplicateResolver {
                 if lessonApplies, let lesson = lessons.decision(a, b) {
                     usedLessonKeys.insert(lesson.pairKey)
                     if lesson.decision == .same { certain.append(MergeLink(i: i, j: j, why: .userConfirmed)) }
-                    else { blocked.insert(Pair(i, j)) }
+                    else { blocked.insert(Pair(i, j)); learnedBlocked.insert(Pair(i, j)) }
                     continue
                 }
                 switch DuplicateRules.decide(a, b) {
@@ -96,12 +97,15 @@ public enum DuplicateResolver {
         // 2. those groups by the other rules and by the user's "same" lessons, uncapped;
         // 3. the resulting groups by model verdicts (below).
         // A hard block (a rules "separate" or a learned "different") stops any merge in any phase, checked
-        // across every member of both groups.
+        // across every member of both groups. A user's "same" is stronger than a rules "separate" between
+        // other members (say, a copy on the same calendar as the other event); only a learned "different"
+        // stops it.
         func union(_ links: [MergeLink]) {
             for link in links {
                 let gi = grouping.groupOf[link.i], gj = grouping.groupOf[link.j]
                 if gi == gj { grouping.provenance[gi, default: []].append(link.why); continue }
-                guard !grouping.hasBlockedPair(gi, gj, in: blocked) else { continue }
+                let stoppers = link.why == .userConfirmed ? learnedBlocked : blocked
+                guard !grouping.hasBlockedPair(gi, gj, in: stoppers) else { continue }
                 grouping.union(gi, gj, adding: [link.why])
             }
         }

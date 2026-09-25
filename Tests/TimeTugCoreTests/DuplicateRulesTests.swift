@@ -145,3 +145,25 @@ private func decide(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Pai
     let a = makeEvent("1", title: "A", url: URL(string: "https://example.com/x"))
     #expect(DuplicateRules.conferenceIdentity(a) == nil)
 }
+
+@Test func sameTitleInsideTheTimeGateMergesEvenWhenTheEndsDiffer() {
+    let a = makeEvent("1", title: "Dance Party", start: "2026-09-18T19:15:00Z", minutes: 45, calendarID: "shared")
+    let b = makeEvent("2", title: "Dance Party", start: "2026-09-18T19:15:00Z", minutes: 60, calendarID: "blackout")
+    #expect(decide(a, b) == .merge(.sameTitle))
+    let later = makeEvent("3", title: "dance  party!", start: "2026-09-18T19:30:00Z", minutes: 45, calendarID: "blackout")
+    #expect(decide(a, later) == .merge(.sameTitle))   // punctuation, case and spacing do not matter; a 15 min start gap is inside the gate
+}
+
+@Test func sameTitleStillNeedsTheTimeGateAndADifferentCalendar() {
+    let a = makeEvent("1", title: "Dance Party", minutes: 60)
+    #expect(decide(a, makeEvent("2", title: "Dance Party", start: "2026-09-18T10:31:00Z", minutes: 60, calendarID: "o")) == .separate(.outsideTimeGate))
+    #expect(decide(a, makeEvent("3", title: "Dance Party", minutes: 90)) == .separate(.sameCalendar))
+}
+
+@Test func sameTitleDoesNotOverrideAConflictingPlaceOrPeople() {
+    let a = makeEvent("1", title: "Standup", location: "Room A", attendees: [CalendarCore.Attendee(email: "x@acme.com")])
+    let otherRoom = makeEvent("2", title: "Standup", minutes: 45, calendarID: "o", location: "Room B")
+    #expect(decide(a, otherRoom) == .separate(.conflictingLocation))
+    let otherPeople = makeEvent("3", title: "Standup", minutes: 45, calendarID: "o", attendees: [CalendarCore.Attendee(email: "y@acme.com")])
+    #expect(decide(a, otherPeople) == .separate(.conflictingAttendees))
+}
