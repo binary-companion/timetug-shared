@@ -226,9 +226,15 @@ public enum DuplicateResolver {
             if (l.offset == primaryIndex) != (r.offset == primaryIndex) { return l.offset == primaryIndex }
             return l.element.start < r.element.start
         }!.element
-        let carrier = joinLink(of: primary) != nil
-            ? primary
-            : group.filter { joinLink(of: $0) != nil }.min { $0.start < $1.start }
+        // The carrier is the copy with a join link: the primary when it has one, else the earliest other copy. A copy
+        // whose only link is the event's own generic url counts only when no copy has a real link, so the tug time
+        // agrees with the real link the card opens.
+        func hasRealLink(_ member: TimeTugCalendarEvent) -> Bool { member.conferences.contains { $0.origin != .eventURL } }
+        func hasAnyLink(_ member: TimeTugCalendarEvent) -> Bool { !member.conferences.isEmpty }
+        func carrier(_ has: (TimeTugCalendarEvent) -> Bool) -> TimeTugCalendarEvent? {
+            has(primary) ? primary : group.filter(has).min { $0.start < $1.start }
+        }
+        let carrier = carrier(hasRealLink) ?? carrier(hasAnyLink)
         result.end = longer.end
         result.start = carrier?.start ?? longer.start
         result.displayStart = longer.start == result.start ? nil : longer.start
@@ -248,9 +254,6 @@ public enum DuplicateResolver {
         let all = ordered.flatMap(\.conferences).filter { seen.insert($0.identity).inserted }
         return all.filter { $0.provider != .other } + all.filter { $0.provider == .other }
     }
-
-    /// One member's join link: its own first link.
-    private static func joinLink(of member: TimeTugCalendarEvent) -> URL? { member.conferenceURL }
 
     /// accepted > tentative > needsAction > unknown (nil) > declined.
     private static func attendance(_ status: CalendarCore.ResponseStatus?) -> Int {

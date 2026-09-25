@@ -578,3 +578,14 @@ private let teamsLink = URL(string: "https://teams.microsoft.com/l/meetup-join/a
     let merged = mergedEvent([a, b])
     #expect(merged.conferences.map(\.identity) == ["acme.zoom.us/j/1", "chime.aws/1"])
 }
+
+@Test func theTugTimeFollowsTheCopyThatSuppliesTheLinkTheCardOpens() {
+    // The primary (richest) copy has only the generic event url; the other copy carries a real Meet link and starts later.
+    let primary = makeEvent("1", title: "Review", start: "2026-09-18T10:00:00Z", calendarID: "a", others: 1,
+                            location: "Home office", notes: "prep", url: URL(string: "https://example.com/agenda"), externalUID: "u1")
+    let other = makeEvent("2", title: "Review", start: "2026-09-18T10:20:00Z", calendarID: "b", others: 1,
+                          conferenceURL: URL(string: "https://meet.google.com/aaa-bbbb-ccc"), externalUID: "u1")
+    let merged = mergedEvent([primary, other])
+    #expect(merged.conferenceURL?.host == "meet.google.com")
+    #expect(merged.start == date("2026-09-18T10:20:00Z"))
+}
