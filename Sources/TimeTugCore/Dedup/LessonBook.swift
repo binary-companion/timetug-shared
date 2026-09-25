@@ -13,8 +13,16 @@ public struct Lesson: Codable, Equatable, Sendable {
     public var signalsB: String
     public var decision: Decision
     public var lastUsed: Date
+    /// Set only for two different events on the same calendar: the lesson then covers just those two occurrences
+    /// (title, start, end), not every later pair with the same titles. Absent (nil) in lessons saved before this
+    /// existed and in cross-calendar lessons, which match by title and calendar.
+    public var contentKeyA: String? = nil
+    public var contentKeyB: String? = nil
 
-    public var pairKey: String { LessonBook.pairKey(titleA: titleA, calendarKeyA: calendarKeyA, titleB: titleB, calendarKeyB: calendarKeyB) }
+    public var pairKey: String {
+        LessonBook.pairKey(titleA: titleA, calendarKeyA: calendarKeyA, titleB: titleB, calendarKeyB: calendarKeyB,
+                           contentKeyA: contentKeyA, contentKeyB: contentKeyB)
+    }
 }
 
 /// Small, bounded memory of the user's merge and unmerge decisions.
@@ -28,19 +36,32 @@ public struct LessonBook: Codable, Equatable, Sendable {
     public init() {}
 
     /// Order-independent identity of a (title, calendar) pair.
-    public static func pairKey(titleA: String, calendarKeyA: String, titleB: String, calendarKeyB: String) -> String {
-        let sides = ["\(DuplicateRules.normalize(titleA))|\(calendarKeyA)", "\(DuplicateRules.normalize(titleB))|\(calendarKeyB)"].sorted()
+    public static func pairKey(
+        titleA: String, calendarKeyA: String, titleB: String, calendarKeyB: String,
+        contentKeyA: String? = nil, contentKeyB: String? = nil
+    ) -> String {
+        func side(_ title: String, _ calendarKey: String, _ contentKey: String?) -> String {
+            "\(DuplicateRules.normalize(title))|\(calendarKey)" + (contentKey.map { "|" + $0 } ?? "")
+        }
+        let sides = [side(titleA, calendarKeyA, contentKeyA), side(titleB, calendarKeyB, contentKeyB)].sorted()
         return sides[0] + "#" + sides[1]
     }
 
+    /// Two different events on one calendar: a lesson about them is scoped to these occurrences.
+    private static func isScoped(_ a: (calendarKey: String, contentKey: String), _ b: (calendarKey: String, contentKey: String)) -> Bool {
+        a.calendarKey == b.calendarKey && a.contentKey != b.contentKey
+    }
+
     public mutating func record(_ a: MergedMember, _ b: MergedMember, decision: Lesson.Decision, now: Date) {
-        // Same-calendar pairs only matter as exact duplicates (identical content), which rules merge.
-        guard a.calendarKey != b.calendarKey || a.contentKey == b.contentKey else { return }
-        let sides = [a, b].sorted { side($0) < side($1) }
+        // Two different events on one calendar are remembered too, but only as those occurrences: a title-level
+        // lesson would apply to every later pair with these titles on that calendar.
+        let scoped = Self.isScoped((a.calendarKey, a.contentKey), (b.calendarKey, b.contentKey))
+        let sides = [a, b].sorted { side($0, scoped: scoped) < side($1, scoped: scoped) }
         let lesson = Lesson(
             titleA: DuplicateRules.normalize(sides[0].title), titleB: DuplicateRules.normalize(sides[1].title),
             calendarKeyA: sides[0].calendarKey, calendarKeyB: sides[1].calendarKey,
-            signalsA: sides[0].details, signalsB: sides[1].details, decision: decision, lastUsed: now)
+            signalsA: sides[0].details, signalsB: sides[1].details, decision: decision, lastUsed: now,
+            contentKeyA: scoped ? sides[0].contentKey : nil, contentKeyB: scoped ? sides[1].contentKey : nil)
         lessons.removeAll { $0.pairKey == lesson.pairKey }
         lessons.append(lesson)
         prune(now: now)
@@ -48,7 +69,9 @@ public struct LessonBook: Codable, Equatable, Sendable {
 
     /// The recorded decision for this pair of events, if any.
     public func decision(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Lesson? {
-        let key = Self.pairKey(titleA: a.title, calendarKeyA: a.calendarKey, titleB: b.title, calendarKeyB: b.calendarKey)
+        let scoped = Self.isScoped((a.calendarKey, a.contentKey), (b.calendarKey, b.contentKey))
+        let key = Self.pairKey(titleA: a.title, calendarKeyA: a.calendarKey, titleB: b.title, calendarKeyB: b.calendarKey,
+                               contentKeyA: scoped ? a.contentKey : nil, contentKeyB: scoped ? b.contentKey : nil)
         return lessons.first { $0.pairKey == key }
     }
 
@@ -83,5 +106,7 @@ public struct LessonBook: Codable, Equatable, Sendable {
         }
     }
 
-    private func side(_ member: MergedMember) -> String { "\(DuplicateRules.normalize(member.title))|\(member.calendarKey)" }
+    private func side(_ member: MergedMember, scoped: Bool) -> String {
+        "\(DuplicateRules.normalize(member.title))|\(member.calendarKey)" + (scoped ? "|" + member.contentKey : "")
+    }
 }

@@ -74,7 +74,7 @@ public enum DuplicateResolver {
             for j in events.indices where j > i {
                 let a = events[i], b = events[j]
                 // Exact duplicates (even all-day or on one calendar) merge by rule, so a lesson must be able to undo that.
-                let lessonApplies = DuplicateRules.isCandidate(a, b) || a.contentKey == b.contentKey
+                let lessonApplies = DuplicateRules.isManualCandidate(a, b) || a.contentKey == b.contentKey
                 if lessonApplies, let lesson = lessons.decision(a, b) {
                     usedLessonKeys.insert(lesson.pairKey)
                     if lesson.decision == .same { certain.append(MergeLink(i: i, j: j, why: .userConfirmed)) }
@@ -145,7 +145,7 @@ public enum DuplicateResolver {
             for j in events.indices where j > i {
                 let oi = outputIndex[i], oj = outputIndex[j]
                 guard oi != oj,
-                      DuplicateRules.isCandidate(events[i], events[j]) || events[i].contentKey == events[j].contentKey else { continue }
+                      DuplicateRules.isManualCandidate(events[i], events[j]) || events[i].contentKey == events[j].contentKey else { continue }
                 if !(candidates[output[oi].id] ?? []).contains(where: { $0.id == output[oj].id }) {
                     candidates[output[oi].id, default: []].append(output[oj])
                 }

@@ -22,6 +22,14 @@ public enum DuplicateRules {
         a.calendarKey != b.calendarKey && !a.isAllDay && !b.isAllDay && withinTimeGate(a, b)
     }
 
+    /// What the user may merge by hand: two timed events whose ranges actually overlap, on any calendar (the same
+    /// one included) and with none of the automatic gate's limits. Back-to-back events (one ends as the other
+    /// starts) do not overlap. The context menu and the resolver's use of a user's "same" lesson both use this,
+    /// so the menu only offers pairs the resolver will honor.
+    public static func isManualCandidate(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Bool {
+        !a.isAllDay && !b.isAllDay && a.start < b.end && b.start < a.end
+    }
+
     /// Overlapping, starts within 30 min, ends within 60 min (end times are uncertain and may include travel).
     public static func withinTimeGate(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> Bool {
         a.start < b.end && b.start < a.end
