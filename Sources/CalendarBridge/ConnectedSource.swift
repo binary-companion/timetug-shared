@@ -25,6 +25,8 @@ public final class ConnectedSource: TimeTugCore.CalendarSource, Sendable {
         catch { throw Self.translate(error) }
     }
 
+    public func notices() async -> [CalendarCore.SourceNotice] { await source.notices() }
+
     /// Yields once for every library change. `.sourceFailed` yields too, so the next refresh surfaces the status.
     /// Cancelling the consumer cancels the inner task, which ends the library stream (and its polling).
     public func changes() -> AsyncStream<Void> {

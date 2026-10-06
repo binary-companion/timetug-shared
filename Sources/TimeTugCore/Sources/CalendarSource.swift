@@ -1,3 +1,4 @@
+import CalendarCore
 import Foundation
 
 public enum SourceStatus: Equatable, Sendable {
@@ -21,4 +22,10 @@ public protocol CalendarSource: Sendable {
     func events(in interval: DateInterval) async throws -> [TimeTugCalendarEvent]
     /// Yields whenever the source's data may have changed.
     func changes() -> AsyncStream<Void>
+    /// What the source noticed in the data it last loaded (for example a warning icon). Optional: the default is none.
+    func notices() async -> [CalendarCore.SourceNotice]
+}
+
+extension CalendarSource {
+    public func notices() async -> [CalendarCore.SourceNotice] { [] }
 }

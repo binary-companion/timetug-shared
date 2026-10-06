@@ -9,11 +9,15 @@ public struct CalendarSnapshot: Sendable {
     /// `CalendarSource.id` -> `displayName`, for front ends that show source problems.
     public let sourceNames: [String: String]
     public let fetchedAt: Date
+    /// Quiet hints per source (a warning icon), keyed by `CalendarSource.id`; a source with none has no entry.
+    public let notices: [String: [SourceNotice]]
     /// Look-alike events kept separate (event id -> other events), for a manual "Merge".
     public let candidates: [String: [TimeTugCalendarEvent]]
 
     public init(events: [TimeTugCalendarEvent], calendars: [CalendarInfo], statuses: [String: SourceStatus],
-                sourceNames: [String: String], fetchedAt: Date, candidates: [String: [TimeTugCalendarEvent]] = [:]) {
+                sourceNames: [String: String], fetchedAt: Date, candidates: [String: [TimeTugCalendarEvent]] = [:],
+                notices: [String: [SourceNotice]] = [:]) {
+        self.notices = notices
         self.events = events
         self.calendars = calendars
         self.statuses = statuses
@@ -58,6 +62,7 @@ public actor CalendarStore {
     private var lastEvents: [String: [TimeTugCalendarEvent]] = [:]
     private var lastCalendars: [String: [CalendarInfo]] = [:]
     private var statuses: [String: SourceStatus] = [:]
+    private var lastNotices: [String: [SourceNotice]] = [:]
 
     private static let maxPendingPerPass = 20
     private let adjudicator: (any DuplicateAdjudicator)?
@@ -82,6 +87,7 @@ public actor CalendarStore {
         lastEvents = lastEvents.filter { keep.contains($0.key) }
         lastCalendars = lastCalendars.filter { keep.contains($0.key) }
         statuses = statuses.filter { keep.contains($0.key) }
+        lastNotices = lastNotices.filter { keep.contains($0.key) }
         sources = newSources
         generation += 1
     }
@@ -102,20 +108,20 @@ public actor CalendarStore {
         let current = sources
 
         let results = await withTaskGroup(
-            of: (String, Result<([CalendarInfo], [TimeTugCalendarEvent]), Error>).self
+            of: (String, Result<([CalendarInfo], [TimeTugCalendarEvent], [SourceNotice]), Error>).self
         ) { group in
             for source in current {
                 group.addTask {
                     do {
                         let calendars = try await source.calendars()
                         let events = try await source.events(in: queryWindow)
-                        return (source.id, .success((calendars, events)))
+                        return (source.id, .success((calendars, events, await source.notices())))
                     } catch {
                         return (source.id, .failure(error))
                     }
                 }
             }
-            var collected: [(String, Result<([CalendarInfo], [TimeTugCalendarEvent]), Error>)] = []
+            var collected: [(String, Result<([CalendarInfo], [TimeTugCalendarEvent], [SourceNotice]), Error>)] = []
             for await result in group { collected.append(result) }
             return collected
         }
@@ -123,11 +129,13 @@ public actor CalendarStore {
         if generation == startedGeneration {
             for (sourceID, result) in results {
                 switch result {
-                case .success(let (calendars, events)):
+                case .success(let (calendars, events, notices)):
                     lastCalendars[sourceID] = calendars
                     lastEvents[sourceID] = events
+                    lastNotices[sourceID] = notices
                     statuses[sourceID] = .ok
                 case .failure(let error):
+                    lastNotices[sourceID] = nil
                     switch error {
                     case SourceError.needsPermission: statuses[sourceID] = .needsPermission
                     case SourceError.authExpired: statuses[sourceID] = .authExpired
@@ -250,6 +258,7 @@ public actor CalendarStore {
         return CalendarSnapshot(
             events: resolution.events, calendars: calendars, statuses: statuses.filter { ids.contains($0.key) },
             sourceNames: Dictionary(uniqueKeysWithValues: sources.map { ($0.id, $0.displayName) }),
-            fetchedAt: now, candidates: resolution.candidates)
+            fetchedAt: now, candidates: resolution.candidates,
+            notices: lastNotices.filter { ids.contains($0.key) && !$0.value.isEmpty })
     }
 }

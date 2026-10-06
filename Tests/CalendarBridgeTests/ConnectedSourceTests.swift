@@ -84,3 +84,16 @@ private func thrown(_ body: () async throws -> Void) async -> Error? {
     for _ in 0..<200 where !fake.wasTerminated { try await Task.sleep(for: .milliseconds(10)) }
     #expect(fake.wasTerminated)
 }
+
+private final class NoticingLibrarySource: CalendarCore.CalendarSource, @unchecked Sendable {
+    let id = "n", displayName = "N", capabilities = SourceCapabilities()
+    func calendars() async throws -> [CalendarDescriptor] { [] }
+    func events(in interval: DateInterval) async throws -> [CalendarCore.CalendarEvent] { [] }
+    func changes() -> AsyncStream<CalendarChange> { AsyncStream { $0.finish() } }
+    func notices() async -> [SourceNotice] { [SourceNotice(kind: .unreadableRecurrence, count: 3)] }
+}
+
+@Test func noticesPassThroughAndDefaultToNone() async {
+    #expect(await ConnectedSource(NoticingLibrarySource()).notices() == [SourceNotice(kind: .unreadableRecurrence, count: 3)])
+    #expect(await ConnectedSource(FakeLibrarySource()).notices().isEmpty)
+}
