@@ -34,12 +34,7 @@ public struct CalendarInfo: Hashable, Sendable, Identifiable {
     /// Normalizes "#RGB", "#RRGGBB" or "RRGGBB" (any case, surrounding whitespace ok)
     /// to "#RRGGBB" uppercase; nil for anything invalid.
     public static func normalizedHex(_ raw: String?) -> String? {
-        guard var s = raw?.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
-        if s.hasPrefix("#") { s.removeFirst() }
-        guard s.count == 3 || s.count == 6, s.allSatisfy(\.isASCII), s.allSatisfy(\.isHexDigit) else { return nil }
-        s = s.uppercased()
-        if s.count == 3 { s = s.map { "\($0)\($0)" }.joined() }
-        return "#" + s
+        CalendarDescriptor.normalizedHex(raw)
     }
 
     public var key: String { Self.key(sourceID: sourceID, calendarID: calendarID) }
