@@ -60,7 +60,8 @@ public enum DuplicateResolver {
     }
 
     public static func resolve(
-        events: [TimeTugCalendarEvent], calendars: [CalendarInfo], lessons: LessonBook, verdicts: VerdictCache?
+        events: [TimeTugCalendarEvent], calendars: [CalendarInfo], lessons: LessonBook, verdicts: VerdictCache?,
+        engineID: String = "unknown"
     ) -> DuplicateResolution {
         let infoByKey = Dictionary(calendars.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
         var exact: [MergeLink] = []        // phase 1: identical content
@@ -122,7 +123,7 @@ public enum DuplicateResolver {
         if let verdicts {
             while true {
                 let step = nextModelStep(grouping, events: events, ambiguous: ambiguous, blocked: blocked,
-                                         verdicts: verdicts, infoByKey: infoByKey, lessons: lessons)
+                                         verdicts: verdicts, infoByKey: infoByKey, lessons: lessons, engineID: engineID)
                 if let merge = step.merge {
                     grouping.union(merge.g, merge.h, adding: [merge.why])
                 } else {
@@ -171,7 +172,7 @@ public enum DuplicateResolver {
     /// indexes. Returns the first cached "same" that may merge, else every request still without a verdict.
     private static func nextModelStep(
         _ grouping: Grouping, events: [TimeTugCalendarEvent], ambiguous: Set<Pair>, blocked: Set<Pair>,
-        verdicts: VerdictCache, infoByKey: [String: CalendarInfo], lessons: LessonBook
+        verdicts: VerdictCache, infoByKey: [String: CalendarInfo], lessons: LessonBook, engineID: String
     ) -> (merge: (g: Int, h: Int, why: MergeProvenance)?, pending: [AdjudicationRequest]) {
         let rank = Dictionary(uniqueKeysWithValues: grouping.orderedGroups.enumerated().map { ($1, $0) })
         var groupPairs = Set<Pair>()
@@ -189,7 +190,7 @@ public enum DuplicateResolver {
             guard (grouping.clusters[g] ?? 1) + (grouping.clusters[h] ?? 1) <= maxGroupSize,
                   !grouping.hasBlockedPair(g, h, in: blocked) else { continue }
             let a = representative(grouping.members[g]!, in: events), b = representative(grouping.members[h]!, in: events)
-            let request = makeRequest(events[a], events[b], infoByKey: infoByKey, lessons: lessons)
+            let request = makeRequest(events[a], events[b], infoByKey: infoByKey, lessons: lessons, engineID: engineID)
             guard let entry = verdicts.entry(for: request.id) else {
                 if seen.insert(request.id).inserted { pending.append(request) }
                 continue
@@ -273,17 +274,24 @@ public enum DuplicateResolver {
     }
 
     private static func makeRequest(
-        _ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent, infoByKey: [String: CalendarInfo], lessons: LessonBook
+        _ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent, infoByKey: [String: CalendarInfo], lessons: LessonBook,
+        engineID: String
     ) -> AdjudicationRequest {
-        let (first, second) = DuplicateRules.detailScore(a) >= DuplicateRules.detailScore(b) ? (a, b) : (b, a)
+        let projectionA = AdjudicationEvent(a, calendar: infoByKey[a.calendarKey])
+        let projectionB = AdjudicationEvent(b, calendar: infoByKey[b.calendarKey])
+        let scoreA = DuplicateRules.detailScore(a), scoreB = DuplicateRules.detailScore(b)
+        let aFirst = scoreA != scoreB ? scoreA > scoreB :
+            "\(projectionA.title)|\(projectionA.start.timeIntervalSince1970)|\(projectionA.calendarTitle ?? "")" <=
+            "\(projectionB.title)|\(projectionB.start.timeIntervalSince1970)|\(projectionB.calendarTitle ?? "")"
+        let (first, second) = aFirst ? (a, b) : (b, a)
         func minutes(_ seconds: TimeInterval) -> Int { Int((seconds / 60).rounded()) }
         let overlap = min(first.end, second.end).timeIntervalSince(max(first.start, second.start))
         var conflicting = false
         if case .separate(let reason) = DuplicateRules.decide(a, b) {
             conflicting = [.conflictingLocation, .conflictingConference, .conflictingAttendees].contains(reason)
         }
-        return AdjudicationRequest(
-            id: fingerprint(a, b),
+        var request = AdjudicationRequest(
+            id: "",
             first: AdjudicationEvent(first, calendar: infoByKey[first.calendarKey]),
             second: AdjudicationEvent(second, calendar: infoByKey[second.calendarKey]),
             lessons: lessons.relevant(to: a, b),
@@ -293,17 +301,7 @@ public enum DuplicateResolver {
             firstDetails: DuplicateRules.detailSummary(first),
             secondDetails: DuplicateRules.detailSummary(second),
             hasConflictingDetails: conflicting)
-    }
-
-    /// Order-independent digest of everything the judgment depends on; an edited event gets a new one.
-    /// Calendar keys are left out on purpose: identical copies must share one verdict whichever is the representative.
-    private static func fingerprint(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) -> String {
-        func part(_ e: TimeTugCalendarEvent) -> String {
-            [DuplicateRules.normalize(e.title), String(Int(e.start.timeIntervalSince1970)), String(Int(e.end.timeIntervalSince1970)),
-             DuplicateRules.normalizedLocation(e.location) ?? "",
-             DuplicateRules.normalize(String((e.notes ?? "").prefix(AdjudicationEvent.maxNotesLength))),
-             DuplicateRules.emails(e).sorted().joined(separator: ","), String(e.otherAttendeeCount)].joined(separator: "|")
-        }
-        return Fingerprint.fnv1a([part(a), part(b)].sorted().joined(separator: "##"))
+        request.id = request.input.cacheKey(engineID: engineID)
+        return request
     }
 }

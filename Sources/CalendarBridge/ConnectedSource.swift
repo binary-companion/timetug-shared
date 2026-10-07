@@ -29,11 +29,17 @@ public final class ConnectedSource: TimeTugCore.CalendarSource, Sendable {
 
     /// Yields once for every library change. `.sourceFailed` yields too, so the next refresh surfaces the status.
     /// Cancelling the consumer cancels the inner task, which ends the library stream (and its polling).
-    public func changes() -> AsyncStream<Void> {
+    public func changes() -> AsyncStream<SourceChange> {
         let source = source
         return AsyncStream { continuation in
             let task = Task {
-                for await _ in source.changes() { continuation.yield() }
+                for await change in source.changes() {
+                    switch change {
+                    case .calendarsChanged: continuation.yield(.calendarsChanged(sourceID: source.id))
+                    case .eventsChanged(let ids): continuation.yield(.eventsChanged(sourceID: source.id, calendarIDs: ids))
+                    case .sourceFailed: continuation.yield(.sourceFailed(sourceID: source.id))
+                    }
+                }
                 continuation.finish()
             }
             continuation.onTermination = { _ in task.cancel() }

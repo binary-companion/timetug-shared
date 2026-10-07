@@ -52,6 +52,31 @@ private func cache(answering answer: AdjudicationVerdict.Answer, for resolution:
     #expect(result.pending[0].second.title == "Scott: Doctor")
 }
 
+@Test func equivalentPairOrderAndLessonTouchKeepTheSameJudgmentKey() {
+    let left = resolve([doctor, official], verdicts: VerdictCache()).pending[0]
+    let swapped = resolve([official, doctor], verdicts: VerdictCache()).pending[0]
+    #expect(left.id == swapped.id)
+
+    let a = MergedMember(title: "Doctor parking", calendarKey: "fake/third", contentKey: "a",
+                         details: "bare", start: t0, end: t0.addingTimeInterval(3600))
+    let b = MergedMember(title: "Parking", calendarKey: "fake/fourth", contentKey: "b",
+                         details: "bare", start: t0, end: t0.addingTimeInterval(3600))
+    var lessons = LessonBook()
+    lessons.record(a, b, decision: .same, now: t0)
+    let withLesson = resolve([doctor, official], lessons: lessons, verdicts: VerdictCache()).pending[0].id
+    lessons.touch([lessons.lessons[0].pairKey], now: t0.addingTimeInterval(60))
+    #expect(resolve([doctor, official], lessons: lessons, verdicts: VerdictCache()).pending[0].id == withLesson)
+    lessons.record(a, b, decision: .different, now: t0.addingTimeInterval(120))
+    #expect(resolve([doctor, official], lessons: lessons, verdicts: VerdictCache()).pending[0].id != withLesson)
+}
+
+@Test func aPersonNamedCalendarChangesTheJudgmentKey() {
+    let original = DuplicateResolver.resolve(events: [doctor, official], calendars: [], lessons: LessonBook(), verdicts: VerdictCache()).pending[0]
+    let named = CalendarInfo(sourceID: "fake", calendarID: "personal", title: "Kristin")
+    let updated = DuplicateResolver.resolve(events: [doctor, official], calendars: [named], lessons: LessonBook(), verdicts: VerdictCache()).pending[0]
+    #expect(original.id != updated.id)
+}
+
 @Test func rulesOnlyNeverProducesPending() {
     let result = resolve([doctor, official], verdicts: nil)
     #expect(result.events.count == 2)

@@ -87,7 +87,6 @@ public struct LessonBook: Codable, Equatable, Sendable {
         return scored.filter { $0.score > 0 }
             .sorted { x, y in
                 if x.score != y.score { return x.score > y.score }
-                if x.lesson.lastUsed != y.lesson.lastUsed { return x.lesson.lastUsed > y.lesson.lastUsed }
                 return x.lesson.pairKey < y.lesson.pairKey
             }
             .prefix(Self.promptLimit).map(\.lesson)

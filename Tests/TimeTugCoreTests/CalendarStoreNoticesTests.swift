@@ -22,7 +22,7 @@ private actor NoticeSource: TimeTugCore.CalendarSource {
         return []
     }
     func notices() async -> [SourceNotice] { noticeList }
-    nonisolated func changes() -> AsyncStream<Void> { AsyncStream { $0.finish() } }
+    nonisolated func changes() -> AsyncStream<SourceChange> { AsyncStream { $0.finish() } }
 }
 
 private let warning = SourceNotice(kind: .unreadableRecurrence, count: 2)

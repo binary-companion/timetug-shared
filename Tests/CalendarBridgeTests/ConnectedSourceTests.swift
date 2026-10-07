@@ -67,13 +67,15 @@ private func thrown(_ body: () async throws -> Void) async -> Error? {
     #expect(error as? CalendarCore.SourceError == .server(status: 500))
 }
 
-@Test func everyLibraryChangeYieldsOnceIncludingSourceFailed() async {
+@Test func libraryChangesKeepSourceAndCalendarScopeIncludingFailure() async {
     let fake = FakeLibrarySource()
     var iterator = ConnectedSource(fake).changes().makeAsyncIterator()
     fake.continuation.yield(.calendarsChanged)
     fake.continuation.yield(.eventsChanged(calendarIDs: ["c"]))
     fake.continuation.yield(.sourceFailed(.authExpired))
-    for _ in 0..<3 { #expect(await iterator.next() != nil) }
+    #expect(await iterator.next() == .calendarsChanged(sourceID: "src"))
+    #expect(await iterator.next() == .eventsChanged(sourceID: "src", calendarIDs: ["c"]))
+    #expect(await iterator.next() == .sourceFailed(sourceID: "src"))
 }
 
 @Test func cancellingTheConsumerEndsTheLibraryStream() async throws {

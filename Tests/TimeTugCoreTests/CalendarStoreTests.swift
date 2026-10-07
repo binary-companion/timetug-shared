@@ -22,7 +22,7 @@ actor FakeSource: CalendarSource {
         requestedIntervals.append(interval)
         return try eventsResult.get()
     }
-    nonisolated func changes() -> AsyncStream<Void> { AsyncStream { $0.finish() } }
+    nonisolated func changes() -> AsyncStream<SourceChange> { AsyncStream { $0.finish() } }
 }
 
 private let now = date("2026-09-18T10:00:00Z")
@@ -34,12 +34,41 @@ private let now = date("2026-09-18T10:00:00Z")
     #expect(window.end == date("2026-09-19T00:15:00Z"))   // midnight + 600s + 300s buffer
 }
 
-@Test func refreshAsksSourcesForFetchWindow() async {
+@Test func widgetHorizonIncludesTomorrowAndThirdDayWithoutExtendingTakeovers() async {
+    let source = FakeSource()
+    await source.set(events: .success([
+        makeEvent("today", start: "2026-09-18T11:00:00Z"),
+        makeEvent("tomorrow", start: "2026-09-19T15:00:00Z"),
+        makeEvent("third", start: "2026-09-20T09:00:00Z"),
+        makeEvent("fourth", start: "2026-09-21T09:00:00Z")
+    ]))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar)
+    let snapshot = await store.refresh(now: now, leadTime: 60)
+    #expect(snapshot.events.map(\.sourceEventID) == ["today"])
+    #expect(snapshot.widgetEvents.map(\.sourceEventID) == ["today", "tomorrow", "third"])
+    let widget = WidgetSnapshot.make(events: snapshot.widgetEvents, calendars: [], settings: TakeoverSettings(),
+                                     now: now, calendar: utcCalendar)
+    #expect(widget.events.map(\.title).count == 3)
+    #expect(await source.requestedIntervals.count == 1)
+}
+
+@Test func changingCalendarUpdatesTheSameStoresDayWindow() async {
+    let source = FakeSource()
+    await source.set(events: .success([makeEvent("denver", start: "2026-09-17T18:00:00Z")]))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar)
+    let instant = date("2026-09-18T02:00:00Z")
+    #expect(await store.refresh(now: instant, leadTime: 60).events.isEmpty)
+    await store.setCalendar(calendar(in: "America/Denver"))
+    #expect(await store.fetchWindow(now: instant, leadTime: 60).start == date("2026-09-17T06:00:00Z"))
+    #expect(await store.refresh(now: instant, leadTime: 60).events.map(\.sourceEventID) == ["denver"])
+}
+
+@Test func refreshAsksSourcesForWidgetHorizon() async {
     let source = FakeSource()
     let store = CalendarStore(sources: [source], calendar: utcCalendar)
     _ = await store.refresh(now: now, leadTime: 60)
     #expect(await source.requestedIntervals.first?.end
-        == date("2026-09-19T00:06:00Z").addingTimeInterval(CalendarStore.sourceQueryMargin))
+        == date("2026-09-21T00:00:00Z").addingTimeInterval(CalendarStore.sourceQueryMargin))
 }
 
 @Test func mergesSortsAndDedupesAcrossCalendars() async {
@@ -182,7 +211,8 @@ private let now = date("2026-09-18T10:00:00Z")
     let window = await store.fetchWindow(now: now, leadTime: 600)
     let requested = await source.requestedIntervals.first
     #expect(requested?.start == window.start.addingTimeInterval(-CalendarStore.sourceQueryMargin))
-    #expect(requested?.end == window.end.addingTimeInterval(CalendarStore.sourceQueryMargin))
+    let widgetEnd = utcCalendar.date(byAdding: .day, value: WidgetSnapshot.horizonDays, to: window.start)!
+    #expect(requested?.end == max(window.end, widgetEnd).addingTimeInterval(CalendarStore.sourceQueryMargin))
 }
 
 @Test func farZoneAllDayEventOnTodaysDateIsKept() async {

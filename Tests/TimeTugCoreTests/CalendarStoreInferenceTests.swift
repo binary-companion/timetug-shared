@@ -137,6 +137,105 @@ final class SlowAdjudicator: DuplicateAdjudicator, @unchecked Sendable {
     }
 }
 
+final class FailingAdjudicator: DuplicateAdjudicator, @unchecked Sendable {
+    let availability: AdjudicatorAvailability = .available(FakeAdjudicator.engine)
+    private let lock = NSLock()
+    private var calls = 0
+    var callCount: Int { lock.withLock { calls } }
+    func judge(_ requests: [AdjudicationRequest]) async -> [AdjudicationVerdict] {
+        lock.withLock { calls += 1 }
+        return []
+    }
+}
+
+private actor GatedAdjudicator: DuplicateAdjudicator {
+    nonisolated let availability: AdjudicatorAvailability = .available(FakeAdjudicator.engine)
+    private var waiting: CheckedContinuation<[AdjudicationVerdict], Never>?
+    private var started: CheckedContinuation<Void, Never>?
+    private var didStart = false
+    private var requestID = ""
+
+    func judge(_ requests: [AdjudicationRequest]) async -> [AdjudicationVerdict] {
+        requestID = requests[0].id
+        didStart = true
+        started?.resume()
+        started = nil
+        return await withCheckedContinuation { waiting = $0 }
+    }
+
+    func waitUntilStarted() async {
+        if didStart { return }
+        await withCheckedContinuation { started = $0 }
+    }
+
+    func release() {
+        waiting?.resume(returning: [AdjudicationVerdict(requestID: requestID, answer: .same)])
+        waiting = nil
+    }
+}
+
+@Test func changedRefreshInputRejectsSuspendedInferenceVerdict() async {
+    let engine = GatedAdjudicator()
+    let source = FakeSource()
+    await source.set(events: .success([doctor, official]))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar, adjudicator: engine)
+    _ = await store.setInferenceEnabled(true, now: now)
+    _ = await store.refresh(now: now, leadTime: 60)
+    let resolving = Task { await store.resolvePending(now: now) }
+    await engine.waitUntilStarted()
+    await source.set(events: .success([doctor]))
+    _ = await store.refresh(now: now, leadTime: 60)
+    await engine.release()
+    #expect(await resolving.value == nil)
+    #expect(await store.state().verdicts.entries.isEmpty)
+}
+
+@Test func transientFailuresBackOffPerCanonicalKey() async {
+    let engine = FailingAdjudicator()
+    let source = FakeSource()
+    await source.set(events: .success([doctor, official]))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar, adjudicator: engine)
+    _ = await store.setInferenceEnabled(true, now: now)
+    _ = await store.refresh(now: now, leadTime: 60)
+    #expect(await store.resolvePending(now: now) == nil)
+    #expect(engine.callCount == 1)
+    #expect(await store.resolvePending(now: now.addingTimeInterval(59)) == nil)
+    #expect(engine.callCount == 1)
+    #expect(await store.resolvePending(now: now.addingTimeInterval(60)) == nil)
+    #expect(engine.callCount == 2)
+    #expect(await store.resolvePending(now: now.addingTimeInterval(179)) == nil)
+    #expect(engine.callCount == 2)
+    #expect(await store.resolvePending(now: now.addingTimeInterval(180)) == nil)
+    #expect(engine.callCount == 3)
+    #expect(await store.resolvePending(now: now.addingTimeInterval(419)) == nil)
+    #expect(engine.callCount == 3)
+    #expect(await store.resolvePending(now: now.addingTimeInterval(420)) == nil)
+    #expect(engine.callCount == 4)
+    #expect(await store.resolvePending(now: now.addingTimeInterval(899)) == nil)
+    #expect(engine.callCount == 4)
+    #expect(await store.resolvePending(now: now.addingTimeInterval(900)) == nil)
+    #expect(engine.callCount == 5)
+    #expect(await store.resolvePending(now: now.addingTimeInterval(1799)) == nil)
+    #expect(engine.callCount == 5)
+    #expect(await store.resolvePending(now: now.addingTimeInterval(1800)) == nil)
+    #expect(engine.callCount == 6)
+}
+
+@Test func disablingInferenceDiscardsAnInFlightVerdict() async {
+    let engine = SlowAdjudicator()
+    let source = FakeSource()
+    await source.set(events: .success([doctor, official]))
+    let store = CalendarStore(sources: [source], calendar: utcCalendar, adjudicator: engine)
+    _ = await store.setInferenceEnabled(true, now: now)
+    _ = await store.refresh(now: now, leadTime: 60)
+    let pending = Task { await store.resolvePending(now: now) }
+    try? await Task.sleep(nanoseconds: 10_000_000)
+    _ = await store.setInferenceEnabled(false, now: now)
+    #expect(await pending.value == nil)
+    #expect(await store.state().verdicts.entries.isEmpty)
+    #expect(await store.setInferenceEnabled(true, now: now).events.count == 2)
+}
+
 @Test func concurrentResolvePendingRunsOnlyOnePass() async {
     let slow = SlowAdjudicator()
     let source = FakeSource()
@@ -306,8 +405,9 @@ private func placeholderAndCopies(_ engine: FakeAdjudicator) async -> (CalendarS
     let (store, merged) = await placeholderAndCopies(FakeAdjudicator())
     let one = merged.mergedMembers.first { $0.calendarKey == "fake/X1" }!
     let split = await store.separate([one], from: merged, now: now)
-    #expect(split.events.count == 2)
-    let byMembers = Dictionary(grouping: split.events, by: { Set($0.participants.map(\.calendarKey)) })
+    #expect(split.events.count == 3) // a new correction changes the prompt; the old verdict is not reused
+    let resolved = await store.resolvePending(now: now) ?? split
+    let byMembers = Dictionary(grouping: resolved.events, by: { Set($0.participants.map(\.calendarKey)) })
     #expect(byMembers[["fake/X1"]]?.count == 1)
     #expect(byMembers[["fake/S", "fake/X2", "fake/X3"]]?.count == 1)
     let after = await store.refresh(now: now, leadTime: 60)
