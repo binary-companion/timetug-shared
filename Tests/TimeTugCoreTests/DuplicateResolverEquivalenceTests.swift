@@ -81,3 +81,22 @@ private func checkEquivalent(_ events: [TimeTugCalendarEvent], lessons: LessonBo
         checkEquivalent(events)
     }
 }
+
+@Test func resolverKeepsASeparationAcrossAChainOfOverlappingEvents() {
+    // The first and last events do not overlap. A middle copy can match each one,
+    // but the original resolver treats that distant pair as a hard block.
+    let events = [
+        makeEvent("chain-a", title: "Standup", start: "2026-09-18T09:00:00Z", minutes: 30, calendarID: "a"),
+        makeEvent("chain-b", title: "Standup", start: "2026-09-18T09:20:00Z", minutes: 30, calendarID: "b"),
+        makeEvent("chain-c", title: "Standup", start: "2026-09-18T09:40:00Z", minutes: 30, calendarID: "c"),
+    ]
+    checkEquivalent(events)
+}
+
+@Test func resolverPreservesCandidateDeduplicationWhenOutputIDsCollide() {
+    let events = [
+        makeEvent("same-id", title: "Planning", calendarID: "a"),
+        makeEvent("same-id", title: "Review", calendarID: "b"),
+    ]
+    checkEquivalent(events)
+}

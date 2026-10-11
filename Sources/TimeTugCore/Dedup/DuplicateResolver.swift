@@ -26,6 +26,62 @@ public enum DuplicateResolver {
 
     private struct MergeLink { let i: Int, j: Int, why: MergeProvenance }
 
+    /// Finds only pairs that can be exact copies or manual/automatic candidates. An interval
+    /// tree skips non-overlapping timed events even when one long event spans many short ones.
+    private struct RelevantPairs {
+        let events: [TimeTugCalendarEvent]
+        let contentKeys: [String]
+        let timedByStart: [Int]
+        let maxEnd: [Date]
+        let exactByKey: [String: [Int]]
+
+        init(_ events: [TimeTugCalendarEvent]) {
+            self.events = events
+            let keys = events.map(\.contentKey)
+            var exact: [String: [Int]] = [:]
+            for i in events.indices { exact[keys[i], default: []].append(i) }
+            let sortedTimed = events.indices.filter { !events[$0].isAllDay }
+                .sorted { events[$0].start == events[$1].start ? $0 < $1 : events[$0].start < events[$1].start }
+            var ends = Array(repeating: Date.distantPast, count: max(1, sortedTimed.count * 4))
+            if !sortedTimed.isEmpty {
+                func build(_ node: Int, _ low: Int, _ high: Int) -> Date {
+                    if low == high {
+                        ends[node] = events[sortedTimed[low]].end
+                    } else {
+                        let mid = (low + high) / 2
+                        ends[node] = max(build(node * 2, low, mid), build(node * 2 + 1, mid + 1, high))
+                    }
+                    return ends[node]
+                }
+                _ = build(1, 0, sortedTimed.count - 1)
+            }
+            contentKeys = keys
+            exactByKey = exact
+            timedByStart = sortedTimed
+            maxEnd = ends
+        }
+
+        func following(_ i: Int) -> [Int] {
+            var found = Set((exactByKey[contentKeys[i]] ?? []).filter { $0 > i })
+            guard !events[i].isAllDay, !timedByStart.isEmpty else { return found.sorted() }
+            let event = events[i]
+            func visit(_ node: Int, _ low: Int, _ high: Int) {
+                guard maxEnd[node] > event.start,
+                      events[timedByStart[low]].start < event.end else { return }
+                if low == high {
+                    let j = timedByStart[low]
+                    if j > i, events[j].end > event.start { found.insert(j) }
+                } else {
+                    let mid = (low + high) / 2
+                    visit(node * 2, low, mid)
+                    visit(node * 2 + 1, mid + 1, high)
+                }
+            }
+            visit(1, 0, timedByStart.count - 1)
+            return found.sorted()
+        }
+    }
+
     /// Groups of event indexes. A group is one or more "clusters": phase 1 and 2 groups are counted once each
     /// when phase 3 checks the cap.
     private struct Grouping {
@@ -43,8 +99,8 @@ public enum DuplicateResolver {
         /// Group ids ordered by their smallest member index, so processing order is deterministic.
         var orderedGroups: [Int] { members.keys.sorted { members[$0]![0] < members[$1]![0] } }
 
-        func hasBlockedPair(_ g: Int, _ h: Int, in blocked: Set<Pair>) -> Bool {
-            (members[g] ?? []).contains { x in (members[h] ?? []).contains { y in blocked.contains(Pair(x, y)) } }
+        func hasBlockedPair(_ g: Int, _ h: Int, isBlocked: (Int, Int) -> Bool) -> Bool {
+            (members[g] ?? []).contains { x in (members[h] ?? []).contains { y in isBlocked(x, y) } }
         }
 
         /// Folds `h` into `g`. Members stay sorted so the smallest index identifies the group.
@@ -66,26 +122,39 @@ public enum DuplicateResolver {
         let infoByKey = Dictionary(calendars.map { ($0.key, $0) }, uniquingKeysWith: { first, _ in first })
         var exact: [MergeLink] = []        // phase 1: identical content
         var certain: [MergeLink] = []      // phase 2: other rules and user-confirmed merges
-        var blocked = Set<Pair>()          // hard: rules say separate, or a learned "different"
-        var learnedBlocked = Set<Pair>()   // the learned "different" subset: the only block a user's "same" respects
+        let relevant = RelevantPairs(events)
         var ambiguous = Set<Pair>()        // pairs only a model could decide (inference on)
         var usedLessonKeys = Set<String>()
 
+        // A skipped distant pair is still a hard separator between two groups reached through
+        // other links. Evaluate that rule only when a proposed group merge needs it.
+        func isBlocked(_ i: Int, _ j: Int, learnedOnly: Bool) -> Bool {
+            let a = events[i], b = events[j]
+            let lessonApplies = DuplicateRules.isManualCandidate(a, b)
+                || relevant.contentKeys[i] == relevant.contentKeys[j]
+            if lessonApplies, let lesson = lessons.decision(a, b) {
+                return lesson.decision == .different
+            }
+            if learnedOnly { return false }
+            if case .separate = DuplicateRules.decide(a, b) { return true }
+            return false
+        }
+
         for i in events.indices {
-            for j in events.indices where j > i {
+            for j in relevant.following(i) {
                 let a = events[i], b = events[j]
                 // Exact duplicates (even all-day or on one calendar) merge by rule, so a lesson must be able to undo that.
-                let lessonApplies = DuplicateRules.isManualCandidate(a, b) || a.contentKey == b.contentKey
+                let lessonApplies = DuplicateRules.isManualCandidate(a, b)
+                    || relevant.contentKeys[i] == relevant.contentKeys[j]
                 if lessonApplies, let lesson = lessons.decision(a, b) {
                     usedLessonKeys.insert(lesson.pairKey)
                     if lesson.decision == .same { certain.append(MergeLink(i: i, j: j, why: .userConfirmed)) }
-                    else { blocked.insert(Pair(i, j)); learnedBlocked.insert(Pair(i, j)) }
                     continue
                 }
                 switch DuplicateRules.decide(a, b) {
                 case .merge(.exactMatch): exact.append(MergeLink(i: i, j: j, why: .rule))
                 case .merge: certain.append(MergeLink(i: i, j: j, why: .rule))
-                case .separate: blocked.insert(Pair(i, j))
+                case .separate: break
                 case .ambiguous: if verdicts != nil { ambiguous.insert(Pair(i, j)) }
                 }
             }
@@ -105,8 +174,8 @@ public enum DuplicateResolver {
             for link in links {
                 let gi = grouping.groupOf[link.i], gj = grouping.groupOf[link.j]
                 if gi == gj { grouping.provenance[gi, default: []].append(link.why); continue }
-                let stoppers = link.why == .userConfirmed ? learnedBlocked : blocked
-                guard !grouping.hasBlockedPair(gi, gj, in: stoppers) else { continue }
+                let learnedOnly = link.why == .userConfirmed
+                guard !grouping.hasBlockedPair(gi, gj, isBlocked: { isBlocked($0, $1, learnedOnly: learnedOnly) }) else { continue }
                 grouping.union(gi, gj, adding: [link.why])
             }
         }
@@ -122,7 +191,8 @@ public enum DuplicateResolver {
         var pending: [AdjudicationRequest] = []
         if let verdicts {
             while true {
-                let step = nextModelStep(grouping, events: events, ambiguous: ambiguous, blocked: blocked,
+                let step = nextModelStep(grouping, events: events, ambiguous: ambiguous,
+                                         isBlocked: { isBlocked($0, $1, learnedOnly: false) },
                                          verdicts: verdicts, infoByKey: infoByKey, lessons: lessons, engineID: engineID)
                 if let merge = step.merge {
                     grouping.union(merge.g, merge.h, adding: [merge.why])
@@ -142,16 +212,19 @@ public enum DuplicateResolver {
         }
 
         var candidates: [String: [TimeTugCalendarEvent]] = [:]
+        var seenCandidateIDs: [String: Set<String>] = [:]
         for i in events.indices {
-            for j in events.indices where j > i {
+            for j in relevant.following(i) {
                 let oi = outputIndex[i], oj = outputIndex[j]
                 guard oi != oj,
-                      DuplicateRules.isManualCandidate(events[i], events[j]) || events[i].contentKey == events[j].contentKey else { continue }
-                if !(candidates[output[oi].id] ?? []).contains(where: { $0.id == output[oj].id }) {
-                    candidates[output[oi].id, default: []].append(output[oj])
+                      DuplicateRules.isManualCandidate(events[i], events[j])
+                        || relevant.contentKeys[i] == relevant.contentKeys[j] else { continue }
+                let leftID = output[oi].id, rightID = output[oj].id
+                if seenCandidateIDs[leftID, default: []].insert(rightID).inserted {
+                    candidates[leftID, default: []].append(output[oj])
                 }
-                if !(candidates[output[oj].id] ?? []).contains(where: { $0.id == output[oi].id }) {
-                    candidates[output[oj].id, default: []].append(output[oi])
+                if seenCandidateIDs[rightID, default: []].insert(leftID).inserted {
+                    candidates[rightID, default: []].append(output[oi])
                 }
             }
         }
@@ -171,7 +244,8 @@ public enum DuplicateResolver {
     /// Walks the pairs of groups that hold an ambiguous cross pair, in order of the groups' smallest member
     /// indexes. Returns the first cached "same" that may merge, else every request still without a verdict.
     private static func nextModelStep(
-        _ grouping: Grouping, events: [TimeTugCalendarEvent], ambiguous: Set<Pair>, blocked: Set<Pair>,
+        _ grouping: Grouping, events: [TimeTugCalendarEvent], ambiguous: Set<Pair>,
+        isBlocked: (Int, Int) -> Bool,
         verdicts: VerdictCache, infoByKey: [String: CalendarInfo], lessons: LessonBook, engineID: String
     ) -> (merge: (g: Int, h: Int, why: MergeProvenance)?, pending: [AdjudicationRequest]) {
         let rank = Dictionary(uniqueKeysWithValues: grouping.orderedGroups.enumerated().map { ($1, $0) })
@@ -188,7 +262,7 @@ public enum DuplicateResolver {
         var seen = Set<String>()
         for (g, h) in ordered {
             guard (grouping.clusters[g] ?? 1) + (grouping.clusters[h] ?? 1) <= maxGroupSize,
-                  !grouping.hasBlockedPair(g, h, in: blocked) else { continue }
+                  !grouping.hasBlockedPair(g, h, isBlocked: isBlocked) else { continue }
             let a = representative(grouping.members[g]!, in: events), b = representative(grouping.members[h]!, in: events)
             let request = makeRequest(events[a], events[b], infoByKey: infoByKey, lessons: lessons, engineID: engineID)
             guard let entry = verdicts.entry(for: request.id) else {

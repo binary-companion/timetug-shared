@@ -35,10 +35,19 @@ private func events(count: Int, shape: String) -> [TimeTugCalendarEvent] {
     }
 }
 
+let shapes = ["sparse", "dense", "duplicates"]
+let counts = [100, 500, 1_000, 5_000]
+let arguments = Array(CommandLine.arguments.dropFirst())
+let requestedCount = arguments.count == 2 ? Int(arguments[1]) : nil
+guard arguments.count <= 2,
+      arguments.isEmpty || shapes.contains(arguments[0]),
+      arguments.count < 2 || (requestedCount.map { counts.contains($0) } ?? false) else {
+    fatalError("Usage: DedupBenchmark [sparse|dense|duplicates [100|500|1000|5000]]")
+}
 let repetitions = 5
 print("shape,count,median_ms,output_events")
-for shape in ["sparse", "dense", "duplicates"] {
-    for count in [100, 500, 1_000, 5_000] {
+for shape in shapes where arguments.isEmpty || arguments[0] == shape {
+    for count in counts where requestedCount == nil || requestedCount == count {
         let input = events(count: count, shape: shape)
         var times: [Double] = []
         var outputCount = 0
