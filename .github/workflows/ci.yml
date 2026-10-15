@@ -82,7 +82,10 @@ jobs:
           # or a zero turns the job red while normal growth needs no edit. --minimum-runs 2 is one
           # summary per test target (TimeTugCoreTests, CalendarBridgeTests): it also catches a
           # vanished Bridge, whose 13 tests alone would not move the total below the floor.
-          # Raise both when targets or tests are added.
+          # --minimum-per-run 1 makes every summary report at least one test: a target that still
+          # builds but holds no tests prints `Test run with 0 tests ... passed`, which the total and
+          # the run count alone accept (the 301 of Core is above the floor).
+          # Raise the floor and the run count when targets or tests are added.
           $PSNativeCommandUseErrorActionPreference = $true
           swift test --force-resolved-versions 2>&1 | Tee-Object -FilePath test.log
           $swiftExit = $LASTEXITCODE
@@ -93,7 +96,7 @@ jobs:
             exit $swiftExit
           }
           python --version
-          python scripts/ci/count-swift-tests.py test.log --minimum 280 --minimum-runs 2
+          python scripts/ci/count-swift-tests.py test.log --minimum 280 --minimum-runs 2 --minimum-per-run 1
           exit $LASTEXITCODE
 
   windows-arm64:
@@ -120,7 +123,7 @@ jobs:
             exit $swiftExit
           }
           python --version
-          python scripts/ci/count-swift-tests.py test.log --minimum 280 --minimum-runs 2
+          python scripts/ci/count-swift-tests.py test.log --minimum 280 --minimum-runs 2 --minimum-per-run 1
           exit $LASTEXITCODE
 
   architecture:
