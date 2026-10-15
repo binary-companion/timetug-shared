@@ -8,6 +8,7 @@ let package = Package(
         .library(name: "TimeTugCore", targets: ["TimeTugCore"]),
         .library(name: "CalendarBridge", targets: ["CalendarBridge"]),
         .library(name: "TimeTugEngine", targets: ["TimeTugEngine"]),
+        .library(name: "TimeTugEngineProtocol", targets: ["TimeTugEngineProtocol"]),
     ],
     dependencies: [.package(url: "https://github.com/binary-companion/calendar-connectors", from: "1.0.0")],
     targets: [
@@ -18,6 +19,9 @@ let package = Package(
         ]),
         .target(name: "TimeTugEngine", dependencies: [
             "TimeTugCore", "CalendarBridge", .product(name: "CalendarCore", package: "calendar-connectors"),
+        ]),
+        .target(name: "TimeTugEngineProtocol", dependencies: [
+            "TimeTugEngine", "TimeTugCore", "CalendarBridge", .product(name: "CalendarCore", package: "calendar-connectors"),
         ]),
         .executableTarget(name: "DedupBenchmark", dependencies: [
             "TimeTugCore", .product(name: "CalendarCore", package: "calendar-connectors"),
@@ -31,5 +35,9 @@ let package = Package(
         .testTarget(name: "TimeTugEngineTests", dependencies: [
             "TimeTugEngine", "TimeTugCore", "CalendarBridge", .product(name: "CalendarCore", package: "calendar-connectors"),
         ], resources: [.copy("Fixtures")]),
+        // Conformance/ lives at the package root and is found through #filePath, not SwiftPM resources.
+        .testTarget(name: "TimeTugEngineProtocolTests", dependencies: [
+            "TimeTugEngineProtocol", "TimeTugEngine", "TimeTugCore", .product(name: "CalendarCore", package: "calendar-connectors"),
+        ]),
     ]
 )
