@@ -182,7 +182,7 @@ public actor Engine {
         case .join(let eventID): join(eventID: eventID)
         case .snooze(let eventID, let seconds): snooze(eventID: eventID, seconds: seconds)
         case .dismiss(let eventID): dismiss(eventID: eventID)
-        case .testTug: testTug()
+        case .testTug(let title, let calendarTitle): testTug(title: title, calendarTitle: calendarTitle)
         case .merge(let a, let b): await merge(a, b)
         case .unmerge(let event): await unmerge(event)
         case .separate(let event, let members): await separate(event, members: members)
@@ -289,23 +289,29 @@ public actor Engine {
     /// True from the moment a takeover is emitted until the host closes it, and while the host reports one visible
     /// (on screen or as a toast). The host reports presentation asynchronously, so the emitted-but-unreported
     /// window counts too: a second takeover waits for the first to close.
+    ///
+    /// Host contract: for every `takeoverDue` the host MUST eventually send exactly one of `takeoverClosed`, `join`,
+    /// `snooze` or `dismiss` with that request's `event.id`, on every path (including when it could not present).
+    /// Until it does, every later takeover waits.
     private var takeoverOutstanding: Bool { takeoverVisible || outstandingTakeover != nil }
 
-    /// Arms one sleep for the next takeover (port of the Mac `rearm`). Skipped while a takeover is outstanding;
-    /// closing it re-arms. Emits `takeoverWithdrawn` when the previously armed meeting is no longer scheduled at all.
+    /// Arms one sleep for the next takeover (port of the Mac `rearm`). Emits `takeoverWithdrawn` when the
+    /// previously armed meeting is no longer scheduled at all, also while a takeover is outstanding. While one is
+    /// outstanding nothing is armed (`nextTakeover` is nil); the pending meeting stays unfired in the ledger and
+    /// closing the outstanding takeover re-arms it.
     private func rearm() {
         fireTask?.cancel()
         fireTask = nil
         fireGeneration &+= 1
         let previous = nextTakeover
         nextTakeover = nil
-        guard !takeoverOutstanding else { return }
         let now = host.clock.now()
-        let next = Scheduler.next(events: snapshot.events, settings: settings.takeover, ledger: ledger, now: now)
-        nextTakeover = next
         if let previous, !isScheduled(previous.event, now: now) {
             emit(.takeoverWithdrawn(eventID: previous.event.id))
         }
+        guard !takeoverOutstanding else { return }
+        let next = Scheduler.next(events: snapshot.events, settings: settings.takeover, ledger: ledger, now: now)
+        nextTakeover = next
         guard let next else { return }
         let clock = host.clock, generation = fireGeneration
         fireTask = Task { [weak self] in
@@ -337,8 +343,11 @@ public actor Engine {
             ledger: ledger, now: now, overlayVisible: takeoverOutstanding)
         switch decision {
         case .suppress(.overlayVisible):
-            // Stays pending, not marked fired; closing the visible takeover re-arms.
+            // Stays pending, not marked fired; closing the visible takeover re-arms. Re-arming now clears the
+            // `nextTakeover` whose sleep just ended (nothing is armed while a takeover is outstanding).
             diagnose(.info, "takeover", "takeover suppressed: \(TakeoverGuard.Reason.overlayVisible.rawValue)")
+            rearm()
+            publish()
         case .suppress(let reason):
             diagnose(.info, "takeover", "takeover suppressed: \(reason.rawValue)")
             nextTakeover = nil
@@ -362,9 +371,12 @@ public actor Engine {
     }
 
     /// The host shows the takeover on screen, or (`onScreen` false) as a toast; either holds the next takeover.
+    /// A report for any other event (a late or duplicate report after close) is ignored: it would otherwise hold
+    /// the guard with nothing left to close it.
     private func takeoverPresented(eventID: String, onScreen: Bool) {
-        if let outstandingTakeover, outstandingTakeover.id != eventID {
-            diagnose(.warning, "takeover", "presented a takeover that is not the outstanding one")
+        guard outstandingTakeover?.id == eventID else {
+            diagnose(.warning, "takeover", "takeoverPresented for an event that is not the outstanding takeover; ignored")
+            return
         }
         takeoverVisible = true
         diagnose(.info, "takeover", onScreen ? "takeover shown on screen" : "takeover shown as a toast")
@@ -417,13 +429,14 @@ public actor Engine {
     }
 
     /// Settings' "Test tug" (port of the Mac `fireTest`): a sample event that never touches the ledger and, as on the
-    /// Mac, leaves the armed takeover alone (the guard holds it while the sample is outstanding).
-    private func testTug() {
+    /// Mac, leaves the armed takeover alone (the guard holds it while the sample is outstanding). The host supplies
+    /// `title` and `calendarTitle`; the ids stay "test".
+    private func testTug(title: String, calendarTitle: String) {
         let now = host.clock.now()
         let leadTime = settings.takeover.leadTime
         var sample = TimeTugCalendarEvent(
             event: CalendarCore.CalendarEvent(
-                eventID: "test", calendarID: "test", title: "Sample meeting",
+                eventID: "test", calendarID: "test", title: title,
                 start: now.addingTimeInterval(leadTime), end: now.addingTimeInterval(leadTime + 1800)),
             sourceID: "test")
         sample.otherAttendeeCount = 1
@@ -431,7 +444,7 @@ public actor Engine {
         outstandingTakeover = sample
         outstandingIsTest = true
         diagnose(.info, "takeover", "test takeover due")
-        emit(.takeoverDue(TakeoverRequest.make(for: sample, now: now), calendarTitle: "Sample calendar"))
+        emit(.takeoverDue(TakeoverRequest.make(for: sample, now: now), calendarTitle: calendarTitle))
         publish()
     }
 

@@ -262,16 +262,20 @@ import TimeTugCore
         let before = try Data(contentsOf: file)
         let ledgerBefore = await h.engine.currentState().ledger
 
-        await h.engine.send(.testTug)
+        await h.engine.send(.testTug(title: "Host sample", calendarTitle: "Host calendar"))
         await h.waitUntil("the test takeover") { requests(h).count == 1 }
         let request = try #require(requests(h).first)
+        // The host supplies every display string; the engine adds none.
+        #expect(request.event.title == "Host sample")
+        let calendarTitles = h.emitted.get().compactMap { if case .takeoverDue(_, let title) = $0 { title } else { nil } }
+        #expect(calendarTitles == ["Host calendar"])
         #expect(request.event.sourceEventID == "test")
         #expect(request.event.calendarID == "test")
         #expect(request.event.sourceID == "test")
         #expect(request.event.start == h.clock.now().addingTimeInterval(60))
         await h.engine.send(.takeoverPresented(eventID: request.event.id, onScreen: true))
         await h.engine.send(.snooze(eventID: request.event.id, seconds: 300))
-        await h.engine.send(.testTug)
+        await h.engine.send(.testTug(title: "Host sample", calendarTitle: "Host calendar"))
         await h.waitUntil("the second test takeover") { requests(h).count == 2 }
         await h.engine.send(.join(eventID: request.event.id))
         await h.settle()
@@ -309,5 +313,54 @@ import TimeTugCore
         await h.clock.advance(by: 600)
         await h.settle()
         #expect(h.takeoverDueIDs.isEmpty)
+    }
+
+    // MARK: Review fixes
+
+    /// F1: a presented report for an event that is not outstanding (a late duplicate after close) is ignored.
+    @Test func aDuplicatePresentedAfterCloseDoesNotBlockTheNextTakeover() async throws {
+        let h = try await EngineHarness(events: [.sample(id: "a", startsIn: 600), .sample(id: "b", startsIn: 900)])
+        await started(h)
+        await h.clock.advance(by: 540)
+        await h.waitUntil("the first takeover") { h.takeoverDueIDs == ["a"] }
+        let a = try #require(await event(h, "a"))
+        await h.engine.send(.takeoverPresented(eventID: a.id, onScreen: true))
+        await h.engine.send(.takeoverClosed(eventID: a.id))
+        await h.engine.send(.takeoverPresented(eventID: a.id, onScreen: true))
+        #expect(await h.engine.currentState().takeoverVisible == false)
+        await h.clock.advance(by: 300)
+        await h.waitUntil("the second takeover") { h.takeoverDueIDs == ["a", "b"] }
+    }
+
+    /// F2: a fire held back by an outstanding takeover leaves no stale `nextTakeover` behind.
+    @Test func aFireHeldByTheGuardClearsNextTakeover() async throws {
+        let h = try await EngineHarness(events: [.sample(id: "e1", startsIn: 600)])
+        await started(h)
+        await h.engine.send(.testTug(title: "Host sample", calendarTitle: "Host calendar"))
+        #expect(await h.engine.currentState().nextTakeover?.event.sourceEventID == "e1")
+        await h.clock.advance(by: 540)
+        await h.waitUntil("the held fire") {
+            h.diagnostics.get().contains { $0.message == "takeover suppressed: overlayVisible" }
+        }
+        #expect(await h.engine.currentState().nextTakeover == nil)
+        #expect(h.takeoverDueIDs == ["test"])
+        // Closing the test tug re-arms, and the held meeting fires at once.
+        let testID = try #require(requests(h).first?.event.id)
+        await h.engine.send(.dismiss(eventID: testID))
+        await h.waitUntil("the held takeover") { h.takeoverDueIDs == ["test", "e1"] }
+    }
+
+    /// F3: the armed meeting disappearing while a takeover is outstanding is still withdrawn, exactly once.
+    @Test func withdrawalIsReportedWhileATakeoverIsOutstanding() async throws {
+        let h = try await EngineHarness(events: [.sample(id: "e1", startsIn: 600)])
+        await started(h)
+        let e1 = try #require(await event(h, "e1"))
+        await h.engine.send(.testTug(title: "Host sample", calendarTitle: "Host calendar"))
+        h.source().setEvents([])
+        await h.engine.send(.refresh)
+        await h.waitUntil("the withdrawal") { withdrawnIDs(h) == [e1.id] }
+        await h.engine.send(.refresh)
+        await h.settle()
+        #expect(withdrawnIDs(h) == [e1.id])
     }
 }

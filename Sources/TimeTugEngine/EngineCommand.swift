@@ -23,7 +23,8 @@ public enum EngineCommand: Sendable {
     case join(eventID: String)
     case snooze(eventID: String, seconds: TimeInterval)
     case dismiss(eventID: String)
-    case testTug
+    /// Settings' "Test tug": a sample takeover. The host supplies the display strings (the engine produces none).
+    case testTug(title: String, calendarTitle: String)
     case merge(TimeTugCalendarEvent, TimeTugCalendarEvent)
     case unmerge(TimeTugCalendarEvent)
     case separate(TimeTugCalendarEvent, members: [MergedMember])

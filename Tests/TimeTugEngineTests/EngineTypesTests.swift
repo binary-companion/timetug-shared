@@ -35,7 +35,7 @@ import TimeTugCore
             .applySettings { $0.inferenceEnabled = true }, .settingsChangedExternally,
             .setCountdownVisible(true), .takeoverPresented(eventID: "e1", onScreen: false),
             .takeoverClosed(eventID: "e1"), .join(eventID: "e1"), .snooze(eventID: "e1", seconds: 60),
-            .dismiss(eventID: "e1"), .testTug, .merge(e, e), .unmerge(e), .separate(e, members: []),
+            .dismiss(eventID: "e1"), .testTug(title: "Sample", calendarTitle: "Calendar"), .merge(e, e), .unmerge(e), .separate(e, members: []),
             .forgetCorrections, .system(.wake), .system(.networkReturned), .stop,
         ]
         #expect(commands.count == 22)
