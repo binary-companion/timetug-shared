@@ -37,6 +37,7 @@ public actor Engine {
     private var accountStatus = AccountManager.Status.empty
     private var inferenceStatus = InferenceStatus.disabled
     private var lastSavedDedupState: DedupState?
+    private var availableAccountKinds: [AccountKindInfo] = []
 
     // Takeover scheduling
     private var nextTakeover: ScheduledTakeover?
@@ -65,7 +66,7 @@ public actor Engine {
     private var countdownVisible = false
     /// Delivers the account manager's status changes in order.
     private let statusTask: Task<Void, Never>
-    private let statusContinuation: AsyncStream<AccountManager.Status>.Continuation
+    private let statusContinuation: AsyncStream<AccountMessage>.Continuation
     private var stopped = false
     /// The running sign-in (add or reauthorize); `cancelAuthorization` cancels it.
     private var authTask: Task<Void, Never>?
@@ -100,7 +101,7 @@ public actor Engine {
         let registry = host.registry, credentials = host.credentials
         let syncState = FileSyncStateStore(url: host.dataDirectory.appendingPathComponent("sync-state.json"))
         let systemSource = host.buildSystemSource
-        let (statusStream, statusContinuation) = AsyncStream.makeStream(of: AccountManager.Status.self)
+        let (statusStream, statusContinuation) = AsyncStream.makeStream(of: AccountMessage.self)
         self.statusContinuation = statusContinuation
         let reconciler = SourceReconciler(
             buildAccount: { connection in
@@ -118,19 +119,33 @@ public actor Engine {
             settings: { await ref.engine?.effectiveAccountSettings() ?? EngineSettings(systemCalendarEnabled: false) },
             applySources: { sources in await ref.engine?.applySources(sources) },
             updateSettings: { change in await ref.engine?.updateSettings(change) },
-            onStatusChange: { status in statusContinuation.yield(status) })
+            onStatusChange: { status in statusContinuation.yield(.status(status)) },
+            diagnostics: { diagnostic in statusContinuation.yield(.diagnostic(diagnostic)) })
+        availableAccountKinds = AccountManager.kindInfos(registry: host.registry, unconfigured: host.unconfiguredKindIDs)
 
         statusTask = Task {
-            for await status in statusStream { await ref.engine?.accountStatusChanged(status) }
+            for await message in statusStream {
+                switch message {
+                case .status(let status): await ref.engine?.accountStatusChanged(status)
+                case .diagnostic(let diagnostic): await ref.engine?.forward(diagnostic)
+                }
+            }
         }
         state = EngineState.empty
         state.settings = settings
         ref.engine = self
     }
 
+    /// Dropping the engine without `.stop` still ends every task it started (sleeps, listeners, sign-in).
     deinit {
         statusTask.cancel()
         statusContinuation.finish()
+        periodicTask?.cancel()
+        fireTask?.cancel()
+        resolveTask?.cancel()
+        tickTask?.cancel()
+        authTask?.cancel()
+        reconciler.cancelAll()
     }
 
     // MARK: - Public API
@@ -281,6 +296,12 @@ public actor Engine {
         await task.value
         authTask = nil
         await accountsChanged()
+    }
+
+    /// An account manager diagnostic: to the host sink and, as `.diagnostic`, to `events`.
+    private func forward(_ diagnostic: EngineDiagnostic) {
+        host.diagnostics(diagnostic)
+        emit(.diagnostic(diagnostic))
     }
 
     /// Sign-in progress and every other account status change: a new revision over the same snapshot.
@@ -603,8 +624,9 @@ public actor Engine {
         if settings.inferenceEnabled != old.inferenceEnabled { await setInference(settings.inferenceEnabled) }
         // Without a host system source the account manager always sees the switch off; nothing to rebuild.
         if settings.systemCalendarEnabled != old.systemCalendarEnabled, host.buildSystemSource != nil {
-            // The account manager's own settings write is a no-op: the value is already stored.
-            await accountManager.setSystemCalendarEnabled(settings.systemCalendarEnabled)
+            // The value is already stored; the account manager re-reads the engine's settings when it rebuilds, so
+            // an external change that lands meanwhile wins and nothing stale is written back.
+            await accountManager.systemCalendarSettingChanged()
             await accountsChanged()
         }
     }
@@ -695,7 +717,7 @@ public actor Engine {
             statuses: snapshot.statuses, notices: snapshot.notices, sourceNames: snapshot.sourceNames,
             candidates: snapshot.candidates, accounts: accountStatus.accounts, accountStatus: accountStatus,
             settings: settings, inferenceStatus: inferenceStatus, ledger: ledger, nextTakeover: nextTakeover,
-            takeoverVisible: takeoverVisible)
+            takeoverVisible: takeoverVisible, availableAccountKinds: availableAccountKinds)
         for continuation in stateContinuations.values { continuation.yield(state) }
         armTick()
     }
@@ -727,6 +749,12 @@ public actor Engine {
         host.diagnostics(diagnostic)
         emit(.diagnostic(diagnostic))
     }
+}
+
+/// What the account manager reports to the engine, in order.
+private enum AccountMessage: Sendable {
+    case status(AccountManager.Status)
+    case diagnostic(EngineDiagnostic)
 }
 
 /// Lets the engine's helpers, built in `init` before `self` exists, call back into it without a retain cycle.

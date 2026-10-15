@@ -39,6 +39,7 @@ public actor AccountManager {
     private let updateSettings: @Sendable (@Sendable (inout EngineSettings) -> Void) async -> Void
     private let applySources: @Sendable ([any TimeTugCore.CalendarSource]) async -> Void
     private let onStatusChange: @Sendable (Status) -> Void
+    private let diagnose: EngineDiagnosticSink
     /// Every change (accounts, `isWorking`, `errorMessage`, `buildFailures`, `waitingStyle`) is reported through
     /// `onStatusChange`, so a front end can show sign-in progress while it runs.
     private var current = Status() {
@@ -55,7 +56,8 @@ public actor AccountManager {
         settings: @escaping @Sendable () async -> EngineSettings,
         applySources: @escaping @Sendable ([any TimeTugCore.CalendarSource]) async -> Void,
         updateSettings: @escaping @Sendable (@Sendable (inout EngineSettings) -> Void) async -> Void,
-        onStatusChange: @escaping @Sendable (Status) -> Void = { _ in }
+        onStatusChange: @escaping @Sendable (Status) -> Void = { _ in },
+        diagnostics: EngineDiagnosticSink? = nil
     ) {
         self.host = host
         self.reconciler = reconciler
@@ -65,12 +67,38 @@ public actor AccountManager {
         self.applySources = applySources
         self.updateSettings = updateSettings
         self.onStatusChange = onStatusChange
+        self.diagnose = diagnostics ?? host.diagnostics
     }
 
     public func status() -> Status { current }
 
     /// Account kinds offered by "add" (system-permission kinds are a switch, not an account). "Other CalDAV" goes last.
     public func availableKindIDs() -> [String] { availableKinds().map(\.id) }
+
+    /// The "add account" choices: the registry's kinds for this platform (system kinds excluded) plus the
+    /// `unconfigured` kind ids, which are listed with `isConfigured` false; sorted by id with CalDAV last.
+    static func kindInfos(registry: ConnectorRegistry, unconfigured: [String]) -> [AccountKindInfo] {
+        var infos: [String: AccountKindInfo] = [:]
+        for kind in availableKinds(in: registry) {
+            let authorization: AccountKindInfo.Authorization
+            switch kind.authorization {
+            case .oauth: authorization = .oauth
+            case .password: authorization = .password
+            case .system: authorization = .system
+            }
+            infos[kind.id] = AccountKindInfo(
+                id: kind.id, displayName: kind.displayName, authorization: authorization, isConfigured: true)
+        }
+        for id in unconfigured {
+            if infos[id] != nil { infos[id]?.isConfigured = false; continue }
+            if case .system? = registry.kind(id: id)?.authorization { continue }
+            // The engine has no name for a kind this build did not register; the host may localize it by id.
+            let name = registry.kind(id: id)?.displayName ?? (id.prefix(1).uppercased() + id.dropFirst())
+            infos[id] = AccountKindInfo(id: id, displayName: name, authorization: .oauth, isConfigured: false)
+        }
+        let sorted = infos.values.sorted { $0.id < $1.id }
+        return sorted.filter { $0.id != "caldav" } + sorted.filter { $0.id == "caldav" }
+    }
 
     /// The key of this account's status in `CalendarSnapshot.statuses`.
     public func statusKey(for connection: Connection) -> String {
@@ -94,7 +122,11 @@ public actor AccountManager {
     }
 
     public func addAccount(kindID: String) async {
-        guard !current.isWorking, let kind = host.registry.kind(id: kindID) else { return }
+        guard !current.isWorking else { return }
+        guard let kind = host.registry.kind(id: kindID) else {
+            invalidCommand("Unknown account type.", "addAccount: unknown account type \(kindID)")
+            return
+        }
         current.isWorking = true
         current.errorMessage = nil
         defer { current.isWorking = false }
@@ -189,7 +221,10 @@ public actor AccountManager {
     /// goes first, the source is then stopped through the reconciler, the calendar selections are forgotten, and
     /// secrets and sync state are deleted last, best effort.
     public func removeAccount(connectionID: ConnectionID) async {
-        guard let connection = current.accounts.first(where: { $0.connectionID == connectionID }) else { return }
+        guard let connection = current.accounts.first(where: { $0.connectionID == connectionID }) else {
+            invalidCommand("That account no longer exists.", "removeAccount: no account \(connectionID)")
+            return
+        }
         guard removing.insert(connectionID).inserted else { return }
         defer { removing.remove(connectionID) }
         let sourceID = statusKey(for: connection)
@@ -204,8 +239,14 @@ public actor AccountManager {
     }
 
     public func reauthorize(connectionID: ConnectionID) async {
-        guard let connection = current.accounts.first(where: { $0.connectionID == connectionID }),
-              let kind = host.registry.kind(id: connection.kindID) else { return }
+        guard let connection = current.accounts.first(where: { $0.connectionID == connectionID }) else {
+            invalidCommand("That account no longer exists.", "reauthorizeAccount: no account \(connectionID)")
+            return
+        }
+        guard let kind = host.registry.kind(id: connection.kindID) else {
+            invalidCommand("Unknown account type.", "reauthorizeAccount: unknown account type \(connection.kindID)")
+            return
+        }
         guard !removing.contains(connectionID) else {
             current.errorMessage = "That account is being removed."
             return
@@ -247,6 +288,19 @@ public actor AccountManager {
         await reconcileAndApply()
     }
 
+    /// The engine's own settings already hold the new value: requests access when it is on, then rebuilds the
+    /// sources from `settings()` as they are now, so a later external change is never overwritten.
+    func systemCalendarSettingChanged() async {
+        if await settings().systemCalendarEnabled { await host.requestSystemAccess?() }
+        await reconcileAndApply()
+    }
+
+    /// A command naming an account or account type that does not exist: shown to the user and diagnosed (ids only).
+    private func invalidCommand(_ message: String, _ diagnostic: String) {
+        current.errorMessage = message
+        diagnose(EngineDiagnostic(level: .warning, category: "accounts", message: diagnostic))
+    }
+
     public func stop() async {
         authTask?.cancel()
         await reconciler.stop()
@@ -266,7 +320,7 @@ public actor AccountManager {
         }
         sourceIDs = ids
         for (id, message) in update.failures {
-            host.diagnostics(EngineDiagnostic(level: .warning, category: "accounts", message: "source for \(id) failed: \(message)"))
+            diagnose(EngineDiagnostic(level: .warning, category: "accounts", message: "source for \(id) failed: \(message)"))
         }
         await applySources(update.sources)
     }
@@ -283,8 +337,10 @@ public actor AccountManager {
         }
     }
 
-    private func availableKinds() -> [any ConnectorKind] {
-        let kinds = host.registry.kinds(for: .current).filter { if case .system = $0.authorization { false } else { true } }
+    private func availableKinds() -> [any ConnectorKind] { Self.availableKinds(in: host.registry) }
+
+    private static func availableKinds(in registry: ConnectorRegistry) -> [any ConnectorKind] {
+        let kinds = registry.kinds(for: .current).filter { if case .system = $0.authorization { false } else { true } }
         return kinds.filter { $0.id != "caldav" } + kinds.filter { $0.id == "caldav" }
     }
 

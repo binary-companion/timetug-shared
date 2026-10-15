@@ -36,11 +36,16 @@ final class ScriptedSource: CalendarCore.CalendarSource, @unchecked Sendable {
     private let script: LockedBox<Script>
     private let stream: AsyncStream<CalendarChange>
     private let continuation: AsyncStream<CalendarChange>.Continuation
+    private let terminated = LockedBox(false)
+    /// True once the change listener stopped consuming (cancelled or dropped).
+    var listenerEnded: Bool { terminated.get() }
 
     init(id: String, events: [CalendarCore.CalendarEvent], failure: CalendarCore.SourceError? = nil) {
         self.id = id
         script = LockedBox(Script(events: events, failure: failure))
         (stream, continuation) = AsyncStream.makeStream(of: CalendarChange.self)
+        let terminated = terminated
+        continuation.onTermination = { _ in terminated.set(true) }
     }
 
     var eventsCalls: Int { script.get().eventsCalls }
@@ -112,7 +117,8 @@ struct EngineHarness {
         failures: [String: CalendarCore.SourceError] = [:], directory: URL? = nil,
         textGenerator: (any TextGenerator)? = nil, inferenceEnabled: Bool = false,
         systemSource: (any TimeTugCore.CalendarSource)? = nil, sourceIDs: [String: String] = [:],
-        clockStart: Date = EngineHarness.epoch, hostSettings: (any SettingsStorage)? = nil
+        clockStart: Date = EngineHarness.epoch, hostSettings: (any SettingsStorage)? = nil,
+        systemAccessGate: Gate? = nil, extraKinds: [FakeConnectorKind] = [], unconfiguredKindIDs: [String] = []
     ) async throws {
         var all = accounts
         if all["c1"] == nil { all["c1"] = events }
@@ -146,6 +152,7 @@ struct EngineHarness {
         }
         var registry = ConnectorRegistry()
         registry.register(kind)
+        for extra in extraKinds { registry.register(extra) }
         let signIn = FakeSignIn()
         let diagnostics = diagnostics
         let hostCalendar = LockedBox(Self.utc)
@@ -155,8 +162,12 @@ struct EngineHarness {
         let host = EngineHost(
             dataDirectory: dir, settings: hostSettings ?? settings, credentials: InMemoryCredentialStore(), interaction: signIn,
             signIn: signIn, registry: registry,
+            unconfiguredKindIDs: unconfiguredKindIDs,
             buildSystemSource: systemSource.map { source in { @Sendable in source } },
-            requestSystemAccess: systemSource == nil ? nil : { @Sendable in systemAccessRequests.mutate { $0 += 1 } },
+            requestSystemAccess: systemSource == nil ? nil : { @Sendable in
+                systemAccessRequests.mutate { $0 += 1 }
+                await systemAccessGate?.wait()
+            },
             textGenerator: textGenerator,
             diagnostics: { event in diagnostics.mutate { $0.append(event) } },
             clock: clock, calendar: { hostCalendar.get() })
