@@ -86,10 +86,13 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           swift test --force-resolved-versions 2>&1 | Tee-Object -FilePath test.log
           $swiftExit = $LASTEXITCODE
+          # With the native-command preference above PowerShell normally throws first; this explicit
+          # check is the guard that does not depend on that preference.
           if ($swiftExit -ne 0) {
             Write-Host "::error::swift test exited with code $swiftExit"
             exit $swiftExit
           }
+          python --version
           python scripts/ci/count-swift-tests.py test.log --minimum 280 --minimum-runs 2
           exit $LASTEXITCODE
 
@@ -110,10 +113,13 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           swift test --force-resolved-versions 2>&1 | Tee-Object -FilePath test.log
           $swiftExit = $LASTEXITCODE
+          # With the native-command preference above PowerShell normally throws first; this explicit
+          # check is the guard that does not depend on that preference.
           if ($swiftExit -ne 0) {
             Write-Host "::error::swift test exited with code $swiftExit"
             exit $swiftExit
           }
+          python --version
           python scripts/ci/count-swift-tests.py test.log --minimum 280 --minimum-runs 2
           exit $LASTEXITCODE
 
