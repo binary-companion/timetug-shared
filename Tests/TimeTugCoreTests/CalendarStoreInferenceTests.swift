@@ -222,15 +222,16 @@ private actor GatedAdjudicator: DuplicateAdjudicator {
 }
 
 @Test func disablingInferenceDiscardsAnInFlightVerdict() async {
-    let engine = SlowAdjudicator()
+    let engine = GatedAdjudicator()
     let source = FakeSource()
     await source.set(events: .success([doctor, official]))
     let store = CalendarStore(sources: [source], calendar: utcCalendar, adjudicator: engine)
     _ = await store.setInferenceEnabled(true, now: now)
     _ = await store.refresh(now: now, leadTime: 60)
     let pending = Task { await store.resolvePending(now: now) }
-    try? await Task.sleep(nanoseconds: 10_000_000)
+    await engine.waitUntilStarted()
     _ = await store.setInferenceEnabled(false, now: now)
+    await engine.release()
     #expect(await pending.value == nil)
     #expect(await store.state().verdicts.entries.isEmpty)
     #expect(await store.setInferenceEnabled(true, now: now).events.count == 2)
