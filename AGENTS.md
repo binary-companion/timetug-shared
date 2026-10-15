@@ -16,7 +16,7 @@ Dependency direction: `calendar-connectors` <- `timetug-shared` <- the apps.
 ## Rules
 
 - Core never reads the clock (`now: Date` is passed in); the architecture check enforces it. Test each behaviour with Swift Testing, failing test first.
-- Allowed imports: Core `Foundation CalendarCore TimeTugCore Testing`; Bridge adds nothing else. `scripts/ci/check-architecture.sh` enforces it.
+- Allowed imports: Core `Foundation CalendarCore TimeTugCore Testing`; Bridge adds nothing else; Engine `Foundation CalendarCore TimeTugCore CalendarBridge TimeTugEngine Testing` (portable, no AppKit/Combine/OSLog). `scripts/ci/check-architecture.sh` enforces it.
 - `Package.resolved` is changed only by `scripts/ci/bump-resolved.py` (the bump workflow) or by `swift package update` in a reviewed pull request.
 
 ## Verify

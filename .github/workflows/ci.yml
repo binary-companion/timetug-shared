@@ -96,7 +96,7 @@ jobs:
             exit $swiftExit
           }
           python --version
-          python scripts/ci/count-swift-tests.py test.log --minimum 280 --minimum-runs 2 --minimum-per-run 1
+          python scripts/ci/count-swift-tests.py test.log --minimum 284 --minimum-runs 3 --minimum-per-run 1
           exit $LASTEXITCODE
 
   windows-arm64:
@@ -123,7 +123,7 @@ jobs:
             exit $swiftExit
           }
           python --version
-          python scripts/ci/count-swift-tests.py test.log --minimum 280 --minimum-runs 2 --minimum-per-run 1
+          python scripts/ci/count-swift-tests.py test.log --minimum 284 --minimum-runs 3 --minimum-per-run 1
           exit $LASTEXITCODE
 
   architecture:
