@@ -170,14 +170,14 @@ import TimeTugCore
     @Test func wakeThreeHoursLatePresentsOnceAndNeverForAnEndedEvent() async throws {
         let h = try await EngineHarness(events: [
             .sample(id: "ended", startsIn: 600, duration: 1800),
-            .sample(id: "long", startsIn: 600, duration: 5 * 3600),
+            .sample(id: "long", startsIn: 600, duration: 5 * 3600.0),
         ])
         await started(h)
-        await h.clock.advance(by: 3 * 3600)
+        await h.clock.advance(by: 3 * 3600.0)
         await h.waitUntil("the late takeover") { h.takeoverDueIDs == ["long"] }
         // The host's wake handling refreshes; doing it twice must not present again.
-        await h.engine.send(.refresh)
-        await h.engine.send(.refresh)
+        await h.engine.send(EngineCommand.refresh)
+        await h.engine.send(EngineCommand.refresh)
         await h.clock.advance(by: 0)
         await h.settle()
         #expect(h.takeoverDueIDs == ["long"])

@@ -30,8 +30,8 @@ import TimeTugCore
         #expect(state.settings.takeover.leadTime == 300)
         #expect(state.nextTakeover?.fireAt == EngineHarness.epoch.addingTimeInterval(3300))
         // Scenario 8: a settings change emits a widget snapshot built with the new settings.
-        await h.waitUntil("the widget snapshot") { h.widgetSnapshots.count == widgets + 1 }
-        #expect(h.widgetSnapshots.last == expectedWidget(state, h))
+        // At least one more widget snapshot; the last one is built with the new settings.
+        await h.waitUntil("the widget snapshot") { h.widgetSnapshots.count > widgets && h.widgetSnapshots.last == expectedWidget(state, h) }
 
         // No change, no write.
         await h.engine.send(.applySettings { $0.takeover.leadTime = 300 })
@@ -55,8 +55,7 @@ import TimeTugCore
         #expect(state.revision > before.revision)
         #expect(state.nextTakeover?.fireAt == EngineHarness.epoch.addingTimeInterval(3300))
         #expect(h.settings.saved.count == saved)
-        await h.waitUntil("the widget snapshot") { h.widgetSnapshots.count == widgets + 1 }
-        #expect(h.widgetSnapshots.last == expectedWidget(state, h))
+        await h.waitUntil("the widget snapshot") { h.widgetSnapshots.count > widgets && h.widgetSnapshots.last == expectedWidget(state, h) }
 
         // Nothing changed since: no publish.
         await h.engine.send(.settingsChangedExternally)

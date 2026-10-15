@@ -13,9 +13,12 @@ import TimeTugCore
         #expect(state.agenda.next?.sourceEventID == "e1")
         #expect(state.revision > 0)
         #expect(state.accounts.map(\.connectionID) == ["c1"])
-        // A new subscriber receives the current state first.
+        // A new subscriber receives the current state first. Status and tick publications may still land after
+        // `state` was read, so the first value lies between that state and the engine's current one.
         var states = await h.engine.states.makeAsyncIterator()
-        #expect(await states.next()?.revision == state.revision)
+        let current = await h.engine.currentState().revision
+        let first = try #require(await states.next()?.revision)
+        #expect(first >= state.revision && first <= current)
     }
 
     @Test func sourceSignalRefreshesOnlyThatSourceAndABurstCausesOneFollowUp() async throws {
@@ -94,12 +97,15 @@ import TimeTugCore
         #expect(afterA.revision == afterB.revision)
         #expect(afterA.events.map(\.sourceEventID) == ["new"])
 
-        await h.settle()
+        // The stream keeps only the newest state, so a lagging consumer may skip revisions: wait until it has
+        // seen the engine's current one, then check that whatever it saw only ever increased.
+        let final = await h.engine.currentState().revision
+        await h.waitUntil("the observer to reach revision \(final)") { observed.get().last == final }
         observer.cancel()
         let revisions = observed.get()
         #expect(!revisions.isEmpty)
         #expect(zip(revisions, revisions.dropFirst()).allSatisfy { $0 < $1 })
-        #expect(revisions.last == afterA.revision)
+        #expect(final == afterA.revision)
     }
 
     @Test func launchAcknowledgementMarksMeetingsUnderwayBeforeTheGrace() async throws {

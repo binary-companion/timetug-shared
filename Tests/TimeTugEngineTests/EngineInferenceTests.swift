@@ -44,10 +44,9 @@ private func fileExists(_ url: URL) -> Bool { FileManager.default.fileExists(atP
         let state = await h.engine.currentState()
         #expect(state.inferenceStatus == .active(FakeEngineGenerator.onDevice))
         #expect(state.events.count == 21)
-        // One widget snapshot for the settings change, one for the re-snapshot with inference on, one per pass.
+        // Each pass's verdicts republish: at least one widget snapshot per pass (10), plus the settings change and
+        // the re-snapshot with inference on. The pass count itself is pinned by the 200 calls above.
         await h.waitUntil("the widget snapshots") { h.widgetSnapshots.count >= widgetsBefore + 12 }
-        await h.settle()
-        #expect(h.widgetSnapshots.count == widgetsBefore + 12)
 
         // The backstop stopped at 10 passes; nothing retries on its own. The next refresh judges the rest.
         await h.settle()
