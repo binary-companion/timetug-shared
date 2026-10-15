@@ -63,6 +63,9 @@ final class ManualClock: EngineClock, @unchecked Sendable {
         }
     }
 
+    /// Synchronous variant for code that must move time from inside a non-async callback.
+    func advanceNow(by interval: TimeInterval) { moveForward(by: interval) }
+
     func advance(by interval: TimeInterval) async {
         moveForward(by: interval)
         for _ in 0..<3 { await Task.yield() }
