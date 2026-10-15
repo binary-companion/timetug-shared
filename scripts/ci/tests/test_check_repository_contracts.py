@@ -22,6 +22,18 @@ jobs:
       - run: echo release
 '''
 
+BUMP = '''name: Bump dependencies
+on:
+  repository_dispatch:
+    types: [library-released]
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    environment: bump
+    steps:
+      - run: echo "${{ secrets.BUMP_APP_PRIVATE_KEY }}"
+'''
+
 ACTION = '''name: setup
 runs:
   using: composite
@@ -36,6 +48,7 @@ def make(root: Path, **overrides):
         'Sources/CalendarBridge/A.swift': 'import Foundation\nimport TimeTugCore\n',
         '.github/workflows/ci.yml': CI,
         '.github/workflows/release.yml': RELEASE,
+        '.github/workflows/bump-dependencies.yml': BUMP,
     }
     files.update(overrides)
     for name, text in files.items():
@@ -59,6 +72,37 @@ class Contracts(unittest.TestCase):
 
     def test_clean_fixture_passes(self):
         self.check(True)
+
+    # --- the bump workflow: documented, and its secrets stay inside the bump environment ---
+
+    def test_a_missing_bump_workflow_fails(self):
+        self.check(False, 'missing documented path: .github/workflows/bump-dependencies.yml', **{
+            '.github/workflows/bump-dependencies.yml': None})
+
+    def test_the_bump_key_outside_an_environment_fails(self):
+        self.check(False, 'BUMP_APP_PRIVATE_KEY', **{
+            '.github/workflows/bump-dependencies.yml': BUMP.replace('    environment: bump\n', '')})
+
+    def test_the_bump_key_in_the_ci_workflow_fails(self):
+        self.check(False, 'BUMP_APP_PRIVATE_KEY', **{
+            '.github/workflows/ci.yml': CI.replace('DOCKERHUB_TOKEN', 'BUMP_APP_PRIVATE_KEY')})
+
+    def test_the_real_workflows_pass_and_lose_the_environment_loudly(self):
+        workflows = Path(__file__).resolve().parents[3] / '.github' / 'workflows'
+        real = {f'.github/workflows/{w.name}': w.read_text() for w in workflows.glob('*.yml')}
+        self.check(True, **real)
+        bump = real['.github/workflows/bump-dependencies.yml']
+        self.assertIn('    environment: bump\n', bump)
+        self.check(False, 'BUMP_APP_PRIVATE_KEY', **{
+            **real, '.github/workflows/bump-dependencies.yml': bump.replace('    environment: bump\n', '', 1)})
+
+    def test_the_ci_workflow_runs_the_bump_tests(self):
+        # Nothing else notices if the architecture job stops running the bump script's and workflow's tests.
+        import yaml
+        ci = yaml.safe_load((Path(__file__).resolve().parents[3] / '.github' / 'workflows' / 'ci.yml').read_text())
+        runs = '\n'.join(step.get('run', '') for step in ci['jobs']['architecture']['steps'])
+        self.assertIn('scripts/ci/tests/test-bump-workflow-step.sh', runs)
+        self.assertIn("unittest discover -s scripts/ci/tests -p 'test_*.py'", runs)
 
     def test_pull_request_target_fails(self):
         self.check(False, 'pull_request_target', **{
