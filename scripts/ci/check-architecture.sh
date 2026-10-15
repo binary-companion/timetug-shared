@@ -26,6 +26,8 @@ only() {
 only TimeTugCore "Foundation CalendarCore TimeTugCore Testing" Sources/TimeTugCore Tests/TimeTugCoreTests
 # The bridge is minimal glue between Core and the library.
 only CalendarBridge "Foundation TimeTugCore CalendarCore CalendarBridge Testing" Sources/CalendarBridge Tests/CalendarBridgeTests
+# The engine is portable orchestration over Core, the bridge and the connector model.
+only TimeTugEngine "Foundation CalendarCore TimeTugCore CalendarBridge TimeTugEngine Testing" Sources/TimeTugEngine Tests/TimeTugEngineTests
 only DedupBenchmark "Foundation CalendarCore TimeTugCore" Sources/DedupBenchmark
 
 # Time is passed in: Core never reads the clock. Mark a justified exception with "architecture-check: allow".

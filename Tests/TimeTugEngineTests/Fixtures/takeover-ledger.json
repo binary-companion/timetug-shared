@@ -1,0 +1,40 @@
+{
+  "records" : {
+    "s\/a\/1800000000" : {
+      "end" : 821694600,
+      "entry" : {
+        "fired" : {
+
+        }
+      },
+      "recordedAt" : 821692200
+    },
+    "s\/b\/1800000000" : {
+      "end" : 821694600,
+      "entry" : {
+        "snoozed" : {
+          "until" : 821692500
+        }
+      },
+      "recordedAt" : 821692200
+    },
+    "sample meeting a|1800000000|1800001800" : {
+      "end" : 821694600,
+      "entry" : {
+        "fired" : {
+
+        }
+      },
+      "recordedAt" : 821692200
+    },
+    "sample meeting b|1800000000|1800001800" : {
+      "end" : 821694600,
+      "entry" : {
+        "snoozed" : {
+          "until" : 821692500
+        }
+      },
+      "recordedAt" : 821692200
+    }
+  }
+}

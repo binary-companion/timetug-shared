@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .library(name: "TimeTugCore", targets: ["TimeTugCore"]),
         .library(name: "CalendarBridge", targets: ["CalendarBridge"]),
+        .library(name: "TimeTugEngine", targets: ["TimeTugEngine"]),
     ],
     dependencies: [.package(url: "https://github.com/binary-companion/calendar-connectors", from: "1.0.0")],
     targets: [
@@ -14,6 +15,9 @@ let package = Package(
         .target(name: "CalendarBridge", dependencies: [
             "TimeTugCore",
             .product(name: "CalendarCore", package: "calendar-connectors"),
+        ]),
+        .target(name: "TimeTugEngine", dependencies: [
+            "TimeTugCore", "CalendarBridge", .product(name: "CalendarCore", package: "calendar-connectors"),
         ]),
         .executableTarget(name: "DedupBenchmark", dependencies: [
             "TimeTugCore", .product(name: "CalendarCore", package: "calendar-connectors"),
@@ -24,5 +28,8 @@ let package = Package(
         .testTarget(name: "CalendarBridgeTests", dependencies: [
             "CalendarBridge", "TimeTugCore", .product(name: "CalendarCore", package: "calendar-connectors"),
         ]),
+        .testTarget(name: "TimeTugEngineTests", dependencies: [
+            "TimeTugEngine", "TimeTugCore", "CalendarBridge", .product(name: "CalendarCore", package: "calendar-connectors"),
+        ], resources: [.copy("Fixtures")]),
     ]
 )
