@@ -1,0 +1,19 @@
+# timetug-shared
+
+The platform-neutral logic of [TimeTug](https://github.com/binary-companion/timetug): `TimeTugCore` (the calendar store, duplicate resolution, takeover scheduling, agenda and widget snapshot) and `CalendarBridge` (the adapter between the connector library and Core). Pure Swift on top of [calendar-connectors](https://github.com/binary-companion/calendar-connectors); it builds and is tested on macOS, Linux, Windows x64 and Windows ARM64.
+
+## Use
+
+```swift
+.package(url: "https://github.com/binary-companion/timetug-shared", from: "1.0.0")
+```
+
+Products: `TimeTugCore`, `CalendarBridge`. Core never reads the clock: callers pass `now: Date`.
+
+## Releases
+
+Every merge to `main` publishes a version tag (`X.Y.Z`) and a GitHub release. The pull request's `semver:major`, `semver:minor` or `semver:patch` label chooses the bump; patch is the default. Release notes record the `calendar-connectors` version the code was built and tested with. Published tags are immutable.
+
+## License
+
+MIT with the Commons Clause (no selling the software). See [LICENSE](LICENSE).

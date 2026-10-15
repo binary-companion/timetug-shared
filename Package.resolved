@@ -1,0 +1,15 @@
+{
+  "originHash" : "7b913900edd27dc4959e494a82a89ca0808a78a64f7a5ad3d7d648947c16e04b",
+  "pins" : [
+    {
+      "identity" : "calendar-connectors",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/binary-companion/calendar-connectors",
+      "state" : {
+        "revision" : "092808b0c444c26f793b924f76210589a28a359b",
+        "version" : "1.0.4"
+      }
+    }
+  ],
+  "version" : 3
+}
