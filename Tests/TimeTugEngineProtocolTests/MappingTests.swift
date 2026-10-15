@@ -184,3 +184,22 @@ import TimeTugEngine
         #expect(WireReply.parse(#"{"v":1}"#) == .result(.null))
     }
 }
+
+@Suite struct ReviewFixTests {
+    @Test func longFractionIsNilNotATrap() {
+        #expect(WireDates.date("2025-10-09T08:53:20.12345678901234567890Z") == nil)
+    }
+    @Test func impossibleCalendarDateIsNil() {
+        #expect(WireDates.date("2025-02-30T00:00:00.000Z") == nil)
+        #expect(WireDates.date("2025-04-31T00:00:00.000Z") == nil)
+        #expect(WireDates.date("2024-02-29T00:00:00.000Z") != nil)
+    }
+    @Test func numbersStayNumbers() throws {
+        let v = try JSONDecoder().decode(JSONValue.self, from: Data(#"{"a":1,"b":0,"c":true}"#.utf8))
+        #expect(v["a"] == .number(1)); #expect(v["b"] == .number(0)); #expect(v["c"] == .bool(true))
+    }
+    @Test func malformedErrorMemberIsAFailureNotASuccess() {
+        let reply = WireReply.parse(#"{"v":1,"error":"boom"}"#)
+        if case .error(let kind, _) = reply { #expect(kind == .failed) } else { Issue.record("expected error") }
+    }
+}

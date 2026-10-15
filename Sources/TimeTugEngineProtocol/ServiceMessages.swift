@@ -38,6 +38,9 @@ public enum WireReply: Equatable, Sendable {
         guard case .number(let v)? = value["v"], Int(exactly: v).map(ProtocolVersion.supported.contains) == true else {
             return .error(kind: .failed, message: "unsupported reply version")
         }
+        if let present = value["error"], !{ if case .object = present { return true } else { return false } }() {
+            return .error(kind: .failed, message: "reply error is not an object")
+        }
         if case .object(let error)? = value["error"] {
             var kind = ReplyErrorKind.failed
             if case .string(let k)? = error["kind"], let parsed = ReplyErrorKind(rawValue: k) { kind = parsed }

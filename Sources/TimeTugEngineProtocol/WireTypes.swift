@@ -34,10 +34,14 @@ public enum WireDates {
               (1...12).contains(mo), (1...31).contains(d), h < 24, mi < 60, s < 61 else { return nil }
         var fraction = 0.0
         if scalars.count > 20 {
-            guard scalars[19] == 46, scalars.count > 21, let f = num(20..<(scalars.count - 1)) else { return nil }
+            // At most nine fraction digits: more cannot matter for a Date and would overflow `num`.
+            guard scalars[19] == 46, scalars.count > 21, scalars.count <= 30,
+                  let f = num(20..<(scalars.count - 1)) else { return nil }
             fraction = Double(f) / pow(10, Double(scalars.count - 21))
         } else if scalars[19] != 90 { return nil }
         let days = daysFromCivil(y, mo, d)
+        // Reject impossible dates ("2025-02-30"): the round trip must give back the same day.
+        guard civil(fromDays: days) == (y, mo, d) else { return nil }
         return Date(timeIntervalSince1970: Double(days * 86_400 + Int64(h * 3600 + mi * 60 + s)) + fraction)
     }
 
