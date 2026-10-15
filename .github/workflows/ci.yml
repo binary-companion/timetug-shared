@@ -77,8 +77,8 @@ jobs:
           # overwrites $LASTEXITCODE (a failing swift test followed by git made a step pass in the
           # bring-up probe). So the exit code is read on the very next statement, and the step can
           # only succeed when swift test exited 0 AND the log shows enough executed tests.
-          # Floor: Core 301 + Bridge 13 + Engine 130 = 444 Swift Testing tests run on macOS and on both Windows
-          # architectures (bring-up runs); 404 is about 90 % of that, so a silently skipped target
+          # Floor: Core 301 + Bridge 13 + Engine 142 = 456 Swift Testing tests run on macOS and on both Windows
+          # architectures (bring-up runs); 416 is about 90 % of that, so a silently skipped target
           # or a zero turns the job red while normal growth needs no edit. --minimum-runs 3 is one
           # summary per test target (TimeTugCoreTests, CalendarBridgeTests, TimeTugEngineTests): it
           # also catches a vanished Bridge, whose 13 tests alone would not move the total below the floor.
@@ -96,7 +96,7 @@ jobs:
             exit $swiftExit
           }
           python --version
-          python scripts/ci/count-swift-tests.py test.log --minimum 404 --minimum-runs 3 --minimum-per-run 1
+          python scripts/ci/count-swift-tests.py test.log --minimum 416 --minimum-runs 3 --minimum-per-run 1
           exit $LASTEXITCODE
 
   windows-arm64:
@@ -123,7 +123,7 @@ jobs:
             exit $swiftExit
           }
           python --version
-          python scripts/ci/count-swift-tests.py test.log --minimum 404 --minimum-runs 3 --minimum-per-run 1
+          python scripts/ci/count-swift-tests.py test.log --minimum 416 --minimum-runs 3 --minimum-per-run 1
           exit $LASTEXITCODE
 
   architecture:

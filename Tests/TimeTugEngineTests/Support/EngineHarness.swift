@@ -104,12 +104,15 @@ struct EngineHarness {
     let engine: Engine
 
     /// `events` go to account "c1"; `accounts` maps further connection ids to their events. With `directory`,
-    /// an existing data directory is reused and `accounts.json` is left as it is.
+    /// an existing data directory is reused and `accounts.json` is left as it is. `sourceIDs` overrides a
+    /// connection's source id (default "fake-<connection id>"); `clockStart` is where the clock starts;
+    /// `hostSettings` replaces the in-memory settings the host hands the engine (`settings` is then unused).
     init(
         events: [CalendarCore.CalendarEvent] = [], accounts: [String: [CalendarCore.CalendarEvent]] = [:],
         failures: [String: CalendarCore.SourceError] = [:], directory: URL? = nil,
         textGenerator: (any TextGenerator)? = nil, inferenceEnabled: Bool = false,
-        systemSource: (any TimeTugCore.CalendarSource)? = nil
+        systemSource: (any TimeTugCore.CalendarSource)? = nil, sourceIDs: [String: String] = [:],
+        clockStart: Date = EngineHarness.epoch, hostSettings: (any SettingsStorage)? = nil
     ) async throws {
         var all = accounts
         if all["c1"] == nil { all["c1"] = events }
@@ -123,13 +126,13 @@ struct EngineHarness {
         }
         var built: [String: ScriptedSource] = [:]
         for (id, list) in all {
-            built[id] = ScriptedSource(id: "fake-\(id)", events: list, failure: failures[id])
+            built[id] = ScriptedSource(id: sourceIDs[id] ?? "fake-\(id)", events: list, failure: failures[id])
         }
         sources = built
         let sources = built
-        clock = ManualClock(start: Self.epoch)
+        clock = ManualClock(start: clockStart)
         var initial = EngineSettings(systemCalendarEnabled: false)
-        initial.takeover.takeoverCalendarKeys = Set(all.keys.map { "fake-\($0)/cal" })
+        initial.takeover.takeoverCalendarKeys = Set(all.keys.map { "\(sourceIDs[$0] ?? "fake-\($0)")/cal" })
         initial.inferenceEnabled = inferenceEnabled
         settings = InMemorySettingsStorage(initial)
         diagnostics = LockedBox([])
@@ -150,7 +153,7 @@ struct EngineHarness {
         let systemAccessRequests = LockedBox(0)
         self.systemAccessRequests = systemAccessRequests
         let host = EngineHost(
-            dataDirectory: dir, settings: settings, credentials: InMemoryCredentialStore(), interaction: signIn,
+            dataDirectory: dir, settings: hostSettings ?? settings, credentials: InMemoryCredentialStore(), interaction: signIn,
             signIn: signIn, registry: registry,
             buildSystemSource: systemSource.map { source in { @Sendable in source } },
             requestSystemAccess: systemSource == nil ? nil : { @Sendable in systemAccessRequests.mutate { $0 += 1 } },
