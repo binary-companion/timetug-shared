@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Counts the tests that a `swift test` log says were executed and fails when too few ran or any failed.
-Usage: count-swift-tests.py LOG --minimum N [--minimum-runs R]
+Usage: count-swift-tests.py LOG --minimum N [--minimum-runs R] [--minimum-per-run P]
 
 The Windows jobs use it because a green job must mean "the tests ran": a skipped target or an
 unexpected zero would otherwise pass. It counts
@@ -11,6 +11,10 @@ unexpected zero would otherwise pass. It counts
 
 --minimum-runs R also requires R Swift Testing summaries (one per test target), so a target that
 vanishes is noticed even when the remaining ones keep the total above the minimum.
+
+--minimum-per-run P (default 1) requires every Swift Testing summary to report at least P tests, so a
+test target that still builds but holds no tests (`Test run with 0 tests ... passed`) is red even when
+the total stays above the floor. P 0 turns the check off.
 
 It exits 1 when the total is zero or below the minimum, when a summary reports a failure, or when
 the log cannot be read."""
@@ -26,6 +30,7 @@ parser = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
 parser.add_argument('log')
 parser.add_argument('--minimum', type=int, required=True)
 parser.add_argument('--minimum-runs', type=int, default=0)
+parser.add_argument('--minimum-per-run', type=int, default=1)
 args = parser.parse_args()
 
 try:
@@ -37,11 +42,17 @@ except OSError as problem:
 
 swift_testing = xctest = runs = 0
 problems = []
-for count, status in SWIFT_TESTING.findall(text):
+summaries = list(SWIFT_TESTING.finditer(text))
+for number, summary in enumerate(summaries, start=1):
+    count, status = summary.groups()
     swift_testing += int(count)
     runs += 1
     if status == 'failed':
         problems.append(f'a Swift Testing run of {count} tests failed')
+    if int(count) < args.minimum_per_run:
+        problems.append(f'Swift Testing run {number} of {len(summaries)} ran too few tests '
+                        f'({int(count)} < {args.minimum_per_run}): "{summary.group(0)}" '
+                        '(a test target holds no tests)')
 for status, count, failures in XCTEST.findall(text):
     xctest += int(count)
     if status == 'failed' or int(failures) > 0:

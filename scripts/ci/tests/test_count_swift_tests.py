@@ -17,10 +17,19 @@ XCTEST_EMPTY = (
 )
 CORE_PASSED = "◊ Test run started.\n\n√ Test run with 301 tests in 0 suites passed after 0.927 seconds.\n\n"
 BRIDGE_PASSED = "√ Test run with 13 tests in 0 suites passed after 0.059 seconds.\n"
+# Canary run 38702353711 (a CalendarBridgeTests target that exists but holds no tests): the windows-x64
+# and windows-arm64 logs carry this second summary, and the job stayed green on the 301 of Core.
+BRIDGE_EMPTY = (
+    "◊ Test run started.\n\n"
+    "→ Testing Library Version: 6.4 (efd8d65801f569d)\n\n"
+    "→ Target Platform: x86_64-unknown-windows-msvc\n\n"
+    "√ Test run with 0 tests in 0 suites passed after 0.001 seconds.\n\n"
+)
 CORE_FAILED = ("× Test disablingInferenceDiscardsAnInFlightVerdict() failed after 0.434 seconds with 3 issues.\n\n"
                "× Test run with 301 tests in 0 suites failed after 0.905 seconds with 3 issues.\n\n")
 REAL_PASSING = XCTEST_EMPTY + CORE_PASSED + XCTEST_EMPTY + BRIDGE_PASSED
 REAL_FAILING = XCTEST_EMPTY + CORE_FAILED + XCTEST_EMPTY + BRIDGE_PASSED
+EMPTY_BRIDGE = XCTEST_EMPTY + CORE_PASSED + XCTEST_EMPTY + BRIDGE_EMPTY
 
 def run(text, minimum='280', raw=None, *extra):
     with tempfile.TemporaryDirectory() as directory:
@@ -59,6 +68,31 @@ class CountSwiftTestsTests(unittest.TestCase):
         self.assertIn('only 1 Swift Testing run', result.stderr)
         self.assertEqual(run(REAL_PASSING, '280', None, '--minimum-runs', '2').returncode, 0)
         self.assertEqual(run(REAL_PASSING, '280', None, '--minimum-runs', '3').returncode, 1)
+
+    def test_a_run_of_zero_tests_is_red_although_the_total_is_above_the_floor(self):
+        # The canary log: 301 + 0 = 301 is above the floor of 280 and both summaries are there.
+        result = run(EMPTY_BRIDGE, '280', None, '--minimum-runs', '2')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('Executed tests: 301', result.stdout)
+        self.assertIn('Test run with 0 tests', result.stderr)
+        self.assertIn('run 2 of 2', result.stderr)
+
+    def test_the_per_run_minimum_is_on_without_an_option(self):
+        self.assertEqual(run(EMPTY_BRIDGE, '280').returncode, 1)
+        self.assertEqual(run(EMPTY_BRIDGE, '280', None, '--minimum-per-run', '1').returncode, 1)
+
+    def test_the_per_run_minimum_can_be_raised_or_turned_off(self):
+        self.assertEqual(run(REAL_PASSING, '280', None, '--minimum-per-run', '13').returncode, 0)
+        raised = run(REAL_PASSING, '280', None, '--minimum-per-run', '14')
+        self.assertEqual(raised.returncode, 1)
+        self.assertIn('Test run with 13 tests', raised.stderr)
+        self.assertEqual(run(EMPTY_BRIDGE, '280', None, '--minimum-per-run', '0').returncode, 0)
+
+    def test_every_zero_run_is_named(self):
+        text = EMPTY_BRIDGE + BRIDGE_EMPTY
+        result = run(text, '280')
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stderr.count('Test run with 0 tests'), 2)
 
     def test_no_summary_at_all_is_red(self):
         for text in ('', 'Build complete! (22.73 secs)\n', XCTEST_EMPTY):
