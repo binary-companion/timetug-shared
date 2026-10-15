@@ -11,8 +11,12 @@ public struct SystemClock: EngineClock {
     public init() {}
     public func now() -> Date { Date() }
     public func sleep(until deadline: Date) async throws {
-        let seconds = deadline.timeIntervalSinceNow
-        guard seconds > 0 else { return }
-        try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+        // Sleep in bounded chunks: converting a huge interval to nanoseconds would trap.
+        while true {
+            let seconds = deadline.timeIntervalSinceNow
+            guard seconds > 0 else { return }
+            let chunk = min(seconds, 86_400)
+            try await Task.sleep(nanoseconds: UInt64(chunk * 1_000_000_000))
+        }
     }
 }

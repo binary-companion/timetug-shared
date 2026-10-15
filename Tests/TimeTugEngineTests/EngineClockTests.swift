@@ -38,4 +38,12 @@ import Testing
         try await clock.sleep(until: start.addingTimeInterval(0.05))
         #expect(Date().timeIntervalSince(start) >= 0.04)
     }
+
+    @Test func systemClockDoesNotTrapForFarFutureDeadline() async {
+        let clock = SystemClock()
+        let task = Task { try await clock.sleep(until: .distantFuture) }
+        try? await Task.sleep(nanoseconds: 20_000_000)
+        task.cancel()
+        await #expect(throws: CancellationError.self) { try await task.value }
+    }
 }
