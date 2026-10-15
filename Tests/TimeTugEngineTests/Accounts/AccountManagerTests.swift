@@ -261,4 +261,79 @@ private let caldavFields = [
         let h = try AccountHarness(kinds: [caldav, FakeConnectorKind(), FakeConnectorKind(id: "apple", displayName: "Apple Calendar", authorization: .system)])
         #expect(await h.manager.availableKindIDs() == ["google", "caldav"])
     }
+
+    @Test func anAddDuringRemovalCannotBeWipedByTheRemovalTail() async throws {
+        let gate = Gate()
+        let h = try AccountHarness(kinds: [FakeConnectorKind()], syncGate: gate)
+        await h.manager.addAccount(kindID: "google")
+        let removal = Task { await h.manager.removeAccount(connectionID: "1") }
+        try await waitUntil { await gate.isWaiting }
+        // Removal is suspended mid-way; the same connection id signs in again.
+        await h.manager.addAccount(kindID: "google")
+        #expect(await h.manager.status().accounts.isEmpty)
+        #expect(await h.manager.status().errorMessage == "That account is being removed.")
+        await gate.open()
+        await removal.value
+        #expect(await h.manager.status().accounts.isEmpty)
+        #expect(await FileConnectionStore(url: h.accountsFile).connections().isEmpty)
+        #expect(try await h.credentials.secrets(for: "1") == nil)
+    }
+
+    @Test func reauthorizingAnAccountBeingRemovedIsRefused() async throws {
+        let gate = Gate()
+        let kind = FakeConnectorKind()
+        let h = try AccountHarness(kinds: [kind], syncGate: gate)
+        await h.manager.addAccount(kindID: "google")
+        let removal = Task { await h.manager.removeAccount(connectionID: "1") }
+        try await waitUntil { await gate.isWaiting }
+        await h.manager.reauthorize(connectionID: "1")
+        #expect(kind.reauthorized == 0)
+        await gate.open()
+        await removal.value
+        #expect(await h.manager.status().accounts.isEmpty)
+    }
+
+    @Test func aFailedSaveDuringReauthorizeLeavesMemoryOnTheOldAccount() async throws {
+        let kind = FakeConnectorKind()
+        let h = try AccountHarness(kinds: [kind])
+        await h.manager.addAccount(kindID: "google")
+        let before = await h.manager.status().accounts
+        // A directory where the file belongs makes the file unreadable, so the store refuses to write.
+        try FileManager.default.removeItem(at: h.accountsFile)
+        try FileManager.default.createDirectory(at: h.accountsFile, withIntermediateDirectories: true)
+        kind.reauthorizeResult = Connection(kindID: "google", connectionID: "1", displayName: "renamed")
+        await h.manager.reauthorize(connectionID: "1")
+        let status = await h.manager.status()
+        #expect(status.accounts == before)
+        #expect(status.errorMessage != nil)
+    }
+
+    @Test func aDifferentConnectionIDFromReauthorizeLeavesAccountsUnchanged() async throws {
+        let kind = FakeConnectorKind()
+        let h = try AccountHarness(kinds: [kind])
+        await h.manager.addAccount(kindID: "google")
+        let before = await h.manager.status().accounts
+        kind.reauthorizeResult = Connection(kindID: "google", connectionID: "other", displayName: "z@x.test")
+        await h.manager.reauthorize(connectionID: "1")
+        let status = await h.manager.status()
+        #expect(status.accounts == before)
+        #expect(status.errorMessage == "Sign-in failed: signed in as a different account.")
+        #expect(await FileConnectionStore(url: h.accountsFile).connections() == before)
+        #expect(try await h.credentials.secrets(for: "1") != nil)
+    }
+
+    @Test func aReauthorizationCancelledAsItCompletesPersistsNothing() async throws {
+        let kind = FakeConnectorKind()
+        let h = try AccountHarness(kinds: [kind])
+        await h.manager.addAccount(kindID: "google")
+        let buildsBefore = await h.reconciler.builds
+        var changed = kind.nextEmail
+        changed = "renamed"
+        kind.reauthorizeCancelsAndRenames = changed
+        await h.manager.reauthorize(connectionID: "1")
+        let status = await h.manager.status()
+        #expect(status.accounts.map(\.displayName) == ["a@x.test"])
+        #expect(await FileConnectionStore(url: h.accountsFile).connections().map(\.displayName) == ["a@x.test"])
+        #expect(await h.reconciler.builds == buildsBefore)
+    }
 }

@@ -68,6 +68,9 @@ final class FakeConnectorKind: ConnectorKind, @unchecked Sendable {
     var nextConnectionID = "1"
     var reauthorizeError: Error?
     var reauthorizeSuspends = false
+    var reauthorizeResult: Connection?
+    /// When set, reauthorize cancels the signing-in task and returns the connection renamed to this.
+    var reauthorizeCancelsAndRenames: String?
     private let lock = NSLock()
     private var _reauthorized = 0, _attempts = 0
     var reauthorized: Int { lock.withLock { _reauthorized } }
@@ -106,7 +109,13 @@ final class FakeConnectorKind: ConnectorKind, @unchecked Sendable {
         if reauthorizeSuspends { try await Task.sleep(for: .seconds(30)) }
         if let reauthorizeError { throw reauthorizeError }
         lock.withLock { _reauthorized += 1 }
-        return connection
+        if let name = reauthorizeCancelsAndRenames {
+            withUnsafeCurrentTask { $0?.cancel() }
+            var renamed = connection
+            renamed.displayName = name
+            return renamed
+        }
+        return reauthorizeResult ?? connection
     }
 
     func makeSource(for connection: Connection, credentials: any CredentialStore, syncState: any SyncStateStore) throws -> any CalendarCore.CalendarSource {
@@ -166,13 +175,31 @@ struct LoggingCredentials: CredentialStore {
     }
 }
 
+/// Suspends callers of `wait()` until `open()`; `isWaiting` says a caller has arrived.
+actor Gate {
+    private var continuation: CheckedContinuation<Void, Never>?
+    private var opened = false
+    var isWaiting: Bool { continuation != nil }
+    func wait() async {
+        if opened { return }
+        await withCheckedContinuation { continuation = $0 }
+    }
+    func open() {
+        opened = true
+        continuation?.resume()
+        continuation = nil
+    }
+}
+
 struct LoggingSyncState: SyncStateStore {
     let inner: InMemorySyncStateStore
     let log: LockedBox<[String]>
+    var gate: Gate?
     func token(for id: ConnectionID, scope: String) async -> String? { await inner.token(for: id, scope: scope) }
     func setToken(_ token: String?, for id: ConnectionID, scope: String) async { await inner.setToken(token, for: id, scope: scope) }
     func removeAll(for id: ConnectionID) async {
         log.mutate { $0.append("sync") }
+        await gate?.wait()
         await inner.removeAll(for: id)
     }
 }
@@ -192,7 +219,7 @@ struct AccountHarness {
 
     init(
         kinds: [FakeConnectorKind], passwords: [String] = [], failingRemoval: Bool = false,
-        initial: EngineSettings = EngineSettings(), directory: URL? = nil
+        initial: EngineSettings = EngineSettings(), directory: URL? = nil, syncGate: Gate? = nil
     ) throws {
         let dir = try directory ?? TempDir.make()
         self.directory = dir
@@ -212,7 +239,7 @@ struct AccountHarness {
             registry: registry, requestSystemAccess: { })
         let settings = self.settings, applied = self.applied, log = self.log
         manager = AccountManager(
-            host: host, reconciler: reconciler, syncState: LoggingSyncState(inner: syncState, log: log),
+            host: host, reconciler: reconciler, syncState: LoggingSyncState(inner: syncState, log: log, gate: syncGate),
             settings: { settings.load() },
             applySources: { sources in applied.mutate { $0.append(sources.map(\.id)) } },
             updateSettings: { change in

@@ -39,6 +39,8 @@ public actor AccountManager {
     private var current = Status()
     private var sourceIDs: [ConnectionID: String] = [:]
     private var authTask: Task<Void, Never>?
+    /// Connection ids whose removal is in flight; sign-ins that produce one are discarded, not applied.
+    private var removing: Set<ConnectionID> = []
 
     init(
         host: EngineHost, reconciler: any SourceReconciling,
@@ -96,6 +98,11 @@ public actor AccountManager {
             authorized = connection
             // A cancel that races the end of the sign-in must not leave a half-added account behind.
             try Task.checkCancellation()
+            if removing.contains(connection.connectionID) {
+                await discardSecretsIfUnowned(connection.connectionID)
+                current.errorMessage = "That account is being removed."
+                return
+            }
             if current.accounts.contains(where: { $0.kindID == connection.kindID && $0.displayName == connection.displayName }) {
                 await discardSecretsIfUnowned(connection.connectionID)
                 current.errorMessage = "\(connection.displayName) is already added."
@@ -174,6 +181,8 @@ public actor AccountManager {
     /// secrets and sync state are deleted last, best effort.
     public func removeAccount(connectionID: ConnectionID) async {
         guard let connection = current.accounts.first(where: { $0.connectionID == connectionID }) else { return }
+        guard removing.insert(connectionID).inserted else { return }
+        defer { removing.remove(connectionID) }
         let sourceID = statusKey(for: connection)
         do { try await connectionStore.remove(connectionID: connectionID) }
         catch { current.errorMessage = Self.describe(error); return }
@@ -188,6 +197,10 @@ public actor AccountManager {
     public func reauthorize(connectionID: ConnectionID) async {
         guard let connection = current.accounts.first(where: { $0.connectionID == connectionID }),
               let kind = host.registry.kind(id: connection.kindID) else { return }
+        guard !removing.contains(connectionID) else {
+            current.errorMessage = "That account is being removed."
+            return
+        }
         current.isWorking = true
         current.errorMessage = nil
         defer { current.isWorking = false }
@@ -196,8 +209,19 @@ public actor AccountManager {
             let updated = try await signIn(with: kind, prefill: connection.config) {
                 try await kind.reauthorize(connection, using: interaction, credentials: credentials)
             }
-            if let index = current.accounts.firstIndex(where: { $0.connectionID == connectionID }) { current.accounts[index] = updated }
+            try Task.checkCancellation()
+            guard updated.connectionID == connectionID else {
+                await discardSecretsIfUnowned(updated.connectionID)
+                current.errorMessage = "Sign-in failed: signed in as a different account."
+                return
+            }
+            guard !removing.contains(connectionID) else {
+                current.errorMessage = "That account is being removed."
+                return
+            }
+            // Persist first, so memory never runs ahead of the file.
             try await connectionStore.add(updated)
+            if let index = current.accounts.firstIndex(where: { $0.connectionID == connectionID }) { current.accounts[index] = updated }
             let update = await reconciler.rebuild(
                 updated, connections: current.accounts, systemCalendarEnabled: await settings().systemCalendarEnabled)
             await finish(update)
