@@ -1,0 +1,139 @@
+# Continuous integration for the library. Runs on pull requests and on every push to main.
+# The job ids are the required status checks of the Protect main ruleset; renaming one breaks every merge.
+#   macos          swift test on the whole package.
+#   linux          swift test in the swift:6.0 container: proves the library stays portable.
+#   windows-x64    swift test on windows-latest with Swift installed by scripts/ci/install-swift-windows.ps1.
+#   windows-arm64  the same on windows-11-arm.
+#   architecture   portability rules, repository contracts and the tests of the release script and workflow.
+# Every swift test runs with --force-resolved-versions, so a Package.resolved that no longer matches
+# Package.swift fails here instead of being silently re-resolved.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  macos:
+    runs-on: macos-26
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Select newest Xcode
+        run: scripts/ci/select-xcode.sh
+      - name: Test
+        run: swift test --force-resolved-versions
+
+  linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Log in to Docker Hub
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
+        run: |
+          for attempt in 1 2 3; do
+            echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin && exit 0
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 15)); fi
+          done
+          echo "::warning::Docker Hub login failed; pulling anonymously."
+      - name: Pull the Swift image
+        run: |
+          for attempt in 1 2 3; do
+            docker pull swift:6.0 && exit 0
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: Test
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work swift:6.0 swift test --force-resolved-versions
+
+  windows-x64:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install Swift
+        shell: pwsh
+        run: ./scripts/ci/install-swift-windows.ps1
+      - name: Test
+        shell: pwsh
+        run: |
+          # PowerShell does not stop at a failing native command, and a later native command
+          # overwrites $LASTEXITCODE (a failing swift test followed by git made a step pass in the
+          # bring-up probe). So the exit code is read on the very next statement, and the step can
+          # only succeed when swift test exited 0 AND the log shows enough executed tests.
+          # Floor: Core 301 + Bridge 13 = 314 Swift Testing tests run on macOS and on both Windows
+          # architectures (bring-up runs); 280 is about 90 % of that, so a silently skipped target
+          # or a zero turns the job red while normal growth needs no edit. --minimum-runs 2 is one
+          # summary per test target (TimeTugCoreTests, CalendarBridgeTests): it also catches a
+          # vanished Bridge, whose 13 tests alone would not move the total below the floor.
+          # Raise both when targets or tests are added.
+          $PSNativeCommandUseErrorActionPreference = $true
+          swift test --force-resolved-versions 2>&1 | Tee-Object -FilePath test.log
+          $swiftExit = $LASTEXITCODE
+          if ($swiftExit -ne 0) {
+            Write-Host "::error::swift test exited with code $swiftExit"
+            exit $swiftExit
+          }
+          python scripts/ci/count-swift-tests.py test.log --minimum 280 --minimum-runs 2
+          exit $LASTEXITCODE
+
+  windows-arm64:
+    runs-on: windows-11-arm
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install Swift
+        shell: pwsh
+        run: ./scripts/ci/install-swift-windows.ps1
+      - name: Test
+        shell: pwsh
+        run: |
+          # Same step as windows-x64; see the comments there for the exit code handling and the floor.
+          $PSNativeCommandUseErrorActionPreference = $true
+          swift test --force-resolved-versions 2>&1 | Tee-Object -FilePath test.log
+          $swiftExit = $LASTEXITCODE
+          if ($swiftExit -ne 0) {
+            Write-Host "::error::swift test exited with code $swiftExit"
+            exit $swiftExit
+          }
+          python scripts/ci/count-swift-tests.py test.log --minimum 280 --minimum-runs 2
+          exit $LASTEXITCODE
+
+  architecture:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install pinned test prerequisites
+        run: |
+          python3 -m venv build/venv
+          build/venv/bin/python -m pip install -r scripts/ci/requirements-test.txt
+      - name: Architecture rules
+        run: scripts/ci/check-architecture.sh
+      - name: Repository contracts
+        run: build/venv/bin/python scripts/ci/check-repository-contracts.py
+      - name: Tests of the checks and of the release script
+        run: |
+          scripts/ci/tests/test-check-architecture.sh
+          scripts/release/tests/test-next-version.sh
+          PYTHON="$PWD/build/venv/bin/python" scripts/release/tests/test-release-version-step.sh
+          build/venv/bin/python -m unittest discover -s scripts/ci/tests -p 'test_*.py'

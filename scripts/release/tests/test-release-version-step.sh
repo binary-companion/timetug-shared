@@ -78,7 +78,7 @@ check(re.search(r'for dependent in timetug;', run) is not None, "the dispatch mu
 check('gh api "repos/binary-companion/$dependent/dispatches"' in run, "the dispatch must call repos/binary-companion/$dependent/dispatches")
 fields = re.findall(r'-f\s+"?([^\s"]+)"?', run)
 check(sorted(fields) == sorted(['event_type=library-released',
-                                'client_payload[library]=calendar-connectors',
+                                'client_payload[library]=timetug-shared',
                                 'client_payload[version]=$VERSION']),
       f"the dispatch fields must be exactly event_type, client_payload[library], client_payload[version] (got {fields})")
 open(script, 'w').write(run)
@@ -92,8 +92,58 @@ chmod +x "$T/notify-bin/gh"
 NOTIFY_CALLS="$T/notify-calls"; export NOTIFY_CALLS; : > "$NOTIFY_CALLS"
 PATH="$T/notify-bin:$PATH" VERSION=1.2.3 GH_TOKEN=unused "$STEP_SHELL" "$T/notify.sh" ||
   fail "the notify dispatch step failed against the stub gh"
-[ "$(cat "$NOTIFY_CALLS")" = 'api repos/binary-companion/timetug/dispatches -f event_type=library-released -f client_payload[library]=calendar-connectors -f client_payload[version]=1.2.3' ] ||
+[ "$(cat "$NOTIFY_CALLS")" = 'api repos/binary-companion/timetug/dispatches -f event_type=library-released -f client_payload[library]=timetug-shared -f client_payload[version]=1.2.3' ] ||
   fail "the notify dispatch made the wrong call: $(cat "$NOTIFY_CALLS")"
+
+# --- the step that records the connector version in the release notes: shape, then executed ---
+"$PYTHON" - "$WORKFLOW" "$T/notes.sh" <<'PY'
+import sys, yaml
+workflow, script = sys.argv[1:]
+job = yaml.safe_load(open(workflow))['jobs']['publish']
+def check(condition, message):
+    if not condition:
+        sys.exit(f'FAIL: {workflow}: connector notes: {message}')
+steps = job['steps']
+names = [s.get('name', '') for s in steps]
+create = [i for i, n in enumerate(names) if n == 'Create the tag and the release']
+notes = [i for i, n in enumerate(names) if n.startswith('Record the connector version')]
+check(len(create) == 1 and len(notes) == 1, "publish must have one create step and one connector-version step")
+check(notes[0] == create[0] + 1, "the connector-version step must come right after the release is created")
+step = steps[notes[0]]
+check(step.get('if') == "steps.version.outputs.version != ''", "the connector-version step must run only when a version was released")
+check(step.get('env') == {'GH_TOKEN': '${{ github.token }}', 'VERSION': '${{ steps.version.outputs.version }}'},
+      "the connector-version step env must be exactly GH_TOKEN (the repository token) and VERSION (the released version)")
+check('${{' not in step['run'], "the connector-version script must not contain ${{ }}")
+check('scripts/ci/resolved-version.py Package.resolved calendar-connectors' in step['run'],
+      "the connector-version step must read the calendar-connectors pin of Package.resolved")
+open(script, 'w').write(step['run'])
+PY
+mkdir -p "$T/notes-bin" "$T/notes-ws/scripts/ci"
+cat > "$T/notes-bin/gh" <<'STUB'
+#!/usr/bin/env bash
+echo "$*" >> "$NOTES_CALLS"
+case "$*" in
+  "release view 1.2.3 --json body --jq .body") printf '%s\n' "## What's Changed" "* a change" ;;
+  "release edit 1.2.3 --notes-file "*) cp "${@: -1}" "$NOTES_RESULT" ;;
+  *) echo "stub gh: unexpected call: $*" >&2; exit 99 ;;
+esac
+STUB
+printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$PYTHON" > "$T/notes-bin/python3"
+chmod +x "$T/notes-bin/gh" "$T/notes-bin/python3"
+cp "$ROOT/scripts/ci/resolved-version.py" "$T/notes-ws/scripts/ci/"
+notes_step() { # notes_step <Package.resolved text>: sets STATUS; calls and result in $T/notes-*
+  printf '%s' "$1" > "$T/notes-ws/Package.resolved"; : > "$T/notes-calls"; rm -f "$T/notes-result"
+  STATUS=0
+  (cd "$T/notes-ws" && PATH="$T/notes-bin:$PATH" NOTES_CALLS="$T/notes-calls" NOTES_RESULT="$T/notes-result" \
+     RUNNER_TEMP="$T" GH_TOKEN=unused VERSION=1.2.3 "$STEP_SHELL" "$T/notes.sh") >/dev/null 2>"$T/notes-stderr" || STATUS=$?
+}
+notes_step '{"pins":[{"identity":"other","state":{"version":"9.9.9"}},{"identity":"calendar-connectors","state":{"revision":"abc","version":"1.0.4"}}],"version":3}'
+[ "$STATUS" = 0 ] || { cat "$T/notes-stderr" >&2; fail "connector notes: the step failed on a valid Package.resolved"; }
+[ "$(cat "$T/notes-result")" = "$(printf '%s\n' "## What's Changed" "* a change" "" "Built and tested with calendar-connectors 1.0.4.")" ] ||
+  fail "connector notes: the edited notes are wrong: $(cat "$T/notes-result")"
+notes_step '{"pins":[{"identity":"other","state":{"version":"9.9.9"}}],"version":3}'
+[ "$STATUS" != 0 ] || fail "connector notes: the step passed although Package.resolved has no calendar-connectors pin"
+[ ! -e "$T/notes-result" ] || fail "connector notes: the release was edited although the pin is missing"
 
 # --- a stub gh: logs every call, answers /commits/<sha>/pulls from $STUB/labels/<sha> ---
 mkdir -p "$T/bin"
