@@ -123,7 +123,7 @@ import TimeTugCore
         // then the held periodic refresh (gated so its publication cannot overtake the takeover) and the host's wake.
         h.source().setGated(true)
         await h.clock.advance(by: 3 * 3600.0)
-        await r.waitForTakeovers(1, h)
+        await r.waitForTakeovers(1, h, settle: false)
         await h.waitUntil("the periodic refresh at the gate") { await h.source().gate.waiting == 1 }
         h.source().setGated(false)
         await h.source().gate.releaseAll()

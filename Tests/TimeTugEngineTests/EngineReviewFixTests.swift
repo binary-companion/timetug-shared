@@ -75,8 +75,8 @@ import TimeTugCore
             #expect(!source.listenerEnded)
             weakEngine = h.engine
         }
-        for _ in 0..<50_000 where weakEngine != nil || clock.pendingSleeps > 0 || !source.listenerEnded {
-            await Task.yield()
+        await poll("the engine and its tasks to end") {
+            weakEngine == nil && clock.pendingSleeps == 0 && source.listenerEnded
         }
         #expect(weakEngine == nil)
         #expect(clock.pendingSleeps == 0)

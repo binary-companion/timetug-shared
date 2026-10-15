@@ -117,7 +117,7 @@ private func make(_ generator: FakeTextGenerator, clock: ManualClock? = nil,
         let gen = FakeTextGenerator([.hang, .answer("same")])
         let adjudicator = make(gen)
         let task = Task { await adjudicator.judge([request("1"), request("2")]) }
-        while gen.calls.get() == 0 { await Task.yield() }
+        await poll("the first generate call") { gen.calls.get() > 0 }
         task.cancel()
         let verdicts = await task.value
         #expect(verdicts.isEmpty)

@@ -15,10 +15,13 @@ final class ManualClock: EngineClock, @unchecked Sendable {
     private var waiters: [Waiter] = []
     /// Ids cancelled before their continuation was registered.
     private var cancelledEarly: Set<UUID> = []
+    private var resumed = 0
 
     init(start: Date) { current = start }
 
     var pendingSleeps: Int { lock.withLock { waiters.count } }
+    /// Sleeps that returned normally (deadline reached), as opposed to cancelled ones.
+    var resumedSleeps: Int { lock.withLock { resumed } }
 
     func now() -> Date { lock.withLock { current } }
 
@@ -26,7 +29,10 @@ final class ManualClock: EngineClock, @unchecked Sendable {
     private func register(id: UUID, deadline: Date, continuation: CheckedContinuation<Void, Error>) {
         let action: (() -> Void)? = lock.withLock {
             if cancelledEarly.remove(id) != nil { return { continuation.resume(throwing: CancellationError()) } }
-            if deadline <= current { return { continuation.resume() } }
+            if deadline <= current {
+                resumed += 1
+                return { continuation.resume() }
+            }
             waiters.append(Waiter(id: id, deadline: deadline, continuation: continuation))
             return nil
         }
@@ -47,6 +53,7 @@ final class ManualClock: EngineClock, @unchecked Sendable {
             current = current.addingTimeInterval(interval)
             let due = waiters.filter { $0.deadline <= current }
             waiters.removeAll { $0.deadline <= current }
+            resumed += due.count
             return due
         }
         for waiter in due { waiter.continuation.resume() }
@@ -72,10 +79,6 @@ final class ManualClock: EngineClock, @unchecked Sendable {
     }
 
     func waitForSleepers(_ count: Int) async {
-        for _ in 0..<10_000 {
-            if pendingSleeps >= count { return }
-            await Task.yield()
-        }
-        Issue.record("timed out waiting for \(count) sleeper(s); \(pendingSleeps) pending")
+        await poll("\(count) sleeper(s); \(pendingSleeps) pending") { pendingSleeps >= count }
     }
 }

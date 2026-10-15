@@ -27,6 +27,8 @@ public actor Engine {
     private let accountManager: AccountManager
     private let reconciler: SourceReconciler
     private let refreshCoordinator: SourceRefreshCoordinator
+    /// In-flight work, for tests that wait for quiescence.
+    nonisolated let activity = EngineActivity()
 
     // Model
     private var settings: EngineSettings
@@ -96,7 +98,8 @@ public actor Engine {
 
         // The trio below calls back into the engine through `ref`, which is filled once `self` exists.
         let ref = EngineRef()
-        let coordinator = SourceRefreshCoordinator { ids in await ref.engine?.refresh(sourceIDs: ids) }
+        let activity = activity
+        let coordinator = SourceRefreshCoordinator(activity: activity) { ids in await ref.engine?.refresh(sourceIDs: ids) }
         refreshCoordinator = coordinator
         let registry = host.registry, credentials = host.credentials
         let syncState = FileSyncStateStore(url: host.dataDirectory.appendingPathComponent("sync-state.json"))
@@ -119,8 +122,8 @@ public actor Engine {
             settings: { await ref.engine?.effectiveAccountSettings() ?? EngineSettings(systemCalendarEnabled: false) },
             applySources: { sources in await ref.engine?.applySources(sources) },
             updateSettings: { change in await ref.engine?.updateSettings(change) },
-            onStatusChange: { status in statusContinuation.yield(.status(status)) },
-            diagnostics: { diagnostic in statusContinuation.yield(.diagnostic(diagnostic)) })
+            onStatusChange: { status in Self.post(.status(status), statusContinuation, activity) },
+            diagnostics: { diagnostic in Self.post(.diagnostic(diagnostic), statusContinuation, activity) })
         availableAccountKinds = AccountManager.kindInfos(registry: host.registry, unconfigured: host.unconfiguredKindIDs)
 
         statusTask = Task {
@@ -129,6 +132,7 @@ public actor Engine {
                 case .status(let status): await ref.engine?.accountStatusChanged(status)
                 case .diagnostic(let diagnostic): await ref.engine?.forward(diagnostic)
                 }
+                activity.end(.accountMessage)
             }
         }
         state = EngineState.empty
@@ -200,6 +204,8 @@ public actor Engine {
     }
 
     public func send(_ command: EngineCommand) async {
+        activity.begin(.command)
+        defer { activity.end(.command) }
         switch command {
         case .start: await start()
         case .refresh: await refresh(sourceIDs: nil)
@@ -232,6 +238,8 @@ public actor Engine {
     // MARK: - Refresh and apply
 
     private func refresh(sourceIDs: Set<String>?) async {
+        activity.begin(.refresh)
+        defer { activity.end(.refresh) }
         let result = await store.refresh(
             now: host.clock.now(), leadTime: settings.takeover.leadTime, sourceIDs: sourceIDs,
             onPublication: { [weak self] snapshot in await self?.apply(snapshot) })
@@ -270,14 +278,16 @@ public actor Engine {
     private func armPeriodicRefresh() {
         periodicTask?.cancel()
         guard !stopped else { return }
-        let clock = host.clock
+        let clock = host.clock, activity = activity
+        // The first deadline is fixed when arming, not when the task first runs.
+        var deadline = clock.now().addingTimeInterval(Self.periodicRefresh)
         periodicTask = Task { [weak self] in
-            var deadline = clock.now().addingTimeInterval(Self.periodicRefresh)
             while !Task.isCancelled {
                 do { try await clock.sleep(until: deadline) } catch { return }
-                guard let self else { return }
+                guard let self else { activity.wakeHandled(); return }
                 await self.refresh(sourceIDs: nil)
                 deadline = clock.now().addingTimeInterval(Self.periodicRefresh)
+                activity.wakeHandled()
             }
         }
     }
@@ -296,6 +306,13 @@ public actor Engine {
         await task.value
         authTask = nil
         await accountsChanged()
+    }
+
+    /// Hands an account manager message to the engine's ordered consumer, counted until it is handled.
+    private static func post(_ message: AccountMessage, _ continuation: AsyncStream<AccountMessage>.Continuation,
+                             _ activity: EngineActivity) {
+        activity.begin(.accountMessage)
+        if case .terminated = continuation.yield(message) { activity.end(.accountMessage) }
     }
 
     /// An account manager diagnostic: to the host sink and, as `.diagnostic`, to `events`.
@@ -366,10 +383,11 @@ public actor Engine {
         let next = Scheduler.next(events: snapshot.events, settings: settings.takeover, ledger: ledger, now: now)
         nextTakeover = next
         guard let next else { return }
-        let clock = host.clock, generation = fireGeneration
+        let clock = host.clock, generation = fireGeneration, activity = activity
         fireTask = Task { [weak self] in
             do { try await clock.sleep(until: next.fireAt) } catch { return }
             await self?.fireArmed(next.event, generation: generation)
+            activity.wakeHandled()
         }
     }
 
@@ -509,7 +527,12 @@ public actor Engine {
     private func startInferenceResolution() {
         resolveRequested = true
         guard resolveTask == nil, !stopped else { return }
-        resolveTask = Task { [weak self] in await self?.runResolution() }
+        activity.begin(.resolution)
+        let activity = activity
+        resolveTask = Task { [weak self] in
+            defer { activity.end(.resolution) }
+            await self?.runResolution()
+        }
     }
 
     private func runResolution() async {
@@ -665,10 +688,11 @@ public actor Engine {
         guard !stopped, let wake = UITickPolicy.next(
             now: host.clock.now(), countdownVisible: countdownVisible, nextEvent: agenda.next,
             events: snapshot.events, leadTime: settings.takeover.leadTime, calendar: host.calendar()) else { return }
-        let clock = host.clock, generation = tickGeneration
+        let clock = host.clock, generation = tickGeneration, activity = activity
         tickTask = Task { [weak self] in
             do { try await clock.sleep(until: wake.date) } catch { return }
             await self?.tick(rebuildAgenda: wake.rebuildAgenda, generation: generation)
+            activity.wakeHandled()
         }
     }
 
@@ -684,6 +708,7 @@ public actor Engine {
     /// Cancels background work, stops the sources and ends every stream.
     private func stop() async {
         stopped = true
+        activity.markStopped()
         periodicTask?.cancel()
         fireTask?.cancel()
         resolveTask?.cancel()
@@ -729,6 +754,7 @@ public actor Engine {
     }
 
     private func emit(_ event: EngineEvent) {
+        if !eventContinuations.isEmpty { activity.eventEmitted() }
         for continuation in eventContinuations.values { continuation.yield(event) }
     }
 

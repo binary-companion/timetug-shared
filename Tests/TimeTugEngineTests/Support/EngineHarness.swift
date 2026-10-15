@@ -37,6 +37,9 @@ final class ScriptedSource: CalendarCore.CalendarSource, @unchecked Sendable {
     private let stream: AsyncStream<CalendarChange>
     private let continuation: AsyncStream<CalendarChange>.Continuation
     private let terminated = LockedBox(false)
+    private let sent = LockedBox(0)
+    /// Change signals sent through `signal(_:)`.
+    var signalsSent: Int { sent.get() }
     /// True once the change listener stopped consuming (cancelled or dropped).
     var listenerEnded: Bool { terminated.get() }
 
@@ -54,7 +57,10 @@ final class ScriptedSource: CalendarCore.CalendarSource, @unchecked Sendable {
     func setEvents(_ events: [CalendarCore.CalendarEvent]) { script.mutate { $0.events = events } }
     func setFailure(_ failure: CalendarCore.SourceError?) { script.mutate { $0.failure = failure } }
     func setGated(_ gated: Bool) { script.mutate { $0.gated = gated } }
-    func signal(_ change: CalendarChange) { continuation.yield(change) }
+    func signal(_ change: CalendarChange) {
+        sent.mutate { $0 += 1 }
+        continuation.yield(change)
+    }
 
     func calendars() async throws -> [CalendarDescriptor] {
         [CalendarDescriptor(id: "cal", title: "Work", service: .google)]
@@ -179,35 +185,58 @@ struct EngineHarness {
 
     func source(_ connectionID: String = "c1") -> ScriptedSource { sources[connectionID]! }
 
-    /// Polls `currentState()` (bounded, with `Task.yield()`) until `predicate` holds; records an issue on timeout.
+    /// Polls `currentState()` until `predicate` holds; fails loudly (with the state) after a generous bound.
     @discardableResult
     func waitForState(
         _ predicate: (EngineState) -> Bool, sourceLocation: SourceLocation = #_sourceLocation
     ) async -> EngineState {
-        for _ in 0..<50_000 {
-            let state = await engine.currentState()
-            if predicate(state) { return state }
-            await Task.yield()
+        var last = await engine.currentState()
+        await poll("state", dump: { await self.dump() }, sourceLocation: sourceLocation) {
+            last = await engine.currentState()
+            return predicate(last)
         }
-        let state = await engine.currentState()
-        Issue.record("timed out waiting for state (revision \(state.revision))", sourceLocation: sourceLocation)
-        return state
+        return last
     }
 
-    /// Polls (bounded, with `Task.yield()`) until `condition` holds; records an issue on timeout.
+    /// Polls until `condition` holds; fails loudly (with the engine's state) after a generous bound.
     func waitUntil(
         _ what: String, sourceLocation: SourceLocation = #_sourceLocation, _ condition: () async -> Bool
     ) async {
-        for _ in 0..<50_000 {
-            if await condition() { return }
-            await Task.yield()
-        }
-        Issue.record("timed out waiting for \(what)", sourceLocation: sourceLocation)
+        await poll(what, dump: { await self.dump() }, sourceLocation: sourceLocation, condition)
     }
 
-    /// Lets queued work (signal delivery through the listener chain) run; bounded, no wall-clock time.
-    func settle() async {
-        for _ in 0..<2_000 { await Task.yield() }
+    /// Extra drain conditions (for example a `TimelineRecorder` that must have received every event).
+    let drainChecks = LockedBox<[@Sendable () -> Bool]>([])
+
+    /// True when nothing is in flight: no command, refresh, resolution, account message or coordinator pass;
+    /// every clock sleep that returned has been handled by the engine; every signal a source sent reached the
+    /// coordinator; and every emitted event reached this harness (and each registered recorder).
+    var isQuiescent: Bool {
+        let activity = engine.activity
+        return activity.isIdle
+            && clock.resumedSleeps == activity.wakesHandled
+            && sources.values.reduce(0) { $0 + $1.signalsSent } == activity.signalsReceived
+            && emitted.get().count == activity.eventsEmitted
+            && drainChecks.get().allSatisfy { $0() }
+    }
+
+    /// Waits until the engine is quiescent (see `isQuiescent`) on three consecutive checks. Every wait for "nothing
+    /// more happens" uses this, so it never depends on how many yields the scheduler needed.
+    func settle(sourceLocation: SourceLocation = #_sourceLocation) async {
+        var stable = 0
+        await poll("quiescence", dump: { await self.dump() }, sourceLocation: sourceLocation) {
+            stable = isQuiescent ? stable + 1 : 0
+            return stable >= 3
+        }
+    }
+
+    /// The engine's bookkeeping and state, for failure messages.
+    func dump() async -> String {
+        let state = await engine.currentState()
+        let signals = sources.values.reduce(0) { $0 + $1.signalsSent }
+        return "[activity: \(engine.activity.summary); clock resumed=\(clock.resumedSleeps) pending=\(clock.pendingSleeps); "
+            + "signals sent=\(signals); events captured=\(emitted.get().count); revision=\(state.revision); "
+            + "statuses=\(state.statuses); events=\(state.events.map(\.sourceEventID))]"
     }
 
     var widgetSnapshots: [WidgetSnapshot] {

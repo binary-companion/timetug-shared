@@ -27,45 +27,53 @@ import TimeTugCore
         ])
         await h.engine.send(.start)
         await h.waitForState { $0.statuses["fake-c1"] == .ok && $0.statuses["fake-c2"] == .ok }
+        await h.settle()
         let c1 = h.source("c1"), c2 = h.source("c2")
         let (c1Base, c2Base) = (c1.eventsCalls, c2.eventsCalls)
 
         c1.signal(.eventsChanged(calendarIDs: ["cal"]))
-        await h.waitUntil("the signalled refresh") { c1.eventsCalls == c1Base + 1 }
         await h.settle()
         #expect(c1.eventsCalls == c1Base + 1)
         #expect(c2.eventsCalls == c2Base)
 
-        // A burst of three signals while a refresh is suspended runs exactly one follow-up pass.
+        // A burst of three signals while a refresh is held at the gate runs exactly one follow-up pass. The test
+        // releases the gate only once the coordinator has received all three (counted, not yielded for), so the
+        // coalescing is deterministic.
+        let received = h.engine.activity.signalsReceived
         c1.setGated(true)
         c1.signal(.eventsChanged(calendarIDs: ["cal"]))
         await h.waitUntil("the refresh to reach the gate") { await c1.gate.waiting == 1 }
+        c1.setEvents([.sample(id: "a", startsIn: 600), .sample(id: "late", startsIn: 900)])
         for _ in 0..<3 { c1.signal(.eventsChanged(calendarIDs: ["cal"])) }
-        await h.settle()
+        await h.waitUntil("the coordinator to receive the burst") { h.engine.activity.signalsReceived == received + 4 }
         c1.setGated(false)
         await c1.gate.releaseAll()
-        await h.waitUntil("the follow-up pass") { c1.eventsCalls == c1Base + 3 }
         await h.settle()
         #expect(c1.eventsCalls == c1Base + 3)
         #expect(c2.eventsCalls == c2Base)
+        // The follow-up read the data written during the burst.
+        #expect(await h.engine.currentState().events.map(\.sourceEventID).contains("late"))
     }
 
     @Test func periodicRefreshFiresEvery900Seconds() async throws {
         let h = try await EngineHarness(events: [.sample(id: "e1", startsIn: 3600)])
         await h.engine.send(.start)
         await h.waitForState { $0.statuses["fake-c1"] == .ok }
-        // Three sleepers: the periodic refresh, the takeover armed for e1 (at +3540) and the UI tick (the "soon"
-        // window at +3000), both past this test's window. At most one of each of the last two is live, so three
-        // means the periodic sleep is registered.
-        await h.clock.waitForSleepers(3)
+        // The periodic deadline is fixed when it is armed (start, then after each periodic refresh), so once the
+        // engine is quiescent the next one is +900 from the last refresh whether or not its sleep has registered yet.
+        await h.settle()
         let base = h.source().eventsCalls
         await h.clock.advance(by: 899)
         await h.settle()
         #expect(h.source().eventsCalls == base)
         await h.clock.advance(by: 1)
         await h.waitUntil("the periodic refresh") { h.source().eventsCalls == base + 1 }
-        await h.clock.waitForSleepers(3)
-        await h.clock.advance(by: 900)
+        await h.settle()
+        #expect(h.source().eventsCalls == base + 1)
+        await h.clock.advance(by: 899)
+        await h.settle()
+        #expect(h.source().eventsCalls == base + 1)
+        await h.clock.advance(by: 1)
         await h.waitUntil("the second periodic refresh") { h.source().eventsCalls == base + 2 }
     }
 

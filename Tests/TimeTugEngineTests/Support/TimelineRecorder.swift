@@ -28,11 +28,17 @@ final class TimelineRecorder: @unchecked Sendable {
     private let box = LockedBox<[Entry]>([])
     private let widgetBox = LockedBox<[WidgetSnapshot]>([])
 
+    private let received = LockedBox(0)
+
     init(_ h: EngineHarness) async {
         let stream = await h.engine.events
+        // Events emitted from now on reach this recorder; `settle()` waits until it received all of them.
+        let activity = h.engine.activity, offset = activity.eventsEmitted, received = received
+        h.drainChecks.mutate { $0.append { received.get() == activity.eventsEmitted - offset } }
         let clock = h.clock, origin = h.clock.now(), box = box, widgetBox = widgetBox
         Task {
             for await event in stream {
+                defer { received.mutate { $0 += 1 } }
                 let at = clock.now().timeIntervalSince(origin)
                 switch event {
                 case .takeoverDue(let request, _):
@@ -65,13 +71,14 @@ final class TimelineRecorder: @unchecked Sendable {
         return parts.count >= 3 ? parts.dropFirst().dropLast().joined(separator: "/") : id
     }
 
-    /// Waits (bounded, no wall-clock time) until `count` takeover entries arrived, then lets stragglers land so an
-    /// extra one shows up in the assertion that follows.
-    func waitForTakeovers(_ count: Int, _ h: EngineHarness, sourceLocation: SourceLocation = #_sourceLocation) async {
+    /// Waits until `count` takeover entries arrived, then (with `settle`) until the engine is quiescent, so an extra
+    /// one shows up in the assertion that follows. Pass `settle: false` while the test holds a refresh at a gate.
+    func waitForTakeovers(_ count: Int, _ h: EngineHarness, settle: Bool = true,
+                          sourceLocation: SourceLocation = #_sourceLocation) async {
         await h.waitUntil("\(count) takeover entries (have \(takeovers))", sourceLocation: sourceLocation) {
             takeovers.count >= count
         }
-        await h.settle()
+        if settle { await h.settle(sourceLocation: sourceLocation) }
     }
 
     /// Waits until a widget snapshot generated at `seconds` arrived (a refresh at that time published), then
@@ -80,6 +87,6 @@ final class TimelineRecorder: @unchecked Sendable {
         await h.waitUntil("a widget snapshot at \(Int(seconds)) (have \(widgetTimes.sorted()))", sourceLocation: sourceLocation) {
             widgetTimes.contains(seconds)
         }
-        await h.settle()
+        await h.settle(sourceLocation: sourceLocation)
     }
 }

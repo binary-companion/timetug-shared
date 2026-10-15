@@ -1,4 +1,5 @@
 import Foundation
+import Testing
 
 /// A lock-protected mutable value for sharing state between a test and the tasks it starts.
 final class LockedBox<T: Sendable>: @unchecked Sendable {
@@ -28,4 +29,26 @@ enum Fixtures {
     static func url(_ name: String) -> URL {
         Bundle.module.resourceURL!.appendingPathComponent("Fixtures").appendingPathComponent(name)
     }
+}
+
+/// Polls `condition` until it holds: yields, and after the first thousand checks also sleeps a millisecond between
+/// checks, so a slow machine gets real time. Gives up after `timeout` seconds of wall-clock time and records an issue
+/// naming `what` (with `dump()` when given). The bound only limits a hang; it never decides an ordering.
+@discardableResult
+func poll(
+    _ what: @autoclosure () -> String, timeout: TimeInterval = 30, dump: (() async -> String)? = nil,
+    sourceLocation: SourceLocation = #_sourceLocation, _ condition: () async -> Bool
+) async -> Bool {
+    let deadline = Date().addingTimeInterval(timeout)
+    var checks = 0
+    while true {
+        if await condition() { return true }
+        checks += 1
+        if Date() >= deadline { break }
+        await Task.yield()
+        if checks > 1_000 { try? await Task.sleep(nanoseconds: 1_000_000) }
+    }
+    let detail = await dump?() ?? ""
+    Issue.record("timed out after \(Int(timeout)) s waiting for \(what()) \(detail)", sourceLocation: sourceLocation)
+    return false
 }
