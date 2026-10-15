@@ -1,0 +1,9 @@
+{
+  "id": "cmd-13",
+  "payload": {
+    "eventID": "google-1/evt-1/1760001800",
+    "seconds": 300
+  },
+  "type": "takeover.snooze",
+  "v": 1
+}

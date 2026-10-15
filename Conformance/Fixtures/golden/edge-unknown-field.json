@@ -1,0 +1,13 @@
+{
+  "future": {
+    "nested": [
+      1,
+      2,
+      3
+    ]
+  },
+  "id": "cmd-y",
+  "payload": null,
+  "type": "refresh",
+  "v": 1
+}

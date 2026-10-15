@@ -1,0 +1,17 @@
+{
+  "id": 11,
+  "payload": {
+    "error": "Sign-in failed",
+    "help": {
+      "linkTitle": "Learn more",
+      "text": "Use an app password.",
+      "url": "https://example.com/help"
+    },
+    "title": "Other CalDAV",
+    "values": {
+      "server": "https://cal.example.com"
+    }
+  },
+  "type": "service.signIn.prepare",
+  "v": 1
+}

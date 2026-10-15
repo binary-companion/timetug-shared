@@ -1,0 +1,8 @@
+{
+  "id": "cmd-8",
+  "payload": {
+    "visible": true
+  },
+  "type": "countdown.visible",
+  "v": 1
+}

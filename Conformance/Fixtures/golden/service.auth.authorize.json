@@ -1,0 +1,9 @@
+{
+  "id": 8,
+  "payload": {
+    "sessionID": "s-1",
+    "url": "https://accounts.google.com/o/oauth2/v2/auth?client_id=x"
+  },
+  "type": "service.auth.authorize",
+  "v": 1
+}

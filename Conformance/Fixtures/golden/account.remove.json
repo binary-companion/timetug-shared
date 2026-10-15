@@ -1,0 +1,8 @@
+{
+  "id": "cmd-5",
+  "payload": {
+    "connectionID": "1"
+  },
+  "type": "account.remove",
+  "v": 1
+}

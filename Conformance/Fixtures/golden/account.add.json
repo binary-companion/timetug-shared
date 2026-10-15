@@ -1,0 +1,8 @@
+{
+  "id": "cmd-3",
+  "payload": {
+    "kindID": "google"
+  },
+  "type": "account.add",
+  "v": 1
+}

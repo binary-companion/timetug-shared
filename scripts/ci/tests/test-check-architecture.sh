@@ -46,6 +46,8 @@ expect "$C" 'let a = 1\nlet t = Date()\n' "X.swift:2: TimeTugCore reads the cloc
 expect Tests/CalendarBridgeTests/X.swift '@testable import SwiftUI\n' "CalendarBridge may not import SwiftUI"
 expect Sources/TimeTugEngine/X.swift 'import AppKit\n' "TimeTugEngine may not import AppKit"
 expect Tests/TimeTugEngineTests/X.swift 'import Combine\n' "TimeTugEngine may not import Combine"
+expect Sources/TimeTugEngineProtocol/X.swift 'import Network\n' "TimeTugEngineProtocol may not import Network"
+expect Tests/TimeTugEngineProtocolTests/X.swift 'import AppKit\n' "TimeTugEngineProtocol may not import AppKit"
 expect Sources/DedupBenchmark/X.swift 'import AppKit\n' "DedupBenchmark may not import AppKit"
 expect Sources/DedupBenchmark/X.swift 'import CalendarBridge\n' "DedupBenchmark may not import CalendarBridge"
 expect Package.swift 'let package = Package(dependencies: [.package(url: "https://github.com/x/y", from: "1.0.0")])\n' \

@@ -1,0 +1,19 @@
+{
+  "payload": {
+    "enabled": false,
+    "hiddenCalendarKeys": [
+      "a/2"
+    ],
+    "inferenceEnabled": true,
+    "leadTime": 60,
+    "requireConferenceLink": true,
+    "requireOtherAttendees": true,
+    "skipAllDayEvents": false,
+    "systemCalendarEnabled": false,
+    "takeoverCalendarKeys": [
+      "a/1"
+    ]
+  },
+  "type": "settings.apply",
+  "v": 1
+}

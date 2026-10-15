@@ -1,0 +1,9 @@
+{
+  "id": "cmd-19",
+  "payload": {
+    "kind": "timeZoneChanged",
+    "timeZone": "America/Chicago"
+  },
+  "type": "system.event",
+  "v": 1
+}

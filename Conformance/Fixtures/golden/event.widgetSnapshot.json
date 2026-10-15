@@ -1,0 +1,18 @@
+{
+  "payload" : {
+    "events" : [
+      {
+        "colorHex" : "#3366CC",
+        "end" : "2025-10-09T09:38:20.000Z",
+        "id" : "google-1/evt-1/1760001800",
+        "isAllDay" : false,
+        "joinURL" : "https://meet.google.com/abc-defg-hij",
+        "start" : "2025-10-09T09:23:20.000Z",
+        "title" : "Standup"
+      }
+    ],
+    "generatedAt" : "2025-10-09T08:53:20.000Z"
+  },
+  "type" : "event.widgetSnapshot",
+  "v" : 1
+}

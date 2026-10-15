@@ -1,0 +1,8 @@
+{
+  "id": "cmd-10",
+  "payload": {
+    "eventID": "google-1/evt-1/1760001800"
+  },
+  "type": "takeover.closed",
+  "v": 1
+}

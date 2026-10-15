@@ -1,0 +1,12 @@
+{
+  "id": "cmd-7",
+  "payload": {
+    "inferenceEnabled": true,
+    "leadTime": 120,
+    "takeoverCalendarKeys": [
+      "google-1/primary"
+    ]
+  },
+  "type": "settings.apply",
+  "v": 1
+}

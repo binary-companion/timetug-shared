@@ -1,0 +1,8 @@
+{
+  "id": 9,
+  "payload": {
+    "sessionID": "s-1"
+  },
+  "type": "service.auth.closeRedirect",
+  "v": 1
+}

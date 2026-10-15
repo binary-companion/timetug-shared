@@ -1,0 +1,7 @@
+{
+  "error": {
+    "kind": "denied",
+    "message": "denied example"
+  },
+  "v": 1
+}

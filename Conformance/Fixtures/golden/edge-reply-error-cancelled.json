@@ -1,0 +1,7 @@
+{
+  "error": {
+    "kind": "cancelled",
+    "message": "cancelled example"
+  },
+  "v": 1
+}

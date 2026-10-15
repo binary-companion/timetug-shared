@@ -380,5 +380,34 @@ class Contracts(unittest.TestCase):
         self.check(False, 'composite action uses secret SIGNING_KEY', **{
             '.github/actions/a/b/action.yaml': ACTION.replace('echo hi', "echo ${{ secrets['SIGNING_KEY'] }}")})
 
+    def test_one_fixture_per_type_passes(self):
+        self.check(True, **PROTOCOL)
+
+    def test_missing_fixture_fails(self):
+        self.check(False, 'no fixture for message type refresh', **{**PROTOCOL, 'Conformance/Fixtures/golden/refresh.json': None})
+
+    def test_orphan_fixture_fails(self):
+        self.check(False, 'fixture for a type not in the message catalog',
+                   **{**PROTOCOL, 'Conformance/Fixtures/golden/surprise.json': '{}'})
+
+CATALOG = '''public enum MessageCatalog {
+    public static let hostToEngine: [String] = ["start", "refresh"]
+    public static let engineToHost: [String] = ["ready"]
+}
+'''
+SERVICES = '''public enum ServiceMessages {
+    public static let types: [String] = ["service.http.send"]
+}
+'''
+PROTOCOL = {
+    'Sources/TimeTugEngineProtocol/MessageCatalog.swift': CATALOG,
+    'Sources/TimeTugEngineProtocol/ServiceMessages.swift': SERVICES,
+    'Conformance/Fixtures/golden/start.json': '{}',
+    'Conformance/Fixtures/golden/refresh.json': '{}',
+    'Conformance/Fixtures/golden/ready.json': '{}',
+    'Conformance/Fixtures/golden/service.http.send.json': '{}',
+    'Conformance/Fixtures/golden/edge-unknown-type.json': '{}',
+}
+
 if __name__ == '__main__':
     unittest.main()

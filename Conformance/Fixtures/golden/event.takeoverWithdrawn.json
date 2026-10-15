@@ -1,0 +1,7 @@
+{
+  "payload" : {
+    "eventID" : "google-1/evt-1/1760001800"
+  },
+  "type" : "event.takeoverWithdrawn",
+  "v" : 1
+}
