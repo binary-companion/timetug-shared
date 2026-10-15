@@ -1,0 +1,131 @@
+# Opens "Bump calendar-connectors to X.Y.Z" when the library releases (repository_dispatch from its
+# release workflow), or on demand. The pull request is opened with a timetug-bot token so its CI runs;
+# the workflow never merges anything: the owner merges. It applies no semver label, so merging it
+# releases a patch version. A newer bump closes the open bump pull requests for older versions.
+# Package.resolved is edited by scripts/ci/bump-resolved.py, which validates the version and the commit
+# and refuses a downgrade or a change of major; CI proves the result with --force-resolved-versions.
+name: Bump dependencies
+
+on:
+  repository_dispatch:
+    types: [library-released]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "calendar-connectors version (X.Y.Z)"
+        required: true
+        type: string
+
+concurrency:
+  group: bump-calendar-connectors
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  bump:
+    if: github.event_name == 'workflow_dispatch' || github.event.client_payload.library == 'calendar-connectors'
+    runs-on: ubuntu-latest
+    environment: bump
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ github.event.client_payload.version || inputs.version }}
+    steps:
+      - id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          # app-id is deprecated upstream in favour of client-id, which needs the app's Client ID;
+          # switch once that value is available. It still works.
+          app-id: ${{ vars.BUMP_APP_ID }}
+          private-key: ${{ secrets.BUMP_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: timetug-shared
+          permission-contents: write
+          permission-pull-requests: write
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          token: ${{ steps.app.outputs.token }}
+      - name: Move the pin
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          set -euo pipefail
+          # The version comes from a dispatch payload: it is checked before it reaches an API path.
+          pattern='^(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$'
+          if ! [[ "$VERSION" =~ $pattern ]]; then
+            echo "::error::not X.Y.Z (at most 9 digits per number): $VERSION"
+            exit 2
+          fi
+          # The commit the tag points at: a lightweight tag names it directly, an annotated one through the tag object.
+          ref="$(gh api "repos/binary-companion/calendar-connectors/git/ref/tags/$VERSION" --jq '.object|[.type,.sha]|@tsv')"
+          type="${ref%%$'\t'*}"; sha="${ref##*$'\t'}"
+          if [ "$type" = tag ]; then
+            ref="$(gh api "repos/binary-companion/calendar-connectors/git/tags/$sha" --jq '.object|[.type,.sha]|@tsv')"
+            type="${ref%%$'\t'*}"; sha="${ref##*$'\t'}"
+          fi
+          if [ "$type" != commit ]; then
+            echo "::error::the tag $VERSION points at a $type, not a commit"
+            exit 1
+          fi
+          python3 scripts/ci/bump-resolved.py calendar-connectors "$VERSION" "$sha"
+      - name: Open the pull request
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then echo "Already at $VERSION; nothing to do."; exit 0; fi
+          branch="bump/calendar-connectors-$VERSION"
+          # A re-delivered event or a manual re-run must not fail on work that is already in flight.
+          # `--head` matches the head branch name across forks, so only same-repository heads count.
+          number="$(gh pr list --head "$branch" --state open --json number,isCrossRepository \
+            --jq 'map(select(.isCrossRepository | not)) | .[0].number // empty')"
+          if [ -n "$number" ]; then
+            echo "A pull request for $branch is already open (#$number)."
+          else
+            branch_pushed=false
+            if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+              # An earlier run pushed the branch but could not open the pull request; open it from that branch.
+              branch_pushed=true
+              echo "Branch $branch exists without an open pull request; opening one from it."
+            fi
+            # Build the body first so that a failure here cannot leave a pushed branch without a pull request.
+            {
+              echo "Moves the pinned connector library to $VERSION in Package.resolved. CI on this pull request proves the library still builds and passes its tests on every platform with it (swift test --force-resolved-versions)."
+              echo
+              echo "## Release notes"
+              gh release view "$VERSION" --repo binary-companion/calendar-connectors --json body --jq .body \
+                || echo "(The release notes could not be read; see the release $VERSION in binary-companion/calendar-connectors.)"
+              echo
+              echo "🤖 Opened by timetug-bot"
+            } > "$RUNNER_TEMP/body.md"
+            if [ "$branch_pushed" = false ]; then
+              git config user.name "timetug-bot[bot]"
+              git config user.email "342080999+timetug-bot[bot]@users.noreply.github.com"
+              git switch -c "$branch"
+              git commit -am "Bump calendar-connectors to $VERSION"
+              git push origin "$branch"
+            fi
+            url="$(gh pr create --base main --head "$branch" \
+              --title "Bump calendar-connectors to $VERSION" --body-file "$RUNNER_TEMP/body.md")"
+            echo "$url"
+            number="${url##*/}"
+          fi
+          # Supersede older bump pull requests. Only same-repository pull requests whose head branch is exactly
+          # bump/calendar-connectors-X.Y.Z with a lower version are closed (versions compared numerically with
+          # sort -V, never as strings); every other pull request is left alone. Each close is independent: one
+          # failure is reported and the step fails at the end, after the other closes were tried.
+          open_prs="$(gh pr list --state open --limit 100 --json number,headRefName,isCrossRepository \
+            --jq '.[] | select(.isCrossRepository | not) | "\(.number) \(.headRefName)"')"
+          failed=0
+          while read -r old_number old_head; do
+            [[ "$old_head" =~ ^bump/calendar-connectors-([0-9]+\.[0-9]+\.[0-9]+)$ ]] || continue
+            old_version="${BASH_REMATCH[1]}"
+            [ "$old_version" != "$VERSION" ] || continue
+            [ "$(printf '%s\n%s\n' "$old_version" "$VERSION" | sort -V | head -n 1)" = "$old_version" ] || continue
+            echo "Closing #$old_number ($old_head): superseded by #$number."
+            gh pr close "$old_number" --comment "Superseded by #$number" --delete-branch \
+              || { echo "::warning::could not close #$old_number"; failed=1; }
+          done <<< "$open_prs"
+          exit "$failed"

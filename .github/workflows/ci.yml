@@ -4,7 +4,7 @@
 #   linux          swift test in the swift:6.0 container: proves the library stays portable.
 #   windows-x64    swift test on windows-latest with Swift installed by scripts/ci/install-swift-windows.ps1.
 #   windows-arm64  the same on windows-11-arm.
-#   architecture   portability rules, repository contracts and the tests of the release script and workflow.
+#   architecture   portability rules, repository contracts and the tests of the release script, the bump script and workflows.
 # Every swift test runs with --force-resolved-versions, so a Package.resolved that no longer matches
 # Package.swift fails here instead of being silently re-resolved.
 name: CI
@@ -140,9 +140,12 @@ jobs:
         run: scripts/ci/check-architecture.sh
       - name: Repository contracts
         run: build/venv/bin/python scripts/ci/check-repository-contracts.py
-      - name: Tests of the checks and of the release script
+      - name: Tests of the checks, of the release script and of the bump workflow
         run: |
           scripts/ci/tests/test-check-architecture.sh
           scripts/release/tests/test-next-version.sh
           PYTHON="$PWD/build/venv/bin/python" scripts/release/tests/test-release-version-step.sh
+          # The steps of bump-dependencies.yml, run against the real bump-resolved.py and Package.resolved.
+          PYTHON="$PWD/build/venv/bin/python" scripts/ci/tests/test-bump-workflow-step.sh
+          # Includes test_bump_resolved.py (the Package.resolved editor) and the contracts tests.
           build/venv/bin/python -m unittest discover -s scripts/ci/tests -p 'test_*.py'

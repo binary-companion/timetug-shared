@@ -105,7 +105,7 @@ def load(path):
 # The documented workflows must exist: a deleted release or CI workflow must not pass unnoticed.
 require((root / '.github' / 'workflows').is_dir(), 'missing documented path: .github/workflows')
 if (root / '.github' / 'workflows').is_dir():
-    for documented in ('ci.yml', 'release.yml'):
+    for documented in ('ci.yml', 'release.yml', 'bump-dependencies.yml'):
         require((root / '.github' / 'workflows' / documented).is_file(),
                 f'missing documented path: .github/workflows/{documented}')
 
