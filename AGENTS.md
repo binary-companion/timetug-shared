@@ -8,7 +8,7 @@ The portable logic shared by every TimeTug front end: `TimeTugCore` and `Calenda
 
 - `calendar-connectors`: the connector library. This repository depends on it by version range and commits `Package.resolved`.
 - `timetug-shared` (this repository): released as `X.Y.Z` tags.
-- `timetug`: the Mac app; pins this repository exactly in `Apps/macOS/project.yml`.
+- `timetug`: the Mac app; pins this repository exactly in `Apps/macOS/project.yml` (key `TimeTugShared`), and receives a bump pull request from every release here.
 - `timetug-windows` (later): the WinUI app.
 
 Dependency direction: `calendar-connectors` <- `timetug-shared` <- the apps.
@@ -25,7 +25,15 @@ Dependency direction: `calendar-connectors` <- `timetug-shared` <- the apps.
 
 ## Release flow
 
-Do not tag by hand. A merge to `main` runs `release.yml`: the `semver:*` labels pick the bump, the workflow tags and publishes, then notifies `timetug`, which opens a "Bump timetug-shared to X.Y.Z" pull request. The agent never merges or publishes; the owner does.
+Do not tag by hand. A merge to `main` runs `release.yml`: the `semver:*` labels pick the bump, the workflow tags and publishes, appends "Built and tested with calendar-connectors X.Y.Z" to the release notes, then its `notify` job (environment `bump`, the `timetug-bot` token) dispatches `library-released` (`library` `timetug-shared`, `version` `X.Y.Z`) to `timetug`. `timetug` opens a "Bump timetug-shared to X.Y.Z" pull request that moves the `TimeTugShared` pin and raises its `CalendarConnectors` pin to at least the version this repository's `Package.resolved` records, so the app and the engine run the same connector version. The agent never merges or publishes; the owner does.
+
+## Dependents and the bump chain
+
+The chain is live and was proven by a drill on 2026-10-15: a `calendar-connectors` release dispatched to `timetug` and to this repository; this repository's bump pull request ("Bump calendar-connectors to X.Y.Z", from `.github/workflows/bump-dependencies.yml`) was merged and released a new `timetug-shared`; `timetug` then opened its own "Bump timetug-shared to X.Y.Z", which moved both pins and closed the two older bump pull requests as superseded.
+
+- `calendar-connectors` release: the dispatch arrives here, and `bump-dependencies.yml` opens the connector bump (see CI workflows below).
+- `timetug-shared` release: `release.yml` notifies `timetug` (above). Nothing else depends on this repository yet.
+- Recover a missed dispatch for `timetug`: `gh workflow run "Bump dependencies" --repo binary-companion/timetug -f library=timetug-shared -f version=X.Y.Z`. Recover one for this repository (connector versions only): `gh workflow run "Bump dependencies" --repo binary-companion/timetug-shared -f version=X.Y.Z`. A failed `notify` job can also be re-run alone from this repository's Actions page; the workflows are idempotent, so a repeat opens nothing new.
 
 ## Finding code
 
