@@ -15,7 +15,8 @@ public actor Engine {
     static let periodicRefresh: TimeInterval = 900
     /// Meetings that started longer than this before launch are treated as already handled.
     static let launchGrace: TimeInterval = 120
-    /// Bounded backstop for inference resolution (Task 10).
+    /// Bounded backstop for one inference resolution: each pass drains a batch, but a verdict that fails to stick
+    /// must never loop forever.
     static let maxResolvePasses = 10
 
     private let host: EngineHost
@@ -52,10 +53,20 @@ public actor Engine {
     // Background work
     private var started = false
     private var periodicTask: Task<Void, Never>?
-    /// Inference resolution off the refresh path (Task 10).
+    /// Inference resolution off the refresh path; at most one runs at a time.
     private var resolveTask: Task<Void, Never>?
-    /// UI tick for countdowns and agenda boundaries (Task 10).
+    /// Set when resolution is asked for; a running resolution runs once more when it is set again.
+    private var resolveRequested = false
+    /// UI tick for countdowns and agenda boundaries.
     private var tickTask: Task<Void, Never>?
+    /// Bumped on every tick arming; a sleep from an older arming that still wakes does nothing.
+    private var tickGeneration: UInt64 = 0
+    /// Whether a front end shows a countdown (second-level wakes near a meeting).
+    private var countdownVisible = false
+    /// Delivers the account manager's status changes in order.
+    private let statusTask: Task<Void, Never>
+    private let statusContinuation: AsyncStream<AccountManager.Status>.Continuation
+    private var stopped = false
     /// The running sign-in (add or reauthorize); `cancelAuthorization` cancels it.
     private var authTask: Task<Void, Never>?
 
@@ -89,6 +100,8 @@ public actor Engine {
         let registry = host.registry, credentials = host.credentials
         let syncState = FileSyncStateStore(url: host.dataDirectory.appendingPathComponent("sync-state.json"))
         let systemSource = host.buildSystemSource
+        let (statusStream, statusContinuation) = AsyncStream.makeStream(of: AccountManager.Status.self)
+        self.statusContinuation = statusContinuation
         let reconciler = SourceReconciler(
             buildAccount: { connection in
                 guard let kind = registry.kind(id: connection.kindID) else {
@@ -104,11 +117,20 @@ public actor Engine {
             host: host, reconciler: reconciler, syncState: syncState,
             settings: { await ref.engine?.effectiveAccountSettings() ?? EngineSettings(systemCalendarEnabled: false) },
             applySources: { sources in await ref.engine?.applySources(sources) },
-            updateSettings: { change in await ref.engine?.updateSettings(change) })
+            updateSettings: { change in await ref.engine?.updateSettings(change) },
+            onStatusChange: { status in statusContinuation.yield(status) })
 
+        statusTask = Task {
+            for await status in statusStream { await ref.engine?.accountStatusChanged(status) }
+        }
         state = EngineState.empty
         state.settings = settings
         ref.engine = self
+    }
+
+    deinit {
+        statusTask.cancel()
+        statusContinuation.finish()
     }
 
     // MARK: - Public API
@@ -259,6 +281,13 @@ public actor Engine {
         await accountsChanged()
     }
 
+    /// Sign-in progress and every other account status change: a new revision over the same snapshot.
+    private func accountStatusChanged(_ status: AccountManager.Status) {
+        guard status != accountStatus else { return }
+        accountStatus = status
+        publish(rebuildAgenda: false)
+    }
+
     /// Re-reads the account manager's status and publishes it.
     private func accountsChanged() async {
         accountStatus = await accountManager.status()
@@ -272,7 +301,7 @@ public actor Engine {
         return effective
     }
 
-    /// Changes, persists and publishes the behaviour settings. Task 10's `applySettings` builds on this.
+    /// Changes, persists and publishes the behaviour settings (used by `applySettings` and the account manager).
     private func updateSettings(_ change: @Sendable (inout EngineSettings) -> Void) {
         var updated = settings
         change(&updated)
@@ -448,28 +477,186 @@ public actor Engine {
         publish()
     }
 
-    // MARK: - Inference, dedup, settings, system events, ticks (Task 10)
+    // MARK: - Inference
 
-    /// Starts inference resolution in `resolveTask` without blocking the caller. Task 10 implements it.
-    private func startInferenceResolution() {}
-
-    /// Persists the change and re-arms (a changed lead time re-arms; `enabled = false` withdraws the armed takeover).
-    /// Task 10 adds inference and system calendar handling.
-    private func applySettings(_ change: @escaping @Sendable (inout EngineSettings) -> Void) async {
-        updateSettings(change)
+    /// Starts inference resolution in `resolveTask` without blocking the caller (inference never blocks a refresh).
+    /// While one runs, it runs once more instead of a second one starting.
+    private func startInferenceResolution() {
+        resolveRequested = true
+        guard resolveTask == nil, !stopped else { return }
+        resolveTask = Task { [weak self] in await self?.runResolution() }
     }
-    private func settingsChangedExternally() async { notImplemented("settingsChangedExternally") }
-    private func setCountdownVisible(_ visible: Bool) { notImplemented("setCountdownVisible") }
-    private func merge(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) async { notImplemented("merge") }
-    private func unmerge(_ event: TimeTugCalendarEvent) async { notImplemented("unmerge") }
-    private func separate(_ event: TimeTugCalendarEvent, members: [MergedMember]) async { notImplemented("separate") }
-    private func forgetCorrections() async { notImplemented("forgetCorrections") }
-    private func handleSystemEvent(_ event: SystemEvent) async { notImplemented("system") }
+
+    private func runResolution() async {
+        while resolveRequested, !Task.isCancelled {
+            resolveRequested = false
+            await resolvePending()
+        }
+        resolveTask = nil
+    }
+
+    /// Starts resolution (or joins the running one) and waits for it.
+    private func resolveNow() async {
+        startInferenceResolution()
+        let task = resolveTask
+        await task?.value
+    }
+
+    /// Port of the Mac `resolvePending`: asks the text model about look-alike pairs, at most `maxResolvePasses`
+    /// passes; each verdict republishes. Dedup state is persisted once, at the end, when it changed. A model that is
+    /// temporarily unavailable leaves the pairs pending for a later refresh (no retry loop).
+    private func resolvePending() async {
+        if let adjudicator {
+            let before = adjudicator.availability
+            // The availability is cached: the store's pending pairs were computed with the old value, so a change
+            // re-snapshots (a model that came back has pairs to judge; one that left falls back to the rules).
+            if await adjudicator.refreshAvailability() != before {
+                inferenceStatus = await store.inferenceStatus()
+                apply(await store.setInferenceEnabled(settings.inferenceEnabled, now: host.clock.now()))
+            }
+        }
+        await updateInferenceStatus()
+        var passes = 0
+        while passes < Self.maxResolvePasses, !Task.isCancelled,
+              let updated = await store.resolvePending(now: host.clock.now()) {
+            apply(updated)
+            passes += 1
+        }
+        await updateInferenceStatus()
+        await persistDedup()
+    }
+
+    private func updateInferenceStatus() async {
+        let status = await store.inferenceStatus()
+        guard status != inferenceStatus else { return }
+        inferenceStatus = status
+        publish(rebuildAgenda: false)
+    }
+
+    private func setInference(_ enabled: Bool) async {
+        apply(await store.setInferenceEnabled(enabled, now: host.clock.now()))
+        await resolveNow()
+    }
+
+    // MARK: - Dedup actions
+
+    private func merge(_ a: TimeTugCalendarEvent, _ b: TimeTugCalendarEvent) async {
+        let snapshot = await store.merge(a, b, now: host.clock.now())
+        // Counts only: titles are never logged.
+        diagnose(.info, "dedup", "manual merge of \(a.participants.count + b.participants.count) copies; "
+                 + "\(snapshot.events.count) events now shown")
+        apply(snapshot)
+        await persistDedup()
+    }
+
+    private func unmerge(_ event: TimeTugCalendarEvent) async {
+        apply(await store.unmerge(event, now: host.clock.now()))
+        await persistDedup()
+    }
+
+    private func separate(_ event: TimeTugCalendarEvent, members: [MergedMember]) async {
+        apply(await store.separate(members, from: event, now: host.clock.now()))
+        await persistDedup()
+    }
+
+    /// Clears lessons and cached verdicts, then asks the model again.
+    private func forgetCorrections() async {
+        apply(await store.forgetLessons(now: host.clock.now()))
+        await persistDedup()
+        await resolveNow()
+    }
+
+    /// Writes the dedup state only when it changed since the last write (or load).
+    private func persistDedup() async {
+        let current = await store.state()
+        guard current != lastSavedDedupState else { return }
+        if dedupStore.save(current) { lastSavedDedupState = current }
+    }
+
+    // MARK: - Settings
+
+    /// Persists the change (through `updateSettings`), then turns inference and the system calendar on or off.
+    private func applySettings(_ change: @escaping @Sendable (inout EngineSettings) -> Void) async {
+        let old = settings
+        updateSettings(change)
+        await settingsDidChange(from: old)
+    }
+
+    /// The host's storage changed behind the engine (another process, a widget): re-read it, never write it back.
+    private func settingsChangedExternally() async {
+        let loaded = host.settings.load()
+        guard loaded != settings else { return }
+        let old = settings
+        settings = loaded
+        rearm()
+        publish()
+        emitWidgetSnapshot()
+        await settingsDidChange(from: old)
+    }
+
+    private func settingsDidChange(from old: EngineSettings) async {
+        if settings.inferenceEnabled != old.inferenceEnabled { await setInference(settings.inferenceEnabled) }
+        // Without a host system source the account manager always sees the switch off; nothing to rebuild.
+        if settings.systemCalendarEnabled != old.systemCalendarEnabled, host.buildSystemSource != nil {
+            // The account manager's own settings write is a no-op: the value is already stored.
+            await accountManager.setSystemCalendarEnabled(settings.systemCalendarEnabled)
+            await accountsChanged()
+        }
+    }
+
+    // MARK: - System events
+
+    /// Timers alone are not trusted (port of the Mac `observeSystemEvents` and network monitor).
+    private func handleSystemEvent(_ event: SystemEvent) async {
+        switch event {
+        case .wake, .clockChanged, .timeZoneChanged, .dayChanged:
+            await store.setCalendar(host.calendar())
+            await refresh(sourceIDs: nil)
+        case .networkReturned:
+            // A source poll backs off after a failure, so refresh as soon as the network returns.
+            await refresh(sourceIDs: nil)
+        case .displayChanged:
+            // The front end re-lays out from a fresh state; nothing is refetched.
+            publish(rebuildAgenda: false)
+        }
+    }
+
+    // MARK: - UI ticks
+
+    private func setCountdownVisible(_ visible: Bool) {
+        guard visible != countdownVisible else { return }
+        countdownVisible = visible
+        armTick()
+    }
+
+    /// Arms one sleep for the next UI wake (port of the Mac `updateUI` tick): agenda boundaries always, and every
+    /// countdown step while a countdown is visible. Re-armed on every publish.
+    private func armTick() {
+        tickTask?.cancel()
+        tickTask = nil
+        tickGeneration &+= 1
+        guard !stopped, let wake = UITickPolicy.next(
+            now: host.clock.now(), countdownVisible: countdownVisible, nextEvent: agenda.next,
+            events: snapshot.events, leadTime: settings.takeover.leadTime, calendar: host.calendar()) else { return }
+        let clock = host.clock, generation = tickGeneration
+        tickTask = Task { [weak self] in
+            do { try await clock.sleep(until: wake.date) } catch { return }
+            await self?.tick(rebuildAgenda: wake.rebuildAgenda, generation: generation)
+        }
+    }
+
+    /// A countdown step republishes the cached agenda; a boundary rebuilds it.
+    private func tick(rebuildAgenda: Bool, generation: UInt64) {
+        guard generation == tickGeneration else { return }
+        tickTask = nil
+        publish(rebuildAgenda: rebuildAgenda)
+    }
 
     // MARK: - Stop
 
     /// Cancels background work, stops the sources and ends every stream.
     private func stop() async {
+        stopped = true
         periodicTask?.cancel()
         fireTask?.cancel()
         resolveTask?.cancel()
@@ -479,6 +666,8 @@ public actor Engine {
         fireTask = nil
         resolveTask = nil
         tickTask = nil
+        statusTask.cancel()
+        statusContinuation.finish()
         await accountManager.stop()
         for continuation in stateContinuations.values { continuation.finish() }
         for continuation in eventContinuations.values { continuation.finish() }
@@ -488,7 +677,8 @@ public actor Engine {
 
     // MARK: - Publication
 
-    /// Builds and yields a new state. `rebuildAgenda` false keeps the agenda (a countdown tick, Task 10).
+    /// Builds and yields a new state, then re-arms the UI tick. `rebuildAgenda` false keeps the agenda (a countdown
+    /// tick, a status change).
     private func publish(rebuildAgenda: Bool = true) {
         if rebuildAgenda {
             agenda = DayAgenda.make(events: snapshot.events, settings: settings.takeover,
@@ -502,6 +692,7 @@ public actor Engine {
             settings: settings, inferenceStatus: inferenceStatus, ledger: ledger, nextTakeover: nextTakeover,
             takeoverVisible: takeoverVisible)
         for continuation in stateContinuations.values { continuation.yield(state) }
+        armTick()
     }
 
     private func emitWidgetSnapshot() {
@@ -528,10 +719,6 @@ public actor Engine {
         let diagnostic = EngineDiagnostic(level: level, category: category, message: message)
         host.diagnostics(diagnostic)
         emit(.diagnostic(diagnostic))
-    }
-
-    private func notImplemented(_ command: String) {
-        diagnose(.warning, "engine", "command \(command) is not implemented yet")
     }
 }
 

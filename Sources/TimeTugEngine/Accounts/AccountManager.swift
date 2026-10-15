@@ -38,7 +38,12 @@ public actor AccountManager {
     private let settings: @Sendable () async -> EngineSettings
     private let updateSettings: @Sendable (@Sendable (inout EngineSettings) -> Void) async -> Void
     private let applySources: @Sendable ([any TimeTugCore.CalendarSource]) async -> Void
-    private var current = Status()
+    private let onStatusChange: @Sendable (Status) -> Void
+    /// Every change (accounts, `isWorking`, `errorMessage`, `buildFailures`, `waitingStyle`) is reported through
+    /// `onStatusChange`, so a front end can show sign-in progress while it runs.
+    private var current = Status() {
+        didSet { if current != oldValue { onStatusChange(current) } }
+    }
     private var sourceIDs: [ConnectionID: String] = [:]
     private var authTask: Task<Void, Never>?
     /// Connection ids whose removal is in flight; sign-ins that produce one are discarded, not applied.
@@ -49,7 +54,8 @@ public actor AccountManager {
         syncState: (any SyncStateStore)? = nil,
         settings: @escaping @Sendable () async -> EngineSettings,
         applySources: @escaping @Sendable ([any TimeTugCore.CalendarSource]) async -> Void,
-        updateSettings: @escaping @Sendable (@Sendable (inout EngineSettings) -> Void) async -> Void
+        updateSettings: @escaping @Sendable (@Sendable (inout EngineSettings) -> Void) async -> Void,
+        onStatusChange: @escaping @Sendable (Status) -> Void = { _ in }
     ) {
         self.host = host
         self.reconciler = reconciler
@@ -58,6 +64,7 @@ public actor AccountManager {
         self.settings = settings
         self.applySources = applySources
         self.updateSettings = updateSettings
+        self.onStatusChange = onStatusChange
     }
 
     public func status() -> Status { current }

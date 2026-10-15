@@ -26,6 +26,7 @@ final class ScriptedSource: CalendarCore.CalendarSource, @unchecked Sendable {
         var failure: CalendarCore.SourceError?
         var gated = false
         var eventsCalls = 0
+        var lastInterval: DateInterval?
     }
 
     let id: String
@@ -43,6 +44,8 @@ final class ScriptedSource: CalendarCore.CalendarSource, @unchecked Sendable {
     }
 
     var eventsCalls: Int { script.get().eventsCalls }
+    /// The interval the last `events(in:)` call asked for.
+    var lastInterval: DateInterval? { script.get().lastInterval }
     func setEvents(_ events: [CalendarCore.CalendarEvent]) { script.mutate { $0.events = events } }
     func setFailure(_ failure: CalendarCore.SourceError?) { script.mutate { $0.failure = failure } }
     func setGated(_ gated: Bool) { script.mutate { $0.gated = gated } }
@@ -55,6 +58,7 @@ final class ScriptedSource: CalendarCore.CalendarSource, @unchecked Sendable {
     func events(in interval: DateInterval) async throws -> [CalendarCore.CalendarEvent] {
         let current = script.mutate { script -> Script in
             script.eventsCalls += 1
+            script.lastInterval = interval
             return script
         }
         if current.gated { await gate.wait() }
@@ -93,13 +97,19 @@ struct EngineHarness {
     /// Keyed by connection id.
     let sources: [String: ScriptedSource]
     let kind: FakeConnectorKind
+    /// What `host.calendar()` returns; a test changes it to simulate a time zone change.
+    let hostCalendar: LockedBox<Calendar>
+    /// How many times the engine asked the host for system calendar access.
+    let systemAccessRequests: LockedBox<Int>
     let engine: Engine
 
     /// `events` go to account "c1"; `accounts` maps further connection ids to their events. With `directory`,
     /// an existing data directory is reused and `accounts.json` is left as it is.
     init(
         events: [CalendarCore.CalendarEvent] = [], accounts: [String: [CalendarCore.CalendarEvent]] = [:],
-        failures: [String: CalendarCore.SourceError] = [:], directory: URL? = nil
+        failures: [String: CalendarCore.SourceError] = [:], directory: URL? = nil,
+        textGenerator: (any TextGenerator)? = nil, inferenceEnabled: Bool = false,
+        systemSource: (any TimeTugCore.CalendarSource)? = nil
     ) async throws {
         var all = accounts
         if all["c1"] == nil { all["c1"] = events }
@@ -120,6 +130,7 @@ struct EngineHarness {
         clock = ManualClock(start: Self.epoch)
         var initial = EngineSettings(systemCalendarEnabled: false)
         initial.takeover.takeoverCalendarKeys = Set(all.keys.map { "fake-\($0)/cal" })
+        initial.inferenceEnabled = inferenceEnabled
         settings = InMemorySettingsStorage(initial)
         diagnostics = LockedBox([])
         emitted = LockedBox([])
@@ -134,10 +145,18 @@ struct EngineHarness {
         registry.register(kind)
         let signIn = FakeSignIn()
         let diagnostics = diagnostics
+        let hostCalendar = LockedBox(Self.utc)
+        self.hostCalendar = hostCalendar
+        let systemAccessRequests = LockedBox(0)
+        self.systemAccessRequests = systemAccessRequests
         let host = EngineHost(
             dataDirectory: dir, settings: settings, credentials: InMemoryCredentialStore(), interaction: signIn,
-            signIn: signIn, registry: registry, diagnostics: { event in diagnostics.mutate { $0.append(event) } },
-            clock: clock, calendar: { Self.utc })
+            signIn: signIn, registry: registry,
+            buildSystemSource: systemSource.map { source in { @Sendable in source } },
+            requestSystemAccess: systemSource == nil ? nil : { @Sendable in systemAccessRequests.mutate { $0 += 1 } },
+            textGenerator: textGenerator,
+            diagnostics: { event in diagnostics.mutate { $0.append(event) } },
+            clock: clock, calendar: { hostCalendar.get() })
         engine = Engine(host: host)
         let stream = await engine.events
         let emitted = emitted
@@ -177,7 +196,41 @@ struct EngineHarness {
         for _ in 0..<2_000 { await Task.yield() }
     }
 
+    var widgetSnapshots: [WidgetSnapshot] {
+        emitted.get().compactMap { if case .widgetSnapshot(let snapshot) = $0 { snapshot } else { nil } }
+    }
+
+    var dedupFile: URL { directory.appendingPathComponent("dedup-state.json") }
+
     var takeoverDueIDs: [String] {
         emitted.get().compactMap { if case .takeoverDue(let request, _) = $0 { request.event.sourceEventID } else { nil } }
+    }
+}
+
+/// A host text model for engine tests: answers every prompt with `answer` (or throws), counts calls and can run a
+/// hook on each call.
+final class FakeEngineGenerator: TextGenerator, @unchecked Sendable {
+    struct Failure: Error {}
+    static let onDevice = EngineInfo(id: "fake-model", displayName: "Fake model", isOnDevice: true)
+
+    let availabilityValue: LockedBox<TextGeneratorAvailability>
+    let answer: LockedBox<String?>
+    let calls = LockedBox(0)
+    /// Runs with the 1-based call number before the call answers.
+    let onCall = LockedBox<(@Sendable (Int) -> Void)?>(nil)
+
+    /// `answer` nil makes every call throw `Failure`.
+    init(_ availability: TextGeneratorAvailability = .available(FakeEngineGenerator.onDevice), answer: String? = "different") {
+        availabilityValue = LockedBox(availability)
+        self.answer = LockedBox(answer)
+    }
+
+    var availability: TextGeneratorAvailability { get async { availabilityValue.get() } }
+
+    func generate(instructions: String, prompt: String) async throws -> String {
+        let number = calls.mutate { $0 += 1; return $0 }
+        onCall.get()?(number)
+        guard let answer = answer.get() else { throw Failure() }
+        return answer
     }
 }

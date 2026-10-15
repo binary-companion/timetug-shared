@@ -51,15 +51,17 @@ import TimeTugCore
         let h = try await EngineHarness(events: [.sample(id: "e1", startsIn: 3600)])
         await h.engine.send(.start)
         await h.waitForState { $0.statuses["fake-c1"] == .ok }
-        // Two sleepers: the periodic refresh and the takeover armed for e1 (at +3540, past this test's window).
-        await h.clock.waitForSleepers(2)
+        // Three sleepers: the periodic refresh, the takeover armed for e1 (at +3540) and the UI tick (the "soon"
+        // window at +3000), both past this test's window. At most one of each of the last two is live, so three
+        // means the periodic sleep is registered.
+        await h.clock.waitForSleepers(3)
         let base = h.source().eventsCalls
         await h.clock.advance(by: 899)
         await h.settle()
         #expect(h.source().eventsCalls == base)
         await h.clock.advance(by: 1)
         await h.waitUntil("the periodic refresh") { h.source().eventsCalls == base + 1 }
-        await h.clock.waitForSleepers(2)
+        await h.clock.waitForSleepers(3)
         await h.clock.advance(by: 900)
         await h.waitUntil("the second periodic refresh") { h.source().eventsCalls == base + 2 }
     }
@@ -109,9 +111,12 @@ import TimeTugCore
         let early = try #require(state.events.first { $0.sourceEventID == "early" })
         let recent = try #require(state.events.first { $0.sourceEventID == "recent" })
         #expect(state.ledger.hasFired(early))
-        #expect(!state.ledger.hasFired(recent))
+        // "recent" is inside the grace, so it is not acknowledged: it is presented late instead. That takeover
+        // can land before this state is read, so the outcome is checked rather than the intermediate ledger.
+        await h.waitUntil("the late takeover") { h.takeoverDueIDs.contains("recent") }
         await h.settle()
-        #expect(!h.takeoverDueIDs.contains("early"))
+        #expect(h.takeoverDueIDs == ["recent"])
+        #expect(await h.engine.currentState().ledger.hasFired(recent))
     }
 
     @Test func failingSourceKeepsEventsAndRemovedAccountIsNotResurrected() async throws {
