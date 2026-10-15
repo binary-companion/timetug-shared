@@ -16,6 +16,21 @@ private func allOK(_ state: EngineState, count: Int) -> Bool {
 
 private func fileExists(_ url: URL) -> Bool { FileManager.default.fileExists(atPath: url.path) }
 
+/// Records, for every generate call, whether the dedup file existed when it began. The file is written once, at the
+/// end of a resolution round, so the first call that sees it is the first call of the next round.
+private final class RoundProbe: @unchecked Sendable {
+    private let file: URL
+    private let seen = LockedBox<[Int: Bool]>([:])
+    init(_ file: URL) { self.file = file }
+    func record(_ call: Int) { let exists = fileExists(file); seen.mutate { $0[call] = exists } }
+    func fileAt(_ call: Int) -> Bool? { seen.get()[call] }
+    /// Calls made before the first write, i.e. in the first round that judged anything.
+    func callsBeforeFirstWrite() -> Int? {
+        let calls = seen.get()
+        return calls.keys.sorted().first { calls[$0] == true }.map { $0 - 1 }
+    }
+}
+
 @Suite struct EngineInferenceTests {
     // Scenario 1 (Review Focus 6)
     @Test func lookAlikePairsResolveInAtMostTenPassesAndDedupIsPersistedOnceAtTheEnd() async throws {
@@ -29,30 +44,62 @@ private func fileExists(_ url: URL) -> Bool { FileManager.default.fileExists(atP
         #expect(await h.engine.currentState().inferenceStatus == .disabled)
 
         let dedupFile = h.dedupFile
-        let fileAtSecondPass = LockedBox<Bool?>(nil)
-        generator.onCall.set { number in
-            if number == 21 { fileAtSecondPass.set(fileExists(dedupFile)) }
-        }
+        let probe = RoundProbe(dedupFile)
+        generator.onCall.set { probe.record($0) }
         let widgetsBefore = h.widgetSnapshots.count
 
         await h.engine.send(.applySettings { $0.inferenceEnabled = true })
 
-        #expect(generator.calls.get() == 200)
-        // The first pass's verdicts were published but not yet written when the second pass began.
-        #expect(fileAtSecondPass.get() == false)
+        // Round one made exactly 10 passes of 20 calls: the dedup file, written once at the end of a round, did not
+        // exist on the second pass or the 200th call, and did on the first call after round one (checked below,
+        // once that call has happened). (If an earlier round was still in
+        // flight when the setting changed, the engine runs one more round at once; see the next test. The total
+        // then reaches 210 here, but round one is still 200 calls.)
+        #expect(probe.fileAt(21) == false)
+        #expect(probe.fileAt(200) == false)
+        #expect([200, 210].contains(generator.calls.get()))
         #expect(fileExists(dedupFile))
         let state = await h.engine.currentState()
         #expect(state.inferenceStatus == .active(FakeEngineGenerator.onDevice))
         #expect(state.events.count == 21)
         // Each pass's verdicts republish: at least one widget snapshot per pass (10), plus the settings change and
-        // the re-snapshot with inference on. The pass count itself is pinned by the 200 calls above.
+        // the re-snapshot with inference on.
         await h.waitUntil("the widget snapshots") { h.widgetSnapshots.count >= widgetsBefore + 12 }
 
-        // The backstop stopped at 10 passes; nothing retries on its own. The next refresh judges the rest.
-        await h.settle()
-        #expect(generator.calls.get() == 200)
+        // Nothing retries on its own; the next refresh judges whatever is left.
         await h.engine.send(.refresh)
         await h.waitUntil("the remaining pairs") { generator.calls.get() == 210 }
+        await h.settle()
+        #expect(generator.calls.get() == 210)
+        #expect(probe.callsBeforeFirstWrite() == 200)
+    }
+
+    /// The CI interleaving of the test above, made deterministic: the round started by the launch refresh (inference
+    /// still off) is held in flight when inference is turned on. The settings change joins that round and asks for
+    /// one more, so round one judges with inference on (10 passes, 200 calls, then one write) and round two judges
+    /// the 10 left. Verdict publications never request a round themselves, so it stops there.
+    @Test func aSettingChangeDuringAnInFlightRoundRunsExactlyOneMoreRound() async throws {
+        let generator = FakeEngineGenerator(answer: "different")
+        let gate = Gate()
+        // Read 1 is `start`'s own availability check; read 2 is the launch refresh's resolution round.
+        generator.availabilityGate.set((read: 2, gate: gate))
+        let h = try await EngineHarness(accounts: lookAlikes(21), textGenerator: generator)
+        let probe = RoundProbe(h.dedupFile)
+        generator.onCall.set { probe.record($0) }
+        await h.engine.send(.start)
+        await h.waitForState { allOK($0, count: 21) }
+        await h.waitUntil("the launch round at the gate") { await gate.isWaiting }
+        let widgetsBefore = h.widgetSnapshots.count
+
+        let turnOn = Task { await h.engine.send(.applySettings { $0.inferenceEnabled = true }) }
+        // The settings change and the re-snapshot both emitted: the change is now waiting on the held round.
+        await h.waitUntil("the settings change to join the round") { h.widgetSnapshots.count >= widgetsBefore + 2 }
+        #expect(generator.calls.get() == 0)
+        await gate.open()
+        await turnOn.value
+
+        #expect(probe.callsBeforeFirstWrite() == 200)
+        #expect(generator.calls.get() == 210)
         await h.settle()
         #expect(generator.calls.get() == 210)
     }

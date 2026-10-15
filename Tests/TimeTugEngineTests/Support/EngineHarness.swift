@@ -239,7 +239,17 @@ final class FakeEngineGenerator: TextGenerator, @unchecked Sendable {
         self.answer = LockedBox(answer)
     }
 
-    var availability: TextGeneratorAvailability { get async { availabilityValue.get() } }
+    let availabilityReads = LockedBox(0)
+    /// When set, the availability read with this 1-based number waits at the gate first.
+    let availabilityGate = LockedBox<(read: Int, gate: Gate)?>(nil)
+
+    var availability: TextGeneratorAvailability {
+        get async {
+            let read = availabilityReads.mutate { $0 += 1; return $0 }
+            if let armed = availabilityGate.get(), armed.read == read { await armed.gate.wait() }
+            return availabilityValue.get()
+        }
+    }
 
     func generate(instructions: String, prompt: String) async throws -> String {
         let number = calls.mutate { $0 += 1; return $0 }
