@@ -30,6 +30,6 @@ let package = Package(
         ]),
         .testTarget(name: "TimeTugEngineTests", dependencies: [
             "TimeTugEngine", "TimeTugCore", "CalendarBridge", .product(name: "CalendarCore", package: "calendar-connectors"),
-        ]),
+        ], resources: [.copy("Fixtures")]),
     ]
 )
