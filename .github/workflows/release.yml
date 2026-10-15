@@ -101,7 +101,7 @@ jobs:
 
   # Tells each dependent that a version exists, so its own workflow can open a bump pull request.
   # Skipped when nothing was released. The token comes from the timetug-bot GitHub App, installed on
-  # timetug only; the bump environment holds its credentials and is limited to main.
+  # timetug and timetug-shared; the bump environment holds its credentials and is limited to main.
   notify:
     needs: publish
     if: needs.publish.outputs.version != ''

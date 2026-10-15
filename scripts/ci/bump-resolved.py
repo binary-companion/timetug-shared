@@ -39,7 +39,11 @@ def floor_of(manifest, slug):
     if not manifest.is_file():
         fail(f'{manifest} not found; the major version cannot be checked')
     pattern = r'url:\s*"[^"]*/%s(?:\.git)?"\s*,\s*from:\s*"([^"]*)"' % re.escape(slug)
-    floors = re.findall(pattern, manifest.read_text())
+    try:
+        text = manifest.read_text()
+    except (OSError, UnicodeDecodeError) as problem:
+        fail(f'cannot read {manifest}: {problem}')
+    floors = re.findall(pattern, text)
     if len(floors) != 1:
         fail(f'cannot find exactly one `from:` floor for {slug} in {manifest}; the major version cannot be checked')
     if not SEMVER.fullmatch(floors[0]):
