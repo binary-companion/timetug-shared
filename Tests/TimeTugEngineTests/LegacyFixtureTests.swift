@@ -6,7 +6,7 @@ import TimeTugCore
 
 /// Settings storage over a Mac-format settings file: `load` decodes it (legacy keys included), `save` counts and
 /// writes. Stands in for a host that keeps its settings on disk.
-private final class FileSettingsStorage: SettingsStorage, @unchecked Sendable {
+private final class LegacyFixtureSettingsStorage: SettingsStorage, @unchecked Sendable {
     let url: URL
     let saves = LockedBox(0)
     init(url: URL) { self.url = url }
@@ -115,7 +115,7 @@ private final class FileSettingsStorage: SettingsStorage, @unchecked Sendable {
         let dir = try await dataDirectory(copying: ["settings-legacy.json"])
         let settingsBefore = try bytes(dir, "settings-legacy.json")
         let accountsBefore = try bytes(dir, "accounts.json")
-        let storage = FileSettingsStorage(url: dir.appendingPathComponent("settings-legacy.json"))
+        let storage = LegacyFixtureSettingsStorage(url: dir.appendingPathComponent("settings-legacy.json"))
         let h = try await EngineHarness(
             events: [.sample(id: "e1", startsIn: 600)], directory: dir, hostSettings: storage)
         await h.engine.send(.start)
