@@ -27,6 +27,8 @@ public actor AccountManager {
         public var buildFailures: [ConnectionID: String] = [:]
         public var errorMessage: String?
         public var waitingStyle: WaitingStyle = .browser
+
+        public static let empty = Status()
     }
 
     private let host: EngineHost
