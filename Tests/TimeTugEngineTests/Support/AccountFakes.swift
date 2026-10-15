@@ -71,6 +71,10 @@ final class FakeConnectorKind: ConnectorKind, @unchecked Sendable {
     var reauthorizeResult: Connection?
     /// When set, reauthorize cancels the signing-in task and returns the connection renamed to this.
     var reauthorizeCancelsAndRenames: String?
+    /// When set, `authorize` waits here first (a sign-in in progress).
+    var authorizeGate: Gate?
+    /// Builds the source for a connection; unset, `makeSource` throws.
+    var sourceFactory: (@Sendable (Connection) throws -> any CalendarCore.CalendarSource)?
     private let lock = NSLock()
     private var _reauthorized = 0, _attempts = 0
     var reauthorized: Int { lock.withLock { _reauthorized } }
@@ -85,6 +89,7 @@ final class FakeConnectorKind: ConnectorKind, @unchecked Sendable {
 
     func authorize(using interaction: any AuthorizationInteraction, credentials: any CredentialStore) async throws -> Connection {
         lock.withLock { _attempts += 1 }
+        if let authorizeGate { await authorizeGate.wait() }
         switch outcome {
         case .succeed:
             let c = Connection(kindID: id, connectionID: nextConnectionID, displayName: nextEmail, config: ["email": nextEmail])
@@ -119,6 +124,7 @@ final class FakeConnectorKind: ConnectorKind, @unchecked Sendable {
     }
 
     func makeSource(for connection: Connection, credentials: any CredentialStore, syncState: any SyncStateStore) throws -> any CalendarCore.CalendarSource {
+        if let sourceFactory { return try sourceFactory(connection) }
         throw CalendarCore.SourceError.invalidResponse("unused")
     }
 }

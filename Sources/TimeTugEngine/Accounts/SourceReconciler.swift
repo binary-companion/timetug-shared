@@ -15,6 +15,8 @@ actor SourceReconciler: SourceReconciling {
     private let buildSystemSource: @Sendable () -> any TimeTugCore.CalendarSource
     private let onChange: @Sendable (SourceChange) async -> Void
     private var entries: [String: Entry] = [:]   // keyed by connection id, or `systemKey`
+    /// Every running listener, reachable without the actor so `cancelAll()` can run from a `deinit`.
+    private nonisolated let listeners = TaskBag()
 
     init(
         buildAccount: @escaping @Sendable (Connection) throws -> any TimeTugCore.CalendarSource,
@@ -41,7 +43,11 @@ actor SourceReconciler: SourceReconciling {
     func stop() {
         entries.values.forEach { $0.listener.cancel() }
         entries = [:]
+        listeners.cancelAll()
     }
+
+    /// Synchronous teardown for an owner that is going away without `stop()`.
+    nonisolated func cancelAll() { listeners.cancelAll() }
 
     private func apply(connections: [Connection], systemCalendarEnabled: Bool, rebuilding: ConnectionID?) -> SourceReconcilerUpdate {
         var wanted: [String] = []
@@ -76,14 +82,42 @@ actor SourceReconciler: SourceReconciling {
     }
 
     private func start(_ source: any TimeTugCore.CalendarSource) -> Entry {
-        let onChange = onChange
+        let onChange = onChange, listeners = listeners, id = UUID()
         let listener = Task {
             for await change in source.changes() {
                 // A removed source's listener may still see a buffered change before cancellation lands.
                 if Task.isCancelled { break }
                 await onChange(change)
             }
+            listeners.remove(id)
         }
+        listeners.insert(listener, id: id)
         return Entry(source: source, listener: listener)
+    }
+}
+
+/// Lock-protected tasks that can be cancelled from any context, including a `deinit`.
+final class TaskBag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var tasks: [UUID: Task<Void, Never>] = [:]
+    private var finished: Set<UUID> = []
+
+    func insert(_ task: Task<Void, Never>, id: UUID) {
+        lock.withLock {
+            // The task may already have ended (and removed itself) before it was inserted.
+            if finished.remove(id) == nil { tasks[id] = task }
+        }
+    }
+
+    func remove(_ id: UUID) {
+        lock.withLock { if tasks.removeValue(forKey: id) == nil { finished.insert(id) } }
+    }
+
+    func cancelAll() {
+        let all: [Task<Void, Never>] = lock.withLock {
+            defer { tasks = [:] }
+            return Array(tasks.values)
+        }
+        all.forEach { $0.cancel() }
     }
 }

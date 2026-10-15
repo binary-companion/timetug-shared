@@ -103,10 +103,14 @@ private let caldavFields = [
         let h = try AccountHarness(kinds: [FakeConnectorKind()])
         await h.manager.addAccount(kindID: "google")
         await h.manager.removeAccount(connectionID: "1")
+        #expect(await h.manager.status().errorMessage == nil)
+        let applied = h.applied.get().count
+        // The second removal changes nothing; it names an account that no longer exists (review ruling).
         await h.manager.removeAccount(connectionID: "1")
         let status = await h.manager.status()
         #expect(status.accounts.isEmpty)
-        #expect(status.errorMessage == nil)
+        #expect(h.applied.get().count == applied)
+        #expect(status.errorMessage == "That account no longer exists.")
     }
 
     @Test func aSecretsFailureDuringRemovalReportsItButTheAccountIsGone() async throws {
