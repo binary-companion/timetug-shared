@@ -12,7 +12,7 @@ Products: `TimeTugCore`, `CalendarBridge`. Core never reads the clock: callers p
 
 ## Releases
 
-Every merge to `main` publishes a version tag (`X.Y.Z`) and a GitHub release. The pull request's `semver:major`, `semver:minor` or `semver:patch` label chooses the bump; patch is the default. Release notes record the `calendar-connectors` version the code was built and tested with. Published tags are immutable.
+Every merge to `main` publishes a version tag (`X.Y.Z`) and a GitHub release. The pull request's `semver:major`, `semver:minor` or `semver:patch` label chooses the bump; patch is the default. Release notes record the `calendar-connectors` version the code was built and tested with. Published tags are immutable. A release notifies `timetug`, which opens the pull request that takes the new version, and a `calendar-connectors` release opens a bump pull request here (`.github/workflows/bump-dependencies.yml`); see `AGENTS.md` for the chain and how to recover a missed dispatch.
 
 ## License
 
