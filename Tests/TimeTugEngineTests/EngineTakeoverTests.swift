@@ -363,4 +363,31 @@ import TimeTugCore
         await h.settle()
         #expect(withdrawnIDs(h) == [e1.id])
     }
+
+    // MARK: Stop
+
+    /// A refresh still in flight when `.stop` arrives must not arm, fire or persist anything afterwards: a fired
+    /// entry written then would suppress, after a relaunch, a takeover the user never saw.
+    @Test func aRefreshFinishingAfterStopArmsAndPersistsNothing() async throws {
+        let h = try await EngineHarness(events: [.sample(id: "e1", startsIn: 600)])
+        await started(h)
+        let event = try #require(await h.engine.currentState().events.first)
+        let source = h.source()
+        source.setGated(true)
+        let refresh = Task { await h.engine.send(.refresh) }
+        await h.waitUntil("the refresh at the gate") { await source.gate.waiting == 1 }
+
+        await h.engine.send(.stop)
+        source.setGated(false)
+        await source.gate.releaseAll()
+        await refresh.value
+        await h.settle()
+        // Nothing is armed: no takeover, tick or periodic sleep is pending.
+        #expect(h.clock.pendingSleeps == 0)
+
+        await h.clock.advance(by: 600)
+        await h.settle()
+        #expect(h.takeoverDueIDs.isEmpty)
+        #expect(!persistedLedger(h).hasFired(event))
+    }
 }

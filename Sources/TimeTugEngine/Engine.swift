@@ -227,8 +227,9 @@ public actor Engine {
 
     /// Publishes a snapshot: ledger bookkeeping, launch acknowledgement, re-arm, state and widget snapshot.
     /// A snapshot no newer than the current one is dropped (a late publication from an older refresh).
+    /// After `stop` nothing is applied: a refresh still in flight must not arm or persist anything.
     private func apply(_ newSnapshot: CalendarSnapshot) {
-        guard newSnapshot.revision > snapshot.revision else { return }
+        guard !stopped, newSnapshot.revision > snapshot.revision else { return }
         snapshot = newSnapshot
         let now = host.clock.now()
         if ledger.prune(now: now) { persistLedger() }
@@ -253,6 +254,7 @@ public actor Engine {
 
     private func armPeriodicRefresh() {
         periodicTask?.cancel()
+        guard !stopped else { return }
         let clock = host.clock
         periodicTask = Task { [weak self] in
             var deadline = clock.now().addingTimeInterval(Self.periodicRefresh)
@@ -332,6 +334,7 @@ public actor Engine {
         fireTask?.cancel()
         fireTask = nil
         fireGeneration &+= 1
+        guard !stopped else { return }
         let previous = nextTakeover
         nextTakeover = nil
         let now = host.clock.now()
@@ -358,7 +361,7 @@ public actor Engine {
     /// Runs `fire` only for the sleep armed last: a re-armed (cancelled) sleep that already woke does nothing,
     /// as an invalidated Mac timer never fired.
     private func fireArmed(_ event: TimeTugCalendarEvent, generation: UInt64) {
-        guard generation == fireGeneration else { return }
+        guard !stopped, generation == fireGeneration else { return }
         fireTask = nil
         fire(event)
     }
@@ -366,6 +369,7 @@ public actor Engine {
     /// Re-checks the ledger and the current snapshot before anything is emitted (port of the Mac `fire`): the event
     /// captured when the sleep was armed may be stale. Diagnostics carry the reason only, never the title.
     private func fire(_ event: TimeTugCalendarEvent) {
+        guard !stopped else { return }
         let now = host.clock.now()
         let decision = TakeoverGuard.evaluate(
             event: event, currentEvents: snapshot.events, settings: settings.takeover,
@@ -568,6 +572,7 @@ public actor Engine {
 
     /// Writes the dedup state only when it changed since the last write (or load).
     private func persistDedup() async {
+        guard !stopped else { return }
         let current = await store.state()
         guard current != lastSavedDedupState else { return }
         if dedupStore.save(current) { lastSavedDedupState = current }
@@ -710,7 +715,9 @@ public actor Engine {
         eventContinuations[id] = nil
     }
 
+    /// Never after `stop`: a fired entry written then would suppress a takeover the user never saw.
     private func persistLedger() {
+        guard !stopped else { return }
         ledgerStore.save(ledger, now: host.clock.now())
     }
 
