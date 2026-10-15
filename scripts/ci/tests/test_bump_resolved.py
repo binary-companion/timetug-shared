@@ -197,6 +197,13 @@ class BumpResolvedTests(unittest.TestCase):
         ws = Workspace(self, manifest_text='let package = Package(name: "x")\n')
         self.refused(ws, ws.bump(), 'from:')
 
+    def test_an_unreadable_manifest_is_a_refusal_not_a_traceback(self):
+        ws = Workspace(self)
+        (Path(ws.directory.name) / 'Package.swift').write_bytes(b'// caf\xe9\n' + manifest().encode())
+        result = ws.bump()
+        self.refused(ws, result, 'cannot read')
+        self.assertNotIn('Traceback', result.stderr)
+
     # --- input validation: nothing is written on a refusal ---
 
     def test_malformed_versions_are_refused(self):
