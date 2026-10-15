@@ -37,10 +37,17 @@ public actor Engine {
     private var inferenceStatus = InferenceStatus.disabled
     private var lastSavedDedupState: DedupState?
 
-    // Takeover scheduling (Task 9)
+    // Takeover scheduling
     private var nextTakeover: ScheduledTakeover?
+    /// As reported by the host (`takeoverPresented`), on screen or as a toast.
     private var takeoverVisible = false
     private var fireTask: Task<Void, Never>?
+    /// Bumped on every re-arm; a sleep from an older arming that still wakes does nothing.
+    private var fireGeneration: UInt64 = 0
+    /// The takeover emitted and not yet closed (the plan's `pendingTakeoverEventID`); commands name it by `id`.
+    private var outstandingTakeover: TimeTugCalendarEvent?
+    /// True while the outstanding takeover is the test tug's sample.
+    private var outstandingIsTest = false
 
     // Background work
     private var started = false
@@ -277,25 +284,166 @@ public actor Engine {
         emitWidgetSnapshot()
     }
 
-    // MARK: - Takeover scheduling (Task 9)
+    // MARK: - Takeover scheduling
 
-    /// Arms one sleep for the next takeover. Task 9 implements it (`fireTask`, `Scheduler.next`, `fire`).
-    private func rearm() {}
+    /// True from the moment a takeover is emitted until the host closes it, and while the host reports one visible
+    /// (on screen or as a toast). The host reports presentation asynchronously, so the emitted-but-unreported
+    /// window counts too: a second takeover waits for the first to close.
+    private var takeoverOutstanding: Bool { takeoverVisible || outstandingTakeover != nil }
 
-    private func takeoverPresented(eventID: String, onScreen: Bool) { notImplemented("takeoverPresented") }
-    private func takeoverClosed(eventID: String) { notImplemented("takeoverClosed") }
-    private func join(eventID: String) { notImplemented("join") }
-    private func snooze(eventID: String, seconds: TimeInterval) { notImplemented("snooze") }
-    private func dismiss(eventID: String) { notImplemented("dismiss") }
-    private func testTug() { notImplemented("testTug") }
+    /// Arms one sleep for the next takeover (port of the Mac `rearm`). Skipped while a takeover is outstanding;
+    /// closing it re-arms. Emits `takeoverWithdrawn` when the previously armed meeting is no longer scheduled at all.
+    private func rearm() {
+        fireTask?.cancel()
+        fireTask = nil
+        fireGeneration &+= 1
+        let previous = nextTakeover
+        nextTakeover = nil
+        guard !takeoverOutstanding else { return }
+        let now = host.clock.now()
+        let next = Scheduler.next(events: snapshot.events, settings: settings.takeover, ledger: ledger, now: now)
+        nextTakeover = next
+        if let previous, !isScheduled(previous.event, now: now) {
+            emit(.takeoverWithdrawn(eventID: previous.event.id))
+        }
+        guard let next else { return }
+        let clock = host.clock, generation = fireGeneration
+        fireTask = Task { [weak self] in
+            do { try await clock.sleep(until: next.fireAt) } catch { return }
+            await self?.fireArmed(next.event, generation: generation)
+        }
+    }
+
+    /// Whether the current copy of `event` would still be armed at some point.
+    private func isScheduled(_ event: TimeTugCalendarEvent, now: Date) -> Bool {
+        guard let current = snapshot.events.first(where: { $0.isSameMeeting(as: event) }) else { return false }
+        return Scheduler.next(events: [current], settings: settings.takeover, ledger: ledger, now: now) != nil
+    }
+
+    /// Runs `fire` only for the sleep armed last: a re-armed (cancelled) sleep that already woke does nothing,
+    /// as an invalidated Mac timer never fired.
+    private func fireArmed(_ event: TimeTugCalendarEvent, generation: UInt64) {
+        guard generation == fireGeneration else { return }
+        fireTask = nil
+        fire(event)
+    }
+
+    /// Re-checks the ledger and the current snapshot before anything is emitted (port of the Mac `fire`): the event
+    /// captured when the sleep was armed may be stale. Diagnostics carry the reason only, never the title.
+    private func fire(_ event: TimeTugCalendarEvent) {
+        let now = host.clock.now()
+        let decision = TakeoverGuard.evaluate(
+            event: event, currentEvents: snapshot.events, settings: settings.takeover,
+            ledger: ledger, now: now, overlayVisible: takeoverOutstanding)
+        switch decision {
+        case .suppress(.overlayVisible):
+            // Stays pending, not marked fired; closing the visible takeover re-arms.
+            diagnose(.info, "takeover", "takeover suppressed: \(TakeoverGuard.Reason.overlayVisible.rawValue)")
+        case .suppress(let reason):
+            diagnose(.info, "takeover", "takeover suppressed: \(reason.rawValue)")
+            nextTakeover = nil
+            rearm()
+            publish()
+        case .present:
+            let current = snapshot.events.first { $0.isSameMeeting(as: event) } ?? event
+            let reason = ledger.isSnoozed(current) ? "snooze expired"
+                : now >= current.start.addingTimeInterval(Self.launchGrace) ? "late after wake" : "lead time"
+            ledger.markFired(current, now: now)
+            persistLedger()
+            diagnose(.info, "takeover", "takeover due (\(reason))")
+            nextTakeover = nil
+            outstandingTakeover = current
+            outstandingIsTest = false
+            let calendarTitle = snapshot.calendars.first { $0.key == current.calendarKey }?.title
+            emit(.takeoverDue(TakeoverRequest.make(for: current, now: now), calendarTitle: calendarTitle))
+            rearm()
+            publish()
+        }
+    }
+
+    /// The host shows the takeover on screen, or (`onScreen` false) as a toast; either holds the next takeover.
+    private func takeoverPresented(eventID: String, onScreen: Bool) {
+        if let outstandingTakeover, outstandingTakeover.id != eventID {
+            diagnose(.warning, "takeover", "presented a takeover that is not the outstanding one")
+        }
+        takeoverVisible = true
+        diagnose(.info, "takeover", onScreen ? "takeover shown on screen" : "takeover shown as a toast")
+        publish()
+    }
+
+    private func takeoverClosed(eventID: String) {
+        guard matchesOutstanding(eventID, command: "takeoverClosed") else { return }
+        closeTakeover()
+    }
+
+    /// Asks the host to open the meeting link (never for the test tug, as on the Mac), then closes.
+    private func join(eventID: String) {
+        guard matchesOutstanding(eventID, command: "join") else { return }
+        if !outstandingIsTest, let url = outstandingTakeover?.conferenceURL { emit(.joinRequested(url)) }
+        closeTakeover()
+    }
+
+    /// Re-arms the meeting `seconds` from now (never past its end) and closes. The test tug never touches the ledger.
+    private func snooze(eventID: String, seconds: TimeInterval) {
+        guard matchesOutstanding(eventID, command: "snooze") else { return }
+        if !outstandingIsTest, let event = outstandingTakeover {
+            ledger.snooze(event, for: seconds, now: host.clock.now())
+        }
+        closeTakeover()
+    }
+
+    private func dismiss(eventID: String) {
+        guard matchesOutstanding(eventID, command: "dismiss") else { return }
+        closeTakeover()
+    }
+
+    /// A command for another event than the outstanding takeover is stale (a late close of an earlier takeover)
+    /// and is ignored so it cannot release the guard held for the current one.
+    private func matchesOutstanding(_ eventID: String, command: String) -> Bool {
+        guard let outstandingTakeover, outstandingTakeover.id != eventID else { return true }
+        diagnose(.warning, "takeover", "\(command) for an event that is not the outstanding takeover; ignored")
+        return false
+    }
+
+    /// Port of the Mac `closeOverlay`: clears the guard, persists, re-arms and publishes.
+    private func closeTakeover() {
+        let wasTest = outstandingIsTest
+        takeoverVisible = false
+        outstandingTakeover = nil
+        outstandingIsTest = false
+        if !wasTest { persistLedger() }
+        rearm()
+        publish()
+    }
+
+    /// Settings' "Test tug" (port of the Mac `fireTest`): a sample event that never touches the ledger and, as on the
+    /// Mac, leaves the armed takeover alone (the guard holds it while the sample is outstanding).
+    private func testTug() {
+        let now = host.clock.now()
+        let leadTime = settings.takeover.leadTime
+        var sample = TimeTugCalendarEvent(
+            event: CalendarCore.CalendarEvent(
+                eventID: "test", calendarID: "test", title: "Sample meeting",
+                start: now.addingTimeInterval(leadTime), end: now.addingTimeInterval(leadTime + 1800)),
+            sourceID: "test")
+        sample.otherAttendeeCount = 1
+        sample.conferences = [ConferenceInfo(url: URL(string: "https://meet.google.com/aaa-bbbb-ccc")!, provider: .meet)]
+        outstandingTakeover = sample
+        outstandingIsTest = true
+        diagnose(.info, "takeover", "test takeover due")
+        emit(.takeoverDue(TakeoverRequest.make(for: sample, now: now), calendarTitle: "Sample calendar"))
+        publish()
+    }
 
     // MARK: - Inference, dedup, settings, system events, ticks (Task 10)
 
     /// Starts inference resolution in `resolveTask` without blocking the caller. Task 10 implements it.
     private func startInferenceResolution() {}
 
+    /// Persists the change and re-arms (a changed lead time re-arms; `enabled = false` withdraws the armed takeover).
+    /// Task 10 adds inference and system calendar handling.
     private func applySettings(_ change: @escaping @Sendable (inout EngineSettings) -> Void) async {
-        notImplemented("applySettings")
+        updateSettings(change)
     }
     private func settingsChangedExternally() async { notImplemented("settingsChangedExternally") }
     private func setCountdownVisible(_ visible: Bool) { notImplemented("setCountdownVisible") }

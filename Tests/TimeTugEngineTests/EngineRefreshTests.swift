@@ -51,14 +51,15 @@ import TimeTugCore
         let h = try await EngineHarness(events: [.sample(id: "e1", startsIn: 3600)])
         await h.engine.send(.start)
         await h.waitForState { $0.statuses["fake-c1"] == .ok }
-        await h.clock.waitForSleepers(1)
+        // Two sleepers: the periodic refresh and the takeover armed for e1 (at +3540, past this test's window).
+        await h.clock.waitForSleepers(2)
         let base = h.source().eventsCalls
         await h.clock.advance(by: 899)
         await h.settle()
         #expect(h.source().eventsCalls == base)
         await h.clock.advance(by: 1)
         await h.waitUntil("the periodic refresh") { h.source().eventsCalls == base + 1 }
-        await h.clock.waitForSleepers(1)
+        await h.clock.waitForSleepers(2)
         await h.clock.advance(by: 900)
         await h.waitUntil("the second periodic refresh") { h.source().eventsCalls == base + 2 }
     }
