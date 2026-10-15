@@ -4,7 +4,7 @@ import TimeTugCore
 @testable import TimeTugEngine
 
 @Suite struct DedupStateStoreTests {
-    private func store(_ dir: URL, _ events: LockedBox<[DiagnosticEvent]>? = nil) -> DedupStateStore {
+    private func store(_ dir: URL, _ events: LockedBox<[EngineDiagnostic]>? = nil) -> DedupStateStore {
         DedupStateStore(directory: dir, diagnostics: { e in events?.mutate { $0.append(e) } })
     }
 
@@ -41,7 +41,7 @@ import TimeTugCore
     @Test func corruptFileLoadsEmptyStateAndEmitsDiagnostic() throws {
         let dir = try TempDir.make()
         try Data("not json".utf8).write(to: dir.appendingPathComponent("dedup-state.json"))
-        let events = LockedBox<[DiagnosticEvent]>([])
+        let events = LockedBox<[EngineDiagnostic]>([])
         #expect(store(dir, events).load() == DedupState())
         #expect(events.get().contains { $0.level == .warning && $0.category == "dedup" })
     }
@@ -49,7 +49,7 @@ import TimeTugCore
     @Test func saveFailureReturnsFalseAndEmitsError() throws {
         let file = try TempDir.make().appendingPathComponent("plain")
         FileManager.default.createFile(atPath: file.path, contents: Data())
-        let events = LockedBox<[DiagnosticEvent]>([])
+        let events = LockedBox<[EngineDiagnostic]>([])
         #expect(!store(file.appendingPathComponent("x"), events).save(DedupState()))
         #expect(events.get().contains { $0.level == .error && $0.category == "dedup" })
     }

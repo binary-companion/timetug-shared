@@ -6,7 +6,7 @@ struct DedupStateStore {
     static let fileName = "dedup-state.json"
     private let file: JSONFile<DedupState>
 
-    init(directory: URL, diagnostics: @escaping DiagnosticSink) {
+    init(directory: URL, diagnostics: @escaping EngineDiagnosticSink) {
         file = JSONFile(
             url: directory.appendingPathComponent(Self.fileName), diagnostics: diagnostics, label: "dedup")
     }

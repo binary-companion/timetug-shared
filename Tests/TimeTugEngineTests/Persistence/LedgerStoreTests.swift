@@ -13,7 +13,7 @@ import TimeTugCore
             sourceID: "s")
     }
 
-    private func store(_ dir: URL, _ events: LockedBox<[TimeTugEngine.DiagnosticEvent]>? = nil) -> LedgerStore {
+    private func store(_ dir: URL, _ events: LockedBox<[EngineDiagnostic]>? = nil) -> LedgerStore {
         LedgerStore(directory: dir, diagnostics: { e in events?.mutate { $0.append(e) } })
     }
 
@@ -41,7 +41,7 @@ import TimeTugCore
     @Test func corruptLedgerLoadsEmptyAndEmitsDiagnostic() throws {
         let dir = try TempDir.make()
         try Data("{not json".utf8).write(to: dir.appendingPathComponent("takeover-ledger.json"))
-        let events = LockedBox<[TimeTugEngine.DiagnosticEvent]>([])
+        let events = LockedBox<[EngineDiagnostic]>([])
         let ledger = LedgerStore(directory: dir, diagnostics: { e in events.mutate { $0.append(e) } }).load()
         #expect(ledger.keyCount == 0)
         #expect(events.get().contains { $0.level == .warning && $0.category == "ledger" })
@@ -64,7 +64,7 @@ import TimeTugCore
         // A path under a regular file cannot be created.
         let file = try TempDir.make().appendingPathComponent("plain")
         FileManager.default.createFile(atPath: file.path, contents: Data())
-        let events = LockedBox<[TimeTugEngine.DiagnosticEvent]>([])
+        let events = LockedBox<[EngineDiagnostic]>([])
         let ok = store(file.appendingPathComponent("x"), events).save(TakeoverLedger(), now: Date())
         #expect(!ok)
         #expect(events.get().contains { $0.level == .error && $0.category == "ledger" })

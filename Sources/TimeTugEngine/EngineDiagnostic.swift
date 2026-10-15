@@ -1,6 +1,6 @@
 import Foundation
 
-public struct DiagnosticEvent: Sendable, Equatable {
+public struct EngineDiagnostic: Sendable, Equatable {
     public enum Level: String, Sendable { case info, warning, error }
     public var level: Level
     public var category: String
@@ -11,4 +11,4 @@ public struct DiagnosticEvent: Sendable, Equatable {
     }
 }
 
-public typealias DiagnosticSink = @Sendable (DiagnosticEvent) -> Void
+public typealias EngineDiagnosticSink = @Sendable (EngineDiagnostic) -> Void

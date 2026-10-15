@@ -4,11 +4,11 @@ import Foundation
 /// the diagnostic sink (with the error's type name only, never its description) and never thrown.
 struct JSONFile<Value: Codable> {
     let url: URL
-    let diagnostics: DiagnosticSink
+    let diagnostics: EngineDiagnosticSink
     /// Used as the diagnostic category and in messages, for example "ledger".
     let label: String
 
-    init(url: URL, diagnostics: @escaping DiagnosticSink, label: String) {
+    init(url: URL, diagnostics: @escaping EngineDiagnosticSink, label: String) {
         self.url = url
         self.diagnostics = diagnostics
         self.label = label
@@ -20,7 +20,7 @@ struct JSONFile<Value: Codable> {
         do {
             return try JSONDecoder().decode(Value.self, from: Data(contentsOf: url))
         } catch {
-            diagnostics(DiagnosticEvent(
+            diagnostics(EngineDiagnostic(
                 level: .warning, category: label,
                 message: "\(label) could not be read (\(String(describing: type(of: error))))"))
             return nil
@@ -36,7 +36,7 @@ struct JSONFile<Value: Codable> {
             try JSONEncoder().encode(value).write(to: url, options: .atomic)
             return true
         } catch {
-            diagnostics(DiagnosticEvent(
+            diagnostics(EngineDiagnostic(
                 level: .error, category: label,
                 message: "\(label) could not be written (\(String(describing: type(of: error))))"))
             return false

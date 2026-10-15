@@ -7,7 +7,7 @@ struct LedgerStore {
     static let fileName = "takeover-ledger.json"
     private let file: JSONFile<TakeoverLedger>
 
-    init(directory: URL, diagnostics: @escaping DiagnosticSink) {
+    init(directory: URL, diagnostics: @escaping EngineDiagnosticSink) {
         file = JSONFile(
             url: directory.appendingPathComponent(Self.fileName), diagnostics: diagnostics, label: "ledger")
     }
