@@ -1,0 +1,80 @@
+{
+  "payload" : {
+    "accountStatus" : {
+      "buildFailures" : {
+
+      },
+      "isWorking" : false,
+      "waitingStyle" : "browser"
+    },
+    "accounts" : [
+
+    ],
+    "agenda" : {
+      "items" : [
+
+      ]
+    },
+    "availableAccountKinds" : [
+
+    ],
+    "calendars" : [
+
+    ],
+    "candidates" : {
+
+    },
+    "events" : [
+
+    ],
+    "inferenceStatus" : {
+      "kind" : "unavailable",
+      "reason" : "model not ready"
+    },
+    "ledger" : {
+      "count" : 0
+    },
+    "notices" : {
+
+    },
+    "revision" : 0,
+    "settings" : {
+      "inferenceEnabled" : false,
+      "systemCalendarEnabled" : true,
+      "takeover" : {
+        "enabled" : true,
+        "hiddenCalendarKeys" : [
+
+        ],
+        "leadTime" : 60,
+        "requireConferenceLink" : false,
+        "requireOtherAttendees" : false,
+        "skipAllDayEvents" : true,
+        "takeoverCalendarKeys" : [
+
+        ]
+      }
+    },
+    "sourceNames" : {
+
+    },
+    "statuses" : {
+      "a" : {
+        "kind" : "ok"
+      },
+      "b" : {
+        "kind" : "needsPermission"
+      },
+      "c" : {
+        "kind" : "authExpired"
+      },
+      "d" : {
+        "kind" : "failing",
+        "message" : "HTTP 503"
+      }
+    },
+    "takeoverVisible" : false
+  },
+  "type" : "state",
+  "v" : 1
+}

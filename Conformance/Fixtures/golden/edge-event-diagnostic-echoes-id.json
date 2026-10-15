@@ -1,0 +1,10 @@
+{
+  "id" : "cmd-9",
+  "payload" : {
+    "category" : "command",
+    "level" : "warning",
+    "message" : "unknown event id"
+  },
+  "type" : "event.diagnostic",
+  "v" : 1
+}

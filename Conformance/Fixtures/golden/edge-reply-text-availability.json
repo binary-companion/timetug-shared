@@ -1,0 +1,9 @@
+{
+  "result": {
+    "engineID": "windows-ai",
+    "engineName": "Windows AI",
+    "isOnDevice": true,
+    "kind": "available"
+  },
+  "v": 1
+}

@@ -1,0 +1,11 @@
+{
+  "id": "cmd-15",
+  "payload": {
+    "eventIDs": [
+      "google-1/evt-1/1760001800",
+      "google-1/evt-2/1760007200"
+    ]
+  },
+  "type": "dedup.merge",
+  "v": 1
+}

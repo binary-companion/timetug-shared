@@ -1,0 +1,9 @@
+{
+  "payload" : {
+    "category" : "settings",
+    "level" : "warning",
+    "message" : "settings.json unreadable; using defaults"
+  },
+  "type" : "event.diagnostic",
+  "v" : 1
+}

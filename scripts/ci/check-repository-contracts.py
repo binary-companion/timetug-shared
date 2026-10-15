@@ -137,6 +137,29 @@ for action in sorted((root / '.github' / 'actions').glob('**/action.y*ml')):
         require(False, f'{action.relative_to(root)}: composite action uses secret {secret}')
     require(not whole, f'{action.relative_to(root)}: composite action uses the whole secrets context')
 
+# Protocol: one golden fixture per message type, no orphan fixtures. The type lists are string literals in
+# MessageCatalog.swift and ServiceMessages.swift; fixtures named edge-*.json are extra cases, not types.
+catalog = root / 'Sources' / 'TimeTugEngineProtocol' / 'MessageCatalog.swift'
+services = root / 'Sources' / 'TimeTugEngineProtocol' / 'ServiceMessages.swift'
+golden = root / 'Conformance' / 'Fixtures' / 'golden'
+if catalog.is_file():
+    def literals(path, marker):
+        text = path.read_text()
+        start = text.find(marker)
+        require(start >= 0, f'{path.relative_to(root)}: missing {marker}')
+        if start < 0:
+            return set()
+        end = text.find(']', start + len(marker))
+        return set(re.findall(r'"([A-Za-z0-9.]+)"', text[start:end]))
+    types = (literals(catalog, 'hostToEngine: [String] = [') | literals(catalog, 'engineToHost: [String] = [')
+             | (literals(services, 'types: [String] = [') if services.is_file() else set()))
+    require(golden.is_dir(), 'missing documented path: Conformance/Fixtures/golden')
+    fixtures = {f.stem for f in golden.glob('*.json') if not f.name.startswith('edge-')} if golden.is_dir() else set()
+    for missing in sorted(types - fixtures):
+        require(False, f'Conformance/Fixtures/golden: no fixture for message type {missing}')
+    for orphan in sorted(fixtures - types):
+        require(False, f'Conformance/Fixtures/golden/{orphan}.json: fixture for a type not in the message catalog')
+
 if errors:
     for error in errors:
         print(f'FAIL: {error}', file=sys.stderr)

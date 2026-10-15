@@ -1,0 +1,7 @@
+{
+  "payload" : {
+    "url" : "https://meet.google.com/abc-defg-hij"
+  },
+  "type" : "event.joinRequested",
+  "v" : 1
+}

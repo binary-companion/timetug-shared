@@ -1,0 +1,8 @@
+{
+  "id": "cmd-4",
+  "payload": {
+    "connectionID": "1"
+  },
+  "type": "account.reconnect",
+  "v": 1
+}

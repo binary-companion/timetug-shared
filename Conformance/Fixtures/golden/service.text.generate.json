@@ -1,0 +1,9 @@
+{
+  "id": 14,
+  "payload": {
+    "instructions": "Answer yes or no.",
+    "prompt": "Are these the same meeting?"
+  },
+  "type": "service.text.generate",
+  "v": 1
+}

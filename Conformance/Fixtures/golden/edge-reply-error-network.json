@@ -1,0 +1,7 @@
+{
+  "error": {
+    "kind": "network",
+    "message": "network example"
+  },
+  "v": 1
+}

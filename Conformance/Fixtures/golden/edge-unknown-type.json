@@ -1,0 +1,8 @@
+{
+  "id": "cmd-x",
+  "payload": {
+    "a": 1
+  },
+  "type": "frobnicate",
+  "v": 1
+}

@@ -28,6 +28,8 @@ only TimeTugCore "Foundation CalendarCore TimeTugCore Testing" Sources/TimeTugCo
 only CalendarBridge "Foundation TimeTugCore CalendarCore CalendarBridge Testing" Sources/CalendarBridge Tests/CalendarBridgeTests
 # The engine is portable orchestration over Core, the bridge and the connector model.
 only TimeTugEngine "Foundation CalendarCore TimeTugCore CalendarBridge TimeTugEngine Testing" Sources/TimeTugEngine Tests/TimeTugEngineTests
+# The protocol module is the wire layer: Foundation plus the engine, Core and the connector model, nothing else.
+only TimeTugEngineProtocol "Foundation CalendarCore TimeTugCore CalendarBridge TimeTugEngine TimeTugEngineProtocol Testing" Sources/TimeTugEngineProtocol Tests/TimeTugEngineProtocolTests
 only DedupBenchmark "Foundation CalendarCore TimeTugCore" Sources/DedupBenchmark
 
 # Time is passed in: Core never reads the clock. Mark a justified exception with "architecture-check: allow".

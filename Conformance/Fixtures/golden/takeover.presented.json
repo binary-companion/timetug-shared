@@ -1,0 +1,9 @@
+{
+  "id": "cmd-9",
+  "payload": {
+    "eventID": "google-1/evt-1/1760001800",
+    "onScreen": true
+  },
+  "type": "takeover.presented",
+  "v": 1
+}

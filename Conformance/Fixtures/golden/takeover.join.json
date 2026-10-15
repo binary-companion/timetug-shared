@@ -1,0 +1,8 @@
+{
+  "id": "cmd-11",
+  "payload": {
+    "eventID": "google-1/evt-1/1760001800"
+  },
+  "type": "takeover.join",
+  "v": 1
+}

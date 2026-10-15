@@ -1,0 +1,9 @@
+{
+  "id": "cmd-14",
+  "payload": {
+    "calendarTitle": "Work",
+    "title": "Design review"
+  },
+  "type": "takeover.test",
+  "v": 1
+}

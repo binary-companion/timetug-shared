@@ -26,7 +26,7 @@ import TimeTugEngine
         #expect(wire.startDate == "2026-10-16")
         #expect(wire.endDate == "2026-10-17")
         #expect(wire.start == nil && wire.end == nil)
-        #expect(["UTC", "GMT"].contains(wire.timeZone))  // Foundation reports the UTC zone as GMT on some platforms
+        #expect(wire.timeZone == "Europe/Berlin")
         #expect(wire.isAllDay)
     }
 
@@ -43,7 +43,8 @@ import TimeTugEngine
         #expect(wire.start == "2025-10-09T08:53:20.000Z")
         #expect(wire.end == "2025-10-09T09:23:20.000Z")
         #expect(wire.startDate == nil)
-        #expect(wire.conferences == [WireConference(url: "https://zoom.us/j/123", provider: "zoom")])
+        #expect(wire.timeZone == "Europe/Berlin")
+        #expect(wire.conferences.map(\.url) == ["https://zoom.us/j/123"])
     }
 
     @Test func eventWithNoConferenceLinkHasEmptyList() {

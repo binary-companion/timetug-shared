@@ -1,0 +1,241 @@
+{
+  "payload" : {
+    "accountStatus" : {
+      "buildFailures" : {
+        "2" : "Could not connect"
+      },
+      "isWorking" : true,
+      "waitingStyle" : "inApp"
+    },
+    "accounts" : [
+      {
+        "config" : {
+
+        },
+        "connectionID" : "1",
+        "displayName" : "me@example.com",
+        "kindID" : "google"
+      },
+      {
+        "config" : {
+          "server" : "https://cal.example.com"
+        },
+        "connectionID" : "1",
+        "displayName" : "Work CalDAV",
+        "kindID" : "caldav"
+      }
+    ],
+    "agenda" : {
+      "items" : [
+        {
+          "eventID" : "google-1/evt-1/1760001800",
+          "state" : "upcoming"
+        },
+        {
+          "eventID" : "google-1/evt-2/1760007200",
+          "state" : "upcoming"
+        }
+      ],
+      "nextEventID" : "google-1/evt-1/1760001800"
+    },
+    "availableAccountKinds" : [
+      {
+        "authorization" : "oauth",
+        "displayName" : "Google",
+        "id" : "google",
+        "isConfigured" : true
+      },
+      {
+        "authorization" : "oauth",
+        "displayName" : "Microsoft",
+        "id" : "microsoft",
+        "isConfigured" : false
+      },
+      {
+        "authorization" : "password",
+        "displayName" : "Other CalDAV",
+        "id" : "caldav",
+        "isConfigured" : true
+      }
+    ],
+    "calendars" : [
+      {
+        "accountName" : "me@example.com",
+        "calendarID" : "primary",
+        "colorHex" : "#3366CC",
+        "key" : "google-1/primary",
+        "kind" : "standard",
+        "provider" : "google",
+        "service" : "google",
+        "sourceID" : "google-1",
+        "title" : "Work"
+      },
+      {
+        "calendarID" : "holidays",
+        "key" : "google-1/holidays",
+        "kind" : "subscribed",
+        "provider" : "google",
+        "service" : "google",
+        "sourceID" : "google-1",
+        "title" : "Holidays"
+      }
+    ],
+    "candidates" : {
+      "google-1/evt-1/1760001800" : [
+        "google-1/evt-2/1760007200"
+      ]
+    },
+    "events" : [
+      {
+        "additionalCalendarKeys" : [
+
+        ],
+        "calendarKey" : "google-1/primary",
+        "conferences" : [
+          {
+            "provider" : "meet",
+            "url" : "https://meet.google.com/abc-defg-hij"
+          }
+        ],
+        "end" : "2025-10-09T09:38:20.000Z",
+        "id" : "google-1/evt-1/1760001800",
+        "isAllDay" : false,
+        "members" : [
+
+        ],
+        "otherAttendeeCount" : 4,
+        "responseStatus" : "accepted",
+        "sourceEventID" : "evt-1",
+        "sourceID" : "google-1",
+        "start" : "2025-10-09T09:23:20.000Z",
+        "status" : "confirmed",
+        "timeZone" : "Europe/Berlin",
+        "title" : "Standup"
+      },
+      {
+        "additionalCalendarKeys" : [
+          "caldav-1/work"
+        ],
+        "calendarKey" : "google-1/primary",
+        "conferences" : [
+
+        ],
+        "displayStart" : "2025-10-09T10:48:20.000Z",
+        "end" : "2025-10-09T11:53:20.000Z",
+        "id" : "google-1/evt-2/1760007200",
+        "isAllDay" : false,
+        "members" : [
+          {
+            "calendarKey" : "google-1/primary",
+            "details" : "location",
+            "end" : "2025-10-09T11:53:20.000Z",
+            "memberID" : "design review|1760007200|1760010800",
+            "start" : "2025-10-09T10:53:20.000Z"
+          },
+          {
+            "calendarKey" : "caldav-1/work",
+            "details" : "bare",
+            "end" : "2025-10-09T11:48:20.000Z",
+            "memberID" : "design review|1760006900|1760010500",
+            "start" : "2025-10-09T10:48:20.000Z"
+          }
+        ],
+        "mergeProvenance" : {
+          "engineID" : "foundation-models",
+          "engineName" : "Apple Intelligence",
+          "kind" : "inference"
+        },
+        "otherAttendeeCount" : 0,
+        "sourceEventID" : "evt-2",
+        "sourceID" : "google-1",
+        "start" : "2025-10-09T10:53:20.000Z",
+        "status" : "confirmed",
+        "timeZone" : "Europe/Berlin",
+        "title" : "Design review"
+      },
+      {
+        "additionalCalendarKeys" : [
+
+        ],
+        "calendarKey" : "fake/cal",
+        "conferences" : [
+
+        ],
+        "endDate" : "2026-10-17",
+        "id" : "fake/evt-3/1792101600",
+        "isAllDay" : true,
+        "members" : [
+
+        ],
+        "otherAttendeeCount" : 0,
+        "sourceEventID" : "evt-3",
+        "sourceID" : "fake",
+        "startDate" : "2026-10-16",
+        "status" : "confirmed",
+        "timeZone" : "Europe/Berlin",
+        "title" : "Holiday"
+      }
+    ],
+    "inferenceStatus" : {
+      "engineID" : "foundation-models",
+      "engineName" : "Apple Intelligence",
+      "isOnDevice" : true,
+      "kind" : "active"
+    },
+    "ledger" : {
+      "count" : 2
+    },
+    "nextTakeover" : {
+      "eventID" : "google-1/evt-1/1760001800",
+      "fireAt" : "2025-10-09T09:21:20.000Z"
+    },
+    "notices" : {
+      "google-1" : [
+        {
+          "count" : 2,
+          "kind" : "unreadableRecurrence"
+        }
+      ]
+    },
+    "revision" : 12,
+    "settings" : {
+      "inferenceEnabled" : true,
+      "systemCalendarEnabled" : true,
+      "takeover" : {
+        "enabled" : true,
+        "hiddenCalendarKeys" : [
+          "google-1/holidays"
+        ],
+        "leadTime" : 120,
+        "requireConferenceLink" : false,
+        "requireOtherAttendees" : false,
+        "skipAllDayEvents" : true,
+        "takeoverCalendarKeys" : [
+          "google-1/primary"
+        ]
+      }
+    },
+    "sourceNames" : {
+      "caldav-1" : "Work CalDAV",
+      "google-1" : "me@example.com"
+    },
+    "statuses" : {
+      "caldav-1" : {
+        "kind" : "failing",
+        "message" : "Server unreachable"
+      },
+      "eventkit" : {
+        "kind" : "needsPermission"
+      },
+      "google-1" : {
+        "kind" : "ok"
+      },
+      "ms-1" : {
+        "kind" : "authExpired"
+      }
+    },
+    "takeoverVisible" : true
+  },
+  "type" : "state",
+  "v" : 1
+}

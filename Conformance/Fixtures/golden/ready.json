@@ -1,0 +1,15 @@
+{
+  "payload" : {
+    "capabilities" : {
+      "systemCalendar" : false,
+      "textGeneration" : false
+    },
+    "engineVersion" : "1.4.0",
+    "platform" : "windows",
+    "protocolVersions" : [
+      1
+    ]
+  },
+  "type" : "ready",
+  "v" : 1
+}
