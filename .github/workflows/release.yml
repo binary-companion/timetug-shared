@@ -276,7 +276,7 @@ jobs:
           path: build/nupkg/*.nupkg
           if-no-files-found: error
 
-  # Pushes the package with nuget.org trusted publishing: a short-lived key from GitHub OIDC (NuGet/login), no stored
+  # Pushes the package with nuget.org trusted publishing: a short-lived key from GitHub OIDC (nuget-push.sh), no stored
   # secret. Releases only; nuget.org versions are immutable and --skip-duplicate makes a re-run safe.
   publish-nuget:
     needs: [publish, nuget-version, nuget-pack]
@@ -307,18 +307,11 @@ jobs:
         if: steps.setup.outputs.configured == 'true'
         with:
           dotnet-version: 8.0.x
-      - name: Log in to nuget.org (OIDC)
-        id: login
-        if: steps.setup.outputs.configured == 'true'
-        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
-        with:
-          user: ${{ vars.NUGET_USER }}
-      - name: Push
+      # OIDC exchange and push in one step, so the short-lived key is never a step output. NuGet/login does the
+      # same exchange but is not on the organisation's allowed-actions list.
+      - name: Push with trusted publishing
         if: steps.setup.outputs.configured == 'true'
         env:
-          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+          NUGET_USER: ${{ vars.NUGET_USER }}
           VERSION: ${{ needs.nuget-version.outputs.version }}
-        run: |
-          dotnet nuget push "build/nupkg/TimeTug.Engine.$VERSION.nupkg" --api-key "$NUGET_API_KEY" \
-            --source https://api.nuget.org/v3/index.json --skip-duplicate
-          echo "::notice::TimeTug.Engine $VERSION pushed to nuget.org"
+        run: scripts/release/nuget-push.sh "build/nupkg/TimeTug.Engine.$VERSION.nupkg"

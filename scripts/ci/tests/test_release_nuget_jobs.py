@@ -37,6 +37,80 @@ def run_step(script, env):
         return result, dict(line.split('=', 1) for line in output.read_text().splitlines() if '=' in line)
 
 
+PUSH = ROOT / 'scripts' / 'release' / 'nuget-push.sh'
+STUB_CURL = r"""#!/usr/bin/env bash
+# Answers the OIDC request and the token exchange from files in $STUBS, and records each call.
+printf '%s\n' "$*" >> "$STUBS/curl.log"
+for arg in "$@"; do
+  case "$arg" in
+    *oidc.example*) cat "$STUBS/oidc.json"; exit 0 ;;
+    *nuget.example*) cat "$STUBS/exchange.json"; printf '\n%s' "$(cat "$STUBS/exchange.status")"; exit 0 ;;
+  esac
+done
+exit 7
+"""
+STUB_DOTNET = """#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$STUBS/dotnet.log"
+"""
+
+
+def run_push(directory, user='policy-creator', exchange='{"apiKey":"short-lived"}', status='200', oidc=True):
+    stubs = Path(directory)
+    (stubs / 'bin').mkdir()
+    for name, text in (('curl', STUB_CURL), ('dotnet', STUB_DOTNET)):
+        path = stubs / 'bin' / name
+        path.write_text(text)
+        path.chmod(0o755)
+    (stubs / 'oidc.json').write_text('{"value":"oidc-token"}')
+    (stubs / 'exchange.json').write_text(exchange)
+    (stubs / 'exchange.status').write_text(status)
+    package = stubs / 'TimeTug.Engine.1.2.3.nupkg'
+    package.write_text('x')
+    env = {'PATH': f'{stubs / "bin"}:{os.environ["PATH"]}', 'STUBS': str(stubs), 'NUGET_USER': user,
+           'NUGET_TOKEN_SERVICE_URL': 'https://nuget.example/api/v2/token'}
+    if oidc:
+        env.update(ACTIONS_ID_TOKEN_REQUEST_URL='https://oidc.example/token?x=1', ACTIONS_ID_TOKEN_REQUEST_TOKEN='req')
+    result = subprocess.run(['bash', str(PUSH), str(package)], capture_output=True, text=True, env=env)
+    read = lambda name: (stubs / name).read_text() if (stubs / name).exists() else ''
+    return result, read('curl.log'), read('dotnet.log')
+
+
+class NugetPushScriptTests(unittest.TestCase):
+    def test_the_oidc_token_is_exchanged_and_the_key_pushes_the_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, curl, dotnet = run_push(directory)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('https://oidc.example/token?x=1&audience=https%3A%2F%2Fwww.nuget.org', curl)
+            self.assertIn('Authorization: Bearer oidc-token', curl)
+            self.assertIn('{"username":"policy-creator","tokenType":"ApiKey"}', curl)
+            self.assertIn('::add-mask::oidc-token', result.stdout)
+            self.assertIn('::add-mask::short-lived', result.stdout)
+            self.assertIn('--api-key short-lived', dotnet)
+            self.assertIn('--source https://api.nuget.org/v3/index.json --skip-duplicate', dotnet)
+
+    def test_a_refused_exchange_fails_without_pushing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, _, dotnet = run_push(directory, exchange='{"error":"no policy"}', status='401')
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('token exchange failed (HTTP 401)', result.stdout)
+            self.assertEqual(dotnet, '')
+
+    def test_a_reply_without_a_key_fails_without_pushing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, _, dotnet = run_push(directory, exchange='{}')
+            self.assertEqual(result.returncode, 1)
+            self.assertIn('no apiKey', result.stdout)
+            self.assertEqual(dotnet, '')
+
+    def test_missing_oidc_or_user_fails_before_any_request(self):
+        for kwargs, message in (({'oidc': False}, 'id-token: write'), ({'user': ''}, 'NUGET_USER is not set')):
+            with self.subTest(kwargs=kwargs), tempfile.TemporaryDirectory() as directory:
+                result, curl, dotnet = run_push(directory, **kwargs)
+                self.assertEqual(result.returncode, 1)
+                self.assertIn(message, result.stdout)
+                self.assertEqual((curl, dotnet), ('', ''))
+
+
 class ReleaseNugetJobsTests(unittest.TestCase):
     def setUp(self):
         self.workflow, self.on = load()
@@ -88,13 +162,11 @@ class ReleaseNugetJobsTests(unittest.TestCase):
         self.assertIn("needs.publish.outputs.version != ''", job['if'], 'pushes only for a released version')
         text = yaml.safe_dump(job)
         self.assertNotIn('secrets.', text, 'no stored key')
-        login = step(job, 'Log in to nuget.org (OIDC)')
-        self.assertTrue(login['uses'].startswith('NuGet/login@'))
-        self.assertEqual(login['with'], {'user': '${{ vars.NUGET_USER }}'})
-        push = step(job, 'Push')
-        self.assertIn('--skip-duplicate', push['run'])
-        self.assertIn('https://api.nuget.org/v3/index.json', push['run'])
-        self.assertNotIn('${{', push['run'])
+        self.assertNotIn('NuGet/login', text, 'not on the allowed-actions list')
+        push = step(job, 'Push with trusted publishing')
+        self.assertEqual(push['run'], 'scripts/release/nuget-push.sh "build/nupkg/TimeTug.Engine.$VERSION.nupkg"')
+        self.assertEqual(push['env']['NUGET_USER'], '${{ vars.NUGET_USER }}')
+        self.assertNotIn('outputs', push, 'the key is never a step output')
         for s in job['steps'][1:]:
             self.assertEqual(s.get('if'), "steps.setup.outputs.configured == 'true'")
 
