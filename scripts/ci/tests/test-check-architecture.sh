@@ -16,6 +16,13 @@ printf 'import Testing\n@testable import TimeTugCore\n' > "$T/Tests/TimeTugCoreT
 printf 'import Testing\n@testable import CalendarBridge\n' > "$T/Tests/CalendarBridgeTests/T.swift"
 printf 'import Foundation\nimport CalendarCore\nimport TimeTugCore\nimport CalendarBridge\n' > "$T/Sources/TimeTugEngine/A.swift"
 printf 'import Testing\n@testable import TimeTugEngine\n' > "$T/Tests/TimeTugEngineTests/T.swift"
+mkdir -p "$T/Sources/TimeTugEngineProtocol" "$T/Sources/TimeTugEngineC" "$T/Tests/TimeTugEngineCTests"
+# The two mapping files may name engine types in public declarations; wire files may name wire types.
+printf 'import TimeTugEngine\nextension WireState { public init(_ state: EngineState) {} }\n' > "$T/Sources/TimeTugEngineProtocol/StateMapping.swift"
+printf 'public enum CommandOutcome { case engine(EngineCommand) }\n' > "$T/Sources/TimeTugEngineProtocol/CommandMapping.swift"
+printf 'public struct WireState { public var events: [WireEvent] } // not a TimeTugCalendarEvent\nlet c: Connection? = nil\n' > "$T/Sources/TimeTugEngineProtocol/WireTypes.swift"
+printf 'import Foundation\nimport GoogleCalendar\nimport TimeTugEngineProtocol\n@_cdecl("tt_x")\npublic func tt_x() {}\n' > "$T/Sources/TimeTugEngineC/CInterface.swift"
+printf 'import Testing\n@testable import TimeTugEngineC\n' > "$T/Tests/TimeTugEngineCTests/T.swift"
 out="$("$S" "$T")" || fail "clean fixture rejected: $out"
 
 # expect <file> <content> <message substring>
@@ -49,6 +56,14 @@ expect Tests/TimeTugEngineTests/X.swift 'import Combine\n' "TimeTugEngine may no
 expect Sources/TimeTugEngineProtocol/X.swift 'import Network\n' "TimeTugEngineProtocol may not import Network"
 expect Tests/TimeTugEngineProtocolTests/X.swift 'import AppKit\n' "TimeTugEngineProtocol may not import AppKit"
 expect Sources/DedupBenchmark/X.swift 'import AppKit\n' "DedupBenchmark may not import AppKit"
+expect Sources/TimeTugEngineC/X.swift 'import WinSDK\n' "TimeTugEngineC may not import WinSDK"
+expect Sources/TimeTugEngineC/X.swift 'import Darwin\n' "TimeTugEngineC may not import Darwin"
+expect Tests/TimeTugEngineCTests/X.swift 'import AppKit\n' "TimeTugEngineC may not import AppKit"
+expect Sources/TimeTugEngine/X.swift '@_cdecl("f")\npublic func f() {}\n' "@_cdecl is allowed only in Sources/TimeTugEngineC"
+expect Sources/TimeTugEngineProtocol/X.swift '@_cdecl("f")\npublic func f() {}\n' "@_cdecl is allowed only in Sources/TimeTugEngineC"
+expect Sources/TimeTugEngineProtocol/X.swift 'public func f(_ e: TimeTugCalendarEvent) {}\n' "exposes an engine or Core type"
+expect Sources/TimeTugEngineProtocol/X.swift 'struct S {\n    public var state: EngineState\n}\n' "X.swift:2: TimeTugEngineProtocol exposes"
+expect Sources/TimeTugEngineProtocol/WireTypes.swift '@inlinable public func f() -> [CalendarInfo] { [] }\n' "exposes an engine or Core type"
 expect Sources/DedupBenchmark/X.swift 'import CalendarBridge\n' "DedupBenchmark may not import CalendarBridge"
 expect Package.swift 'let package = Package(dependencies: [.package(url: "https://github.com/x/y", from: "1.0.0")])\n' \
   "may not depend on https://github.com/x/y"

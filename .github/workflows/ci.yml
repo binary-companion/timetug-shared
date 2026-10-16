@@ -1,9 +1,13 @@
 # Continuous integration for the library. Runs on pull requests and on every push to main.
 # The job ids are the required status checks of the Protect main ruleset; renaming one breaks every merge.
-#   macos          swift test on the whole package.
-#   linux          swift test in the swift:6.0 container: proves the library stays portable.
-#   windows-x64    swift test on windows-latest with Swift installed by scripts/ci/install-swift-windows.ps1.
+#   macos          swift test on the whole package, then the C smoke test (c-smoke/run.sh).
+#   linux          swift test in the swift:6.0 container: proves the library stays portable; then the C smoke test.
+#   windows-x64    swift test on windows-latest with Swift installed by scripts/ci/install-swift-windows.ps1, then
+#                  the C smoke test (scripts/ci/run-c-smoke.ps1).
 #   windows-arm64  the same on windows-11-arm.
+# The C smoke test builds the TimeTugEngineC library, compiles c-smoke/smoke.c against include/timetug_engine.h
+# with the system C compiler and runs it; on macOS and Linux it first checks that the library exports the four
+# tt_engine_* functions.
 #   architecture   portability rules, repository contracts and the tests of the release script, the bump script and workflows.
 # Every swift test runs with --force-resolved-versions, so a Package.resolved that no longer matches
 # Package.swift fails here instead of being silently re-resolved.
@@ -31,6 +35,8 @@ jobs:
         run: scripts/ci/select-xcode.sh
       - name: Test
         run: swift test --force-resolved-versions
+      - name: C smoke test
+        run: c-smoke/run.sh
 
   linux:
     runs-on: ubuntu-latest
@@ -59,12 +65,15 @@ jobs:
       - name: Test
         run: |
           docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work swift:6.0 swift test --force-resolved-versions
+      - name: C smoke test
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work swift:6.0 c-smoke/run.sh
 
   windows-x64:
     runs-on: windows-latest
     permissions:
       contents: read
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install Swift
@@ -77,11 +86,12 @@ jobs:
           # overwrites $LASTEXITCODE (a failing swift test followed by git made a step pass in the
           # bring-up probe). So the exit code is read on the very next statement, and the step can
           # only succeed when swift test exited 0 AND the log shows enough executed tests.
-          # Floor: Core 301 + Bridge 13 + Engine 152 + Protocol 54 = 520 Swift Testing tests run on macOS and on both Windows
-          # architectures (bring-up runs); 468 is about 90 % of that, so a silently skipped target
-          # or a zero turns the job red while normal growth needs no edit. --minimum-runs 4 is one
-          # summary per test target (TimeTugCoreTests, CalendarBridgeTests, TimeTugEngineTests, TimeTugEngineProtocolTests): it
-          # also catches a vanished Bridge, whose 13 tests alone would not move the total below the floor.
+          # Floor: Core 301 + Bridge 13 + Engine 152 + Protocol 59 + C interface 30 = 555 Swift Testing tests on macOS
+          # (a parameterized test, such as the one that runs every conformance scenario, counts once); 499 is about
+          # 90 % of that, so a silently skipped target or a zero turns the job red while normal growth needs no edit.
+          # --minimum-runs 5 is one summary per test target (TimeTugCoreTests, CalendarBridgeTests, TimeTugEngineTests,
+          # TimeTugEngineProtocolTests, TimeTugEngineCTests): it also catches a vanished Bridge, whose 13 tests alone
+          # would not move the total below the floor.
           # --minimum-per-run 1 makes every summary report at least one test: a target that still
           # builds but holds no tests prints `Test run with 0 tests ... passed`, which the total and
           # the run count alone accept (the 301 of Core is above the floor).
@@ -96,14 +106,17 @@ jobs:
             exit $swiftExit
           }
           python --version
-          python scripts/ci/count-swift-tests.py test.log --minimum 468 --minimum-runs 4 --minimum-per-run 1
+          python scripts/ci/count-swift-tests.py test.log --minimum 499 --minimum-runs 5 --minimum-per-run 1
           exit $LASTEXITCODE
+      - name: C smoke test
+        shell: pwsh
+        run: ./scripts/ci/run-c-smoke.ps1
 
   windows-arm64:
     runs-on: windows-11-arm
     permissions:
       contents: read
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install Swift
@@ -123,8 +136,11 @@ jobs:
             exit $swiftExit
           }
           python --version
-          python scripts/ci/count-swift-tests.py test.log --minimum 468 --minimum-runs 4 --minimum-per-run 1
+          python scripts/ci/count-swift-tests.py test.log --minimum 499 --minimum-runs 5 --minimum-per-run 1
           exit $LASTEXITCODE
+      - name: C smoke test
+        shell: pwsh
+        run: ./scripts/ci/run-c-smoke.ps1
 
   architecture:
     runs-on: ubuntu-latest

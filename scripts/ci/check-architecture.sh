@@ -30,7 +30,25 @@ only CalendarBridge "Foundation TimeTugCore CalendarCore CalendarBridge Testing"
 only TimeTugEngine "Foundation CalendarCore TimeTugCore CalendarBridge TimeTugEngine Testing" Sources/TimeTugEngine Tests/TimeTugEngineTests
 # The protocol module is the wire layer: Foundation plus the engine, Core and the connector model, nothing else.
 only TimeTugEngineProtocol "Foundation CalendarCore TimeTugCore CalendarBridge TimeTugEngine TimeTugEngineProtocol Testing" Sources/TimeTugEngineProtocol Tests/TimeTugEngineProtocolTests
+# The C interface adds the library's network connector kinds it registers; nothing platform-specific.
+only TimeTugEngineC "Foundation CalendarCore TimeTugCore CalendarBridge TimeTugEngine TimeTugEngineProtocol GoogleCalendar MicrosoftCalendar CalDAVCalendar ICalSubscription TimeTugEngineC Testing" Sources/TimeTugEngineC Tests/TimeTugEngineCTests
 only DedupBenchmark "Foundation CalendarCore TimeTugCore" Sources/DedupBenchmark
+
+# Only the C interface exports C symbols.
+while IFS= read -r hit; do
+  report "$(echo "$hit" | cut -d: -f1,2)" "@_cdecl is allowed only in Sources/TimeTugEngineC"
+done < <(grep -rn --include='*.swift' '@_cdecl' Sources Tests 2>/dev/null | grep -v '^Sources/TimeTugEngineC/' || true)
+
+# The wire layer's public API speaks wire types only. StateMapping.swift and CommandMapping.swift map engine types to
+# and from the wire by design, so their public lines may name them; no other file's may.
+ENGINE_TYPES='TimeTugCalendarEvent|DayAgenda|CalendarInfo|CalendarSnapshot|Connection|MergedMember|SourceStatus|TakeoverSettings|TakeoverLedger|TakeoverRequest|WidgetSnapshot|EngineState|EngineSettings|EngineEvent|EngineCommand|EngineDiagnostic|AccountManager|AccountKindInfo|InferenceStatus|ScheduledTakeover|CalendarEvent|CredentialField|CredentialHelp'
+if [ -d Sources/TimeTugEngineProtocol ]; then
+  while IFS= read -r hit; do
+    report "$(echo "$hit" | cut -d: -f1,2)" "TimeTugEngineProtocol exposes an engine or Core type in a public declaration (only StateMapping.swift and CommandMapping.swift may)"
+  done < <(grep -rnE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)*public[[:space:]]' Sources/TimeTugEngineProtocol |
+    grep -vE '^Sources/TimeTugEngineProtocol/(StateMapping|CommandMapping)\.swift:' |
+    sed -E 's#[[:space:]]//.*##' | grep -E "(^|[^A-Za-z0-9_])(${ENGINE_TYPES})([^A-Za-z0-9_]|$)" || true)
+fi
 
 # Time is passed in: Core never reads the clock. Mark a justified exception with "architecture-check: allow".
 if [ -d Sources/TimeTugCore ]; then
