@@ -86,7 +86,7 @@ jobs:
           # overwrites $LASTEXITCODE (a failing swift test followed by git made a step pass in the
           # bring-up probe). So the exit code is read on the very next statement, and the step can
           # only succeed when swift test exited 0 AND the log shows enough executed tests.
-          # Floor: Core 301 + Bridge 13 + Engine 152 + Protocol 59 + C interface 30 = 555 Swift Testing tests on macOS
+          # Floor: Core 301 + Bridge 13 + Engine 152 + Protocol 59 + C interface 32 = 557 Swift Testing tests on macOS
           # (a parameterized test, such as the one that runs every conformance scenario, counts once); 499 is about
           # 90 % of that, so a silently skipped target or a zero turns the job red while normal growth needs no edit.
           # --minimum-runs 5 is one summary per test target (TimeTugCoreTests, CalendarBridgeTests, TimeTugEngineTests,

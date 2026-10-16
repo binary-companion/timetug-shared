@@ -161,6 +161,45 @@ import TimeTugEngineProtocol
         #expect(collector.count == count)
     }
 
+    @Test func diagnosticsFromBuildingTheEngineFollowReady() async throws {
+        let directory = temporaryDirectory()
+        try Data("{not json".utf8).write(to: directory.appendingPathComponent("settings.json"))
+        let collector = MessageCollector()
+        let handle = try #require(createTestEngine(collector, config: testConfig(directory: directory)))
+        try await Task.sleep(nanoseconds: 50_000_000)
+        #expect(collector.count == 0, "held until ready")
+        send(handle, #"{"v":1,"type":"start"}"#)
+        try #require(await poll("a state") { collector.types.contains("state") })
+        let envelopes = collector.envelopes
+        #expect(envelopes.first?.type == "ready")
+        #expect(envelopes.dropFirst().first?.type == "event.diagnostic")
+        #expect(envelopes.dropFirst().first?.payload?["category"] == .string("settings"))
+        #expect(envelopes.last { $0.type == "state" }?.payload?["settings"]?["takeover"]?["leadTime"] == .number(60))
+        await destroy(handle)
+    }
+
+    @Test func accountCancelEndsAPendingSignIn() async throws {
+        let collector = MessageCollector()
+        let config = testConfig(extra: ["connectors": .object(["microsoft": .object(["clientID": .string("test-client")])])])
+        let handle = try await startedEngine(collector, config: config)
+        send(handle, #"{"v":1,"type":"account.add","payload":{"kindID":"microsoft"}}"#)
+        func isWorking() -> JSONValue? {
+            collector.envelopes.last { $0.type == "state" }?.payload?["accountStatus"]?["isWorking"]
+        }
+        try #require(await poll("the sign-in runs") {
+            collector.types.contains("service.auth.beginRedirect") && isWorking() == .bool(true)
+        })
+        // The sign-in lane is busy waiting for the host; the cancel must not queue behind it.
+        send(handle, #"{"v":1,"type":"account.cancel"}"#)
+        try #require(await poll("the sign-in ends") { isWorking() == .bool(false) })
+        // A later sign-in starts afresh.
+        send(handle, #"{"v":1,"type":"account.add","payload":{"kindID":"microsoft"}}"#)
+        try #require(await poll("a second sign-in") {
+            collector.types.filter { $0 == "service.auth.beginRedirect" }.count == 2
+        })
+        await destroy(handle)
+    }
+
     @Test func stateCoalescesButEventsKeepOrder() async throws {
         let collector = MessageCollector()
         let handle = try await startedEngine(collector)
