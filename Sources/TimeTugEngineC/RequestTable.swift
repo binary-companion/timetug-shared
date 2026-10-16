@@ -26,7 +26,9 @@ final class RequestTable: @unchecked Sendable {
     private let lock = NSLock()
     private var lastID: UInt64 = 0
     private var pending: [UInt64: Pending] = [:]
-    /// Ids whose caller was cancelled before the request was registered.
+    /// Ids issued by `request` whose continuation is not registered yet.
+    private var unregistered: Set<UInt64> = []
+    /// Ids whose caller was cancelled before the request was registered (always a subset of `unregistered`).
     private var cancelledEarly: Set<UInt64> = []
     /// Set by `failAll`: every later request fails at once with this kind and is never sent.
     private var closedKind: ReplyErrorKind?
@@ -36,12 +38,16 @@ final class RequestTable: @unchecked Sendable {
         self.clock = clock
     }
 
+    /// Ids held for cancellation bookkeeping; zero once every caller has finished.
+    var trackedIDCount: Int { lock.withLock { unregistered.count + cancelledEarly.count } }
+
     /// The number of requests waiting for an answer.
     var pendingCount: Int { lock.withLock { pending.count } }
 
     func request(type: String, payload: JSONValue?, timeout: TimeInterval?) async throws -> JSONValue {
         let id = lock.withLock { () -> UInt64 in
             lastID &+= 1
+            unregistered.insert(lastID)
             return lastID
         }
         // The deadline is fixed now, so a clock advanced before the timer task first runs still counts.
@@ -62,6 +68,7 @@ final class RequestTable: @unchecked Sendable {
     ) {
         enum Outcome { case send, fail(Error) }
         let outcome: Outcome = lock.withLock {
+            unregistered.remove(id)
             if let kind = closedKind { return .fail(Self.error(kind: kind, message: "the engine is shutting down")) }
             if cancelledEarly.remove(id) != nil { return .fail(CancellationError()) }
             var timer: Task<Void, Never>?
@@ -82,10 +89,12 @@ final class RequestTable: @unchecked Sendable {
         }
     }
 
-    private func cancel(id: UInt64) {
+    /// The cancellation handler's work; internal so tests can run it late, after the answer.
+    func cancel(id: UInt64) {
         let found: Pending? = lock.withLock {
             if let entry = pending.removeValue(forKey: id) { return entry }
-            if id <= lastID { cancelledEarly.insert(id) }
+            // Only a request not registered yet is marked; one already answered needs nothing.
+            if unregistered.contains(id) { cancelledEarly.insert(id) }
             return nil
         }
         found?.timer?.cancel()

@@ -100,6 +100,25 @@ import TimeTugEngineProtocol
         table.fulfill(id: try #require(requestID(sent.value[0])), reply: #"{"v":1,"result":1}"#)
     }
 
+    /// A cancellation handler that runs after the answer (a reply or failAll racing task.cancel) keeps nothing.
+    @Test func lateCancellationKeepsNoBookkeeping() async throws {
+        let (table, sent, clock) = makeTable()
+        let result = Task { try await table.request(type: "service.x", payload: nil, timeout: nil) }
+        await poll("the request is sent") { !sent.value.isEmpty }
+        let id = try #require(requestID(sent.value[0]))
+        table.fulfill(id: id, reply: #"{"v":1,"result":1}"#)
+        #expect(try await result.value == .number(1))
+        table.cancel(id: id)
+        #expect(table.trackedIDCount == 0)
+
+        let sleeper = Task { try await clock.sleep(until: start.addingTimeInterval(10)) }
+        await poll("the sleep is registered") { clock.pendingSleeps == 1 }
+        clock.advance(by: 10)
+        try await sleeper.value
+        clock.cancel(id: 1)
+        #expect(clock.trackedIDCount == 0)
+    }
+
     @Test func timeoutFollowsTheEngineClock() async throws {
         let (table, sent, clock) = makeTable()
         let result = Task { try await table.request(type: "service.x", payload: nil, timeout: 60) }

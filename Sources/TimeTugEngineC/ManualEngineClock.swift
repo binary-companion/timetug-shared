@@ -15,12 +15,17 @@ final class ManualEngineClock: EngineClock, @unchecked Sendable {
     private var current: Date
     private var waiters: [Waiter] = []
     private var lastID: UInt64 = 0
-    /// Ids cancelled before their continuation was registered.
+    /// Ids issued by `sleep` whose continuation is not registered yet.
+    private var unregistered: Set<UInt64> = []
+    /// Ids cancelled before their continuation was registered (always a subset of `unregistered`).
     private var cancelledEarly: Set<UInt64> = []
 
     init(start: Date) { current = start }
 
     func now() -> Date { lock.withLock { current } }
+
+    /// Ids held for cancellation bookkeeping; zero once every caller has finished.
+    var trackedIDCount: Int { lock.withLock { unregistered.count + cancelledEarly.count } }
 
     /// Sleeps that have not woken yet.
     var pendingSleeps: Int { lock.withLock { waiters.count } }
@@ -28,6 +33,7 @@ final class ManualEngineClock: EngineClock, @unchecked Sendable {
     func sleep(until deadline: Date) async throws {
         let id = lock.withLock { () -> UInt64 in
             lastID &+= 1
+            unregistered.insert(lastID)
             return lastID
         }
         try await withTaskCancellationHandler {
@@ -42,6 +48,7 @@ final class ManualEngineClock: EngineClock, @unchecked Sendable {
     private func register(id: UInt64, deadline: Date, continuation: CheckedContinuation<Void, Error>) {
         enum Action { case wait, resume, cancel }
         let action: Action = lock.withLock {
+            unregistered.remove(id)
             if cancelledEarly.remove(id) != nil { return .cancel }
             if deadline <= current { return .resume }
             waiters.append(Waiter(id: id, deadline: deadline, continuation: continuation))
@@ -54,10 +61,12 @@ final class ManualEngineClock: EngineClock, @unchecked Sendable {
         }
     }
 
-    private func cancel(id: UInt64) {
+    /// The cancellation handler's work; internal so tests can run it late, after the answer.
+    func cancel(id: UInt64) {
         let waiter: Waiter? = lock.withLock {
             if let index = waiters.firstIndex(where: { $0.id == id }) { return waiters.remove(at: index) }
-            cancelledEarly.insert(id)
+            // Only a sleep not registered yet is marked; one already woken needs nothing.
+            if unregistered.contains(id) { cancelledEarly.insert(id) }
             return nil
         }
         waiter?.continuation.resume(throwing: CancellationError())
