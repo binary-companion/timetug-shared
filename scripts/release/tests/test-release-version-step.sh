@@ -51,7 +51,7 @@ def check(condition, message):
 check('notify' in jobs, "job notify must exist")
 job = jobs['notify']
 check(job.get('needs') in ('publish', ['publish']), "job notify must need exactly publish")
-check(job.get('if') == "needs.publish.outputs.version != ''", "job notify must run only when publish released a version")
+check(job.get('if') == "needs.publish.outputs.created == 'true'", "job notify must run only when publish created a release (a re-run of an existing version must not announce it again)")
 check(job.get('environment') == 'bump', "job notify must use the bump environment")
 check(job.get('runs-on') == 'ubuntu-latest', "job notify must run on ubuntu-latest")
 check('continue-on-error' not in job, "job notify must not set continue-on-error (a failed dispatch must fail the run)")
