@@ -18,6 +18,12 @@ private func wire(_ value: some Encodable) -> JSONValue { JSONValue(encoding: va
 
 struct RemoteCredentialStore: CredentialStore {
     let table: RequestTable
+    /// The host's own spelling of each connection's latest revision. The engine holds revisions as `UUID`s, whose
+    /// `uuidString` is upper case; a host that wrote the revision in lower case (.NET's `Guid.ToString()`) must get
+    /// back exactly the string it sent, or its compare-and-set never matches.
+    private let spellings = RevisionSpellings()
+
+    init(table: RequestTable) { self.table = table }
 
     private func key(_ id: ConnectionID) -> JSONValue { wire(CredentialsKeyRequest(connectionID: id)) }
 
@@ -45,15 +51,35 @@ struct RemoteCredentialStore: CredentialStore {
         guard let revision = UUID(uuidString: snapshot.revision) else {
             throw ServiceError(kind: .failed, message: "the credential revision is not a UUID")
         }
+        spellings.record(snapshot.revision, as: revision, for: connectionID)
         return CredentialSnapshot(secrets: snapshot.secrets, revision: revision)
     }
 
     func updateRefreshToken(_ token: String, for connectionID: ConnectionID, expectedRevision: UUID) async throws -> Bool {
         let request = CredentialsUpdateRefreshTokenRequest(
-            connectionID: connectionID, token: token, expectedRevision: expectedRevision.uuidString)
+            connectionID: connectionID, token: token,
+            expectedRevision: spellings.spelling(of: expectedRevision, for: connectionID))
         let reply: CredentialsUpdateRefreshTokenReply = try await table.call(
             "service.credentials.updateRefreshToken", payload: wire(request), timeout: hostServiceTimeout)
         return reply.updated
+    }
+}
+
+/// The last revision string the host gave per connection (one entry per connection, so it stays small).
+final class RevisionSpellings: @unchecked Sendable {
+    private let lock = NSLock()
+    private var latest: [ConnectionID: (revision: UUID, text: String)] = [:]
+
+    func record(_ text: String, as revision: UUID, for connectionID: ConnectionID) {
+        lock.withLock { latest[connectionID] = (revision, text) }
+    }
+
+    /// The host's spelling when `revision` is the one it gave last for the connection, otherwise `uuidString`.
+    func spelling(of revision: UUID, for connectionID: ConnectionID) -> String {
+        lock.withLock {
+            guard let entry = latest[connectionID], entry.revision == revision else { return revision.uuidString }
+            return entry.text
+        }
     }
 }
 
