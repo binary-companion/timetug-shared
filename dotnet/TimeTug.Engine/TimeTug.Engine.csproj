@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The managed wrapper of the TimeTug engine's C interface (include/timetug_engine.h). It owns the P/Invoke to the
+    four tt_engine_* functions, the JSON contract (source-generated System.Text.Json) and the host-service
+    correlation. No scheduling, dedup or settings logic lives here: the engine decides, this assembly only carries.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>TimeTug.Engine</RootNamespace>
+    <AssemblyName>TimeTug.Engine</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <LangVersion>12.0</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- Turns on the trimming, AOT and single-file analyzers; with warnings as errors any reflection-based
+         serialization or dynamic code fails the build. -->
+    <IsAotCompatible>true</IsAotCompatible>
+    <IsTrimmable>true</IsTrimmable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <Deterministic>true</Deterministic>
+    <Version Condition="'$(Version)' == ''">0.0.0-dev</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="TimeTug.Engine.Tests" />
+  </ItemGroup>
+
+</Project>
