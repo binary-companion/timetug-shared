@@ -42,6 +42,9 @@ STUB_CURL = r"""#!/usr/bin/env bash
 # Answers the OIDC request and the token exchange from files in $STUBS, and records each call.
 printf '%s\n' "$*" >> "$STUBS/curl.log"
 for arg in "$@"; do
+  case "$arg" in @*) cat "${arg#@}" >> "$STUBS/curl-headers.log" ;; esac
+done
+for arg in "$@"; do
   case "$arg" in
     *oidc.example*) cat "$STUBS/oidc.json"; exit 0 ;;
     *nuget.example*) cat "$STUBS/exchange.json"; printf '\n%s' "$(cat "$STUBS/exchange.status")"; exit 0 ;;
@@ -72,16 +75,18 @@ def run_push(directory, user='policy-creator', exchange='{"apiKey":"short-lived"
         env.update(ACTIONS_ID_TOKEN_REQUEST_URL='https://oidc.example/token?x=1', ACTIONS_ID_TOKEN_REQUEST_TOKEN='req')
     result = subprocess.run(['bash', str(PUSH), str(package)], capture_output=True, text=True, env=env)
     read = lambda name: (stubs / name).read_text() if (stubs / name).exists() else ''
-    return result, read('curl.log'), read('dotnet.log')
+    return result, read('curl.log'), read('dotnet.log'), read('curl-headers.log')
 
 
 class NugetPushScriptTests(unittest.TestCase):
     def test_the_oidc_token_is_exchanged_and_the_key_pushes_the_package(self):
         with tempfile.TemporaryDirectory() as directory:
-            result, curl, dotnet = run_push(directory)
+            result, curl, dotnet, headers = run_push(directory)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn('https://oidc.example/token?x=1&audience=https%3A%2F%2Fwww.nuget.org', curl)
-            self.assertIn('Authorization: Bearer oidc-token', curl)
+            self.assertIn('Authorization: Bearer req', headers)
+            self.assertIn('Authorization: Bearer oidc-token', headers)
+            self.assertNotIn('Bearer', curl, 'bearer tokens never appear in the arguments')
             self.assertIn('{"username":"policy-creator","tokenType":"ApiKey"}', curl)
             self.assertIn('::add-mask::oidc-token', result.stdout)
             self.assertIn('::add-mask::short-lived', result.stdout)
@@ -90,14 +95,14 @@ class NugetPushScriptTests(unittest.TestCase):
 
     def test_a_refused_exchange_fails_without_pushing(self):
         with tempfile.TemporaryDirectory() as directory:
-            result, _, dotnet = run_push(directory, exchange='{"error":"no policy"}', status='401')
+            result, _, dotnet, _ = run_push(directory, exchange='{"error":"no policy"}', status='401')
             self.assertEqual(result.returncode, 1)
             self.assertIn('token exchange failed (HTTP 401)', result.stdout)
             self.assertEqual(dotnet, '')
 
     def test_a_reply_without_a_key_fails_without_pushing(self):
         with tempfile.TemporaryDirectory() as directory:
-            result, _, dotnet = run_push(directory, exchange='{}')
+            result, _, dotnet, _ = run_push(directory, exchange='{}')
             self.assertEqual(result.returncode, 1)
             self.assertIn('no apiKey', result.stdout)
             self.assertEqual(dotnet, '')
@@ -105,7 +110,7 @@ class NugetPushScriptTests(unittest.TestCase):
     def test_missing_oidc_or_user_fails_before_any_request(self):
         for kwargs, message in (({'oidc': False}, 'id-token: write'), ({'user': ''}, 'NUGET_USER is not set')):
             with self.subTest(kwargs=kwargs), tempfile.TemporaryDirectory() as directory:
-                result, curl, dotnet = run_push(directory, **kwargs)
+                result, curl, dotnet, _ = run_push(directory, **kwargs)
                 self.assertEqual(result.returncode, 1)
                 self.assertIn(message, result.stdout)
                 self.assertEqual((curl, dotnet), ('', ''))

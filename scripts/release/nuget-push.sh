@@ -20,7 +20,8 @@ fi
 service="${NUGET_TOKEN_SERVICE_URL:-https://www.nuget.org/api/v2/token}"
 source="${NUGET_SOURCE:-https://api.nuget.org/v3/index.json}"
 
-oidc="$(curl -sS --fail-with-body -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+# Bearer headers reach curl through a file descriptor (-H @file), never through its arguments.
+oidc="$(curl -sS --fail-with-body -H @<(printf 'Authorization: Bearer %s\n' "$ACTIONS_ID_TOKEN_REQUEST_TOKEN") \
   "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https%3A%2F%2Fwww.nuget.org" | jq -r '.value // empty')" || {
   echo "::error::could not get an OIDC token from GitHub"; exit 1; }
 [ -n "$oidc" ] || { echo "::error::GitHub returned no OIDC token"; exit 1; }
@@ -28,7 +29,7 @@ echo "::add-mask::$oidc"
 
 body="$(jq -cn --arg user "$NUGET_USER" '{username: $user, tokenType: "ApiKey"}')"
 response="$(curl -sS -w '\n%{http_code}' -X POST "$service" -H 'Content-Type: application/json' \
-  -H "Authorization: Bearer $oidc" -H 'User-Agent: nuget/login-action' --data "$body")" || {
+  -H @<(printf 'Authorization: Bearer %s\n' "$oidc") -H 'User-Agent: nuget/login-action' --data "$body")" || {
   echo "::error::token exchange with $service failed"; exit 1; }
 status="${response##*$'\n'}"
 response="${response%$'\n'*}"
