@@ -42,13 +42,30 @@ enum Conformance {
         for _ in 0..<12 where url.lastPathComponent != "Tests" { url.deleteLastPathComponent() }
         return url.deletingLastPathComponent().appendingPathComponent("Conformance")
     }()
-    static let goldenDirectory = root.appendingPathComponent("Fixtures").appendingPathComponent("golden")
+    static let currentGoldenDirectory = root.appendingPathComponent("Fixtures").appendingPathComponent("golden")
 
+    /// `TT_BASELINE_FIXTURES=<dir>` points the fixture tests at an earlier release's golden fixtures (the `compat` CI
+    /// job exports the baseline tag's `Conformance/Fixtures/golden` there): what an older front end sends and expects
+    /// must still decode and round-trip with this code.
+    static let baselineDirectory: URL? = {
+        guard let path = ProcessInfo.processInfo.environment["TT_BASELINE_FIXTURES"], !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }()
+    static var isBaseline: Bool { baselineDirectory != nil }
+    static var goldenDirectory: URL { baselineDirectory ?? currentGoldenDirectory }
+
+    /// The fixtures being tested: the baseline's in baseline mode, else the current ones.
     static func goldenFiles() throws -> [String] {
         try FileManager.default.contentsOfDirectory(atPath: goldenDirectory.path).filter { $0.hasSuffix(".json") }.sorted()
     }
 
+    /// One fixture. In baseline mode a name the baseline does not have (a fixture added since) is read from the
+    /// current set, so tests that name a newer fixture still run; new fixtures are covered by the normal run.
     static func golden(_ name: String) throws -> Data {
-        try Data(contentsOf: goldenDirectory.appendingPathComponent(name))
+        let file = goldenDirectory.appendingPathComponent(name)
+        if isBaseline, !FileManager.default.fileExists(atPath: file.path) {
+            return try Data(contentsOf: currentGoldenDirectory.appendingPathComponent(name))
+        }
+        return try Data(contentsOf: file)
     }
 }

@@ -19,6 +19,21 @@ Dependency direction: `calendar-connectors` <- `timetug-shared` <- the apps.
 - Allowed imports: Core `Foundation CalendarCore TimeTugCore Testing`; Bridge adds nothing else; Engine `Foundation CalendarCore TimeTugCore CalendarBridge TimeTugEngine Testing` (portable, no AppKit/Combine/OSLog). `scripts/ci/check-architecture.sh` enforces it.
 - `Package.resolved` is changed only by `scripts/ci/bump-resolved.py` (the bump workflow) or by `swift package update` in a reviewed pull request.
 
+## Backward compatibility
+
+Owner rule (2026-10-16): within a major version, a release of this library must drop into an existing front end with no change to that front end; front ends are not released when the library is, and their releases stay owner-initiated. Additions are allowed. Removing or retyping anything, changing meaning, or changing an existing fixture needs the pull request label `semver:major` (which also makes the release a major version).
+
+On every pull request the `compat` and `compat-dotnet` jobs of `ci.yml` compare with the baseline, the highest `X.Y.Z` tag reachable from the base branch (`scripts/ci/compat/compat.py`; its tests are `scripts/ci/tests/test_compat.py`):
+
+1. Swift public API: `swift package diagnose-api-breaking-changes <baseline>` for TimeTugCore, CalendarBridge, TimeTugEngine, TimeTugEngineProtocol and TimeTugEngineC.
+2. Wire contract: the baseline's `Conformance/Fixtures/golden` run through the fixture tests (`TT_BASELINE_FIXTURES=<dir>`), and no file of the baseline there is modified or deleted.
+3. Old front end, new backend: the baseline's `Conformance/Scenarios` (with `data/`) run through the C interface (`TT_BASELINE_SCENARIOS=<dir>`), and none of them is modified or deleted.
+4. C ABI: the declarations in `include/timetug_engine.h` (comments and spacing aside) are unchanged, and the built library still exports the baseline's `tt_engine_*` functions.
+5. Persisted data: the Mac-format fixtures in `Tests/TimeTugEngineTests/Fixtures` may only be added to; the tests that load them keep passing.
+6. .NET: `dotnet pack` with package validation (`-p:TimeTugPackageValidationBaseline=<version>`) against the latest TimeTug.Engine on nuget.org.
+
+With the `semver:major` label each check is skipped with a notice; the checks are also skipped on pushes and before the first release. Adding or removing a label re-runs CI. To change a fixture or scenario without breaking anything, add a new file instead.
+
 ## Verify
 
 `swift test` (macOS, Linux and Windows run in CI), `scripts/ci/check-architecture.sh`, `scripts/ci/check-repository-contracts.py`, the tests under `scripts/ci/tests` and `scripts/release/tests`.

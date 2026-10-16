@@ -24,6 +24,16 @@
     <Version Condition="'$(Version)' == ''">0.0.0-dev</Version>
   </PropertyGroup>
 
+  <!--
+    Package validation against the latest TimeTug.Engine on nuget.org, only when a pack passes
+    -p:TimeTugPackageValidationBaseline=<X.Y.Z> (the compat-dotnet job of ci.yml does; skipped for semver:major).
+    A removed or changed public API of the wrapper then fails the pack (AGENTS.md, "Backward compatibility").
+  -->
+  <PropertyGroup Condition="'$(TimeTugPackageValidationBaseline)' != ''">
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <PackageValidationBaselineVersion>$(TimeTugPackageValidationBaseline)</PackageValidationBaselineVersion>
+  </PropertyGroup>
+
   <ItemGroup>
     <InternalsVisibleTo Include="TimeTug.Engine.Tests" />
   </ItemGroup>

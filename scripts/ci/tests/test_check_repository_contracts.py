@@ -9,6 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo "${{ secrets.GITHUB_TOKEN }}${{ secrets.DOCKERHUB_TOKEN }}"
+  compat:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo compat
+  compat-dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo compat-dotnet
 '''
 
 RELEASE = '''name: Release
@@ -103,6 +111,12 @@ class Contracts(unittest.TestCase):
         runs = '\n'.join(step.get('run', '') for step in ci['jobs']['architecture']['steps'])
         self.assertIn('scripts/ci/tests/test-bump-workflow-step.sh', runs)
         self.assertIn("unittest discover -s scripts/ci/tests -p 'test_*.py'", runs)
+
+    def test_a_missing_compat_job_fails(self):
+        for job in ('compat', 'compat-dotnet'):
+            with self.subTest(job=job):
+                self.check(False, f'missing documented job {job}', **{
+                    '.github/workflows/ci.yml': CI.replace(f'  {job}:\n', '  renamed-' + job + ':\n')})
 
     def test_pull_request_target_fails(self):
         self.check(False, 'pull_request_target', **{

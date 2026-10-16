@@ -16,7 +16,9 @@ import TimeTugEngineProtocol
     }
 
     /// The exact scenario set of the spec's Testing section: deleting or renaming a scenario fails the build.
+    /// Not in baseline mode, where the set is the baseline's.
     @Test func scenarioInventory() throws {
+        guard ScenarioRunner.baselineDirectory == nil else { return }
         let names = try ScenarioRunner.scenarioURLs().map { $0.deletingPathExtension().lastPathComponent }.sorted()
         #expect(names == [
             "add-account-oauth", "destroy-while-signin-pending", "http-timeout", "invalid-command",

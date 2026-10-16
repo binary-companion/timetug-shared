@@ -17,6 +17,15 @@
 #   dotnet-macos, dotnet-linux
 #                  the same C# tests against libTimeTugEngineC.dylib and .so (extra coverage).
 #   architecture   portability rules, repository contracts and the tests of the release script, the bump script and workflows.
+#   compat         backward compatibility with the latest release (AGENTS.md, "Backward compatibility"), pull requests only:
+#                  fixtures, scenarios and persisted-format fixtures that exist in the baseline unchanged, the C header's
+#                  declarations unchanged, the Swift public API of every library product (swift package
+#                  diagnose-api-breaking-changes), the baseline's golden fixtures and scenarios through the current code,
+#                  and the baseline's tt_engine_* exports. Skipped with a notice for the label semver:major, and when no
+#                  X.Y.Z tag exists. scripts/ci/compat/ holds the logic; its tests run in the architecture job.
+#   compat-dotnet  the same rule for the managed wrapper: dotnet pack with package validation against the latest
+#                  TimeTug.Engine on nuget.org (skipped for semver:major, and when nothing is published).
+# The labeled and unlabeled triggers re-run CI when a label changes, so adding or removing semver:major re-decides compat.
 # Every swift test runs with --force-resolved-versions, so a Package.resolved that no longer matches
 # Package.swift fails here instead of being silently re-resolved.
 name: CI
@@ -25,6 +34,7 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -288,3 +298,117 @@ jobs:
           PYTHON="$PWD/build/venv/bin/python" scripts/ci/tests/test-bump-workflow-step.sh
           # Includes test_bump_resolved.py (the Package.resolved editor) and the contracts tests.
           build/venv/bin/python -m unittest discover -s scripts/ci/tests -p 'test_*.py'
+
+  compat:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The baseline is a release tag; diagnose-api-breaking-changes checks it out from this clone.
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide whether the checks apply
+        id: gate
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python3 scripts/ci/compat/compat.py gate --base-ref "origin/${BASE_REF:-main}"
+      # Each check below runs even when an earlier one failed, so one run reports every broken category.
+      - name: Files that exist in the baseline are unchanged (fixtures, scenarios, persisted formats)
+        if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
+        env:
+          BASELINE: ${{ steps.gate.outputs.baseline }}
+        run: |
+          python3 scripts/ci/compat/compat.py frozen "$BASELINE" \
+            Conformance/Fixtures/golden Conformance/Scenarios Tests/TimeTugEngineTests/Fixtures
+      - name: C header declarations
+        if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
+        env:
+          BASELINE: ${{ steps.gate.outputs.baseline }}
+        run: python3 scripts/ci/compat/compat.py header "$BASELINE" include/timetug_engine.h
+      - name: Log in to Docker Hub
+        if: steps.gate.outputs.run == 'true' && env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
+        run: |
+          for attempt in 1 2 3; do
+            echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin && exit 0
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 15)); fi
+          done
+          echo "::warning::Docker Hub login failed; pulling anonymously."
+      - name: Pull the Swift image
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          for attempt in 1 2 3; do
+            docker pull swift:6.0 && exit 0
+            sleep $((attempt * 15))
+          done
+          exit 1
+      - name: Swift public API of every library product
+        if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
+        env:
+          BASELINE: ${{ steps.gate.outputs.baseline }}
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e BASELINE -v "$PWD:/work" -w /work swift:6.0 bash -c '
+            set -euo pipefail
+            git config --global --add safe.directory /work
+            swift package --force-resolved-versions diagnose-api-breaking-changes "$BASELINE" \
+              --products TimeTugCore CalendarBridge TimeTugEngine TimeTugEngineProtocol TimeTugEngineC'
+      - name: The baseline's golden fixtures and scenarios through the current code
+        if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
+        env:
+          BASELINE: ${{ steps.gate.outputs.baseline }}
+        run: |
+          set -euo pipefail
+          scripts/ci/compat/export-baseline.sh "$BASELINE" build/compat-baseline
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work \
+            -e TT_BASELINE_FIXTURES=/work/build/compat-baseline/golden \
+            -e TT_BASELINE_SCENARIOS=/work/build/compat-baseline/scenarios \
+            swift:6.0 swift test --force-resolved-versions --filter FixtureTests --filter ScenarioTests 2>&1 | tee build/compat-test.log
+          # Two targets (protocol fixtures, C scenarios); a filter that matched nothing must not pass.
+          python3 scripts/ci/count-swift-tests.py build/compat-test.log --minimum 10 --minimum-runs 2
+      - name: The library still exports the baseline's C functions
+        if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
+        env:
+          BASELINE: ${{ steps.gate.outputs.baseline }}
+        run: |
+          set -euo pipefail
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work swift:6.0 \
+            swift build --force-resolved-versions --product TimeTugEngineC
+          python3 scripts/ci/compat/compat.py exports "$BASELINE" include/timetug_engine.h .build/debug/libTimeTugEngineC.so
+
+  compat-dotnet:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide whether the checks apply
+        id: gate
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python3 scripts/ci/compat/compat.py gate --base-ref "origin/${BASE_REF:-main}"
+      - name: Find the published baseline package
+        id: nuget
+        if: steps.gate.outputs.run == 'true'
+        run: python3 scripts/ci/compat/compat.py nuget-baseline
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        if: steps.nuget.outputs.version != ''
+        with:
+          dotnet-version: 8.0.x
+      # Only the managed assembly is compared, so the package is packed without the native sets. Its version is the
+      # baseline's: package validation also requires an assembly version at least the baseline's.
+      - name: Pack with package validation against the published baseline
+        if: steps.nuget.outputs.version != ''
+        env:
+          VERSION: ${{ steps.nuget.outputs.version }}
+        run: |
+          dotnet pack dotnet/TimeTug.Engine -c Release -o build/nupkg-compat \
+            "-p:Version=$VERSION" "-p:TimeTugPackageValidationBaseline=$VERSION"

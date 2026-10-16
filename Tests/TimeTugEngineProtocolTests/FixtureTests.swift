@@ -12,7 +12,9 @@ import TimeTugEngine
         String(decoding: try Conformance.golden(name), as: UTF8.self)
     }
 
+    /// Not in baseline mode: a type added since the baseline has no baseline fixture (additions are allowed).
     @Test func everyCatalogTypeHasAFixture() throws {
+        guard !Conformance.isBaseline else { return }
         let names = Set(try Conformance.goldenFiles())
         for type in MessageCatalog.all {
             #expect(names.contains("\(type).json"), "missing fixture for \(type)")

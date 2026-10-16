@@ -36,7 +36,13 @@ final class ScenarioRunner {
         var failures: [String]
     }
 
-    static let scenarioDirectory = Conformance.root.appendingPathComponent("Scenarios")
+    /// `TT_BASELINE_SCENARIOS=<dir>` runs an earlier release's scenarios (and their `data/`) instead: an old front
+    /// end against this backend. The `compat` CI job exports the baseline tag's `Conformance/Scenarios` there.
+    static let baselineDirectory: URL? = {
+        guard let path = ProcessInfo.processInfo.environment["TT_BASELINE_SCENARIOS"], !path.isEmpty else { return nil }
+        return URL(fileURLWithPath: path, isDirectory: true)
+    }()
+    static let scenarioDirectory = baselineDirectory ?? Conformance.root.appendingPathComponent("Scenarios")
 
     private let scenario: JSONValue
     private let name: String
