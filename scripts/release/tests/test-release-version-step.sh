@@ -111,7 +111,7 @@ notes = [i for i, n in enumerate(names) if n.startswith('Record the connector ve
 check(len(create) == 1 and len(notes) == 1, "publish must have one create step and one connector-version step")
 check(notes[0] == create[0] + 1, "the connector-version step must come right after the release is created")
 step = steps[notes[0]]
-check(step.get('if') == "steps.version.outputs.version != ''", "the connector-version step must run only when a version was released")
+check(step.get('if') == "steps.release.outputs.created == 'true'", "the connector-version step must run only when this run created the release")
 check(step.get('env') == {'GH_TOKEN': '${{ github.token }}', 'VERSION': '${{ steps.version.outputs.version }}'},
       "the connector-version step env must be exactly GH_TOKEN (the repository token) and VERSION (the released version)")
 check('${{' not in step['run'], "the connector-version script must not contain ${{ }}")
