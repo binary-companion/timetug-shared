@@ -1,0 +1,189 @@
+{
+  "name": "time-zone-change",
+  "config": {
+    "v": 1,
+    "platform": "linux",
+    "testing": true,
+    "testClockStart": "2026-10-16T13:00:00.000Z",
+    "timeZone": "America/Chicago",
+    "connectors": {
+      "google": {
+        "clientID": "test-client",
+        "clientSecret": "test-secret"
+      }
+    }
+  },
+  "files": {
+    "accounts.json": [
+      {
+        "kindID": "google",
+        "connectionID": "conn-1",
+        "displayName": "me@example.com",
+        "config": {
+          "email": "me@example.com"
+        }
+      }
+    ],
+    "settings.json": {
+      "takeover": {
+        "takeoverCalendarKeys": [
+          "google-conn-1/me@example.com"
+        ]
+      }
+    }
+  },
+  "host": {
+    "http": [
+      {
+        "match": "https://oauth2.googleapis.com/token",
+        "method": "POST",
+        "bodyFile": "google-token.json"
+      },
+      {
+        "match": "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+        "bodyFile": "google-calendar-list.json"
+      },
+      {
+        "match": "https://www.googleapis.com/calendar/v3/calendars/me%40example.com/events",
+        "bodyFile": "google-events-evening.json"
+      }
+    ],
+    "credentials": {
+      "seed": {
+        "conn-1": {
+          "refresh_token": "test-refresh-token"
+        }
+      }
+    }
+  },
+  "steps": [
+    {
+      "send": {
+        "type": "start"
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "ready"
+          }
+        ]
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "events": [
+            {
+              "id": "google-conn-1/evt-late-call/1792202400",
+              "title": "Late call",
+              "start": "2026-10-17T02:00:00.000Z"
+            }
+          ],
+          "agenda": {
+            "items": [
+              {
+                "eventID": "google-conn-1/evt-late-call/1792202400",
+                "state": "upcoming"
+              }
+            ],
+            "nextEventID": "google-conn-1/evt-late-call/1792202400"
+          },
+          "nextTakeover": {
+            "eventID": "google-conn-1/evt-late-call/1792202400",
+            "fireAt": "2026-10-17T01:59:00.000Z"
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "type": "system.event",
+        "payload": {
+          "kind": "timeZoneChanged",
+          "timeZone": "Asia/Tokyo"
+        }
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "event.takeoverWithdrawn",
+            "payload": {
+              "eventID": "google-conn-1/evt-late-call/1792202400"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "events": [],
+          "agenda": {
+            "items": [],
+            "nextEventID": null
+          },
+          "nextTakeover": null
+        }
+      }
+    },
+    {
+      "send": {
+        "type": "system.event",
+        "payload": {
+          "kind": "timeZoneChanged",
+          "timeZone": "America/Chicago"
+        }
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "events": [
+            {
+              "id": "google-conn-1/evt-late-call/1792202400"
+            }
+          ],
+          "agenda": {
+            "items": [
+              {
+                "eventID": "google-conn-1/evt-late-call/1792202400",
+                "state": "upcoming"
+              }
+            ]
+          },
+          "nextTakeover": {
+            "eventID": "google-conn-1/evt-late-call/1792202400",
+            "fireAt": "2026-10-17T01:59:00.000Z"
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "type": "system.event",
+        "id": "tz",
+        "payload": {
+          "kind": "timeZoneChanged",
+          "timeZone": "Mars/Olympus"
+        }
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "event.diagnostic",
+            "id": "tz",
+            "payload": {
+              "message": "unknown time zone"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

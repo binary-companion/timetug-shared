@@ -15,6 +15,16 @@ import TimeTugEngineProtocol
         #expect(result.failures.isEmpty, "\(name): \(result.failures.joined(separator: "\n"))")
     }
 
+    /// The exact scenario set of the spec's Testing section: deleting or renaming a scenario fails the build.
+    @Test func scenarioInventory() throws {
+        let names = try ScenarioRunner.scenarioURLs().map { $0.deletingPathExtension().lastPathComponent }.sorted()
+        #expect(names == [
+            "add-account-oauth", "destroy-while-signin-pending", "http-timeout", "invalid-command",
+            "late-takeover-after-wake", "settings-persist-across-restart", "snooze-refire", "start-ready",
+            "takeover-after-clock", "time-zone-change",
+        ])
+    }
+
     @Test func runnerReportsAMismatch() async {
         let bad = JSONValue.object([
             "name": .string("bad"),

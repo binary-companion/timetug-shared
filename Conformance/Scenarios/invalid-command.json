@@ -1,0 +1,147 @@
+{
+  "name": "invalid-command",
+  "config": {
+    "v": 1,
+    "platform": "windows",
+    "testing": true,
+    "testClockStart": "2026-10-16T13:00:00.000Z",
+    "timeZone": "Europe/Berlin",
+    "connectors": {}
+  },
+  "steps": [
+    {
+      "send": {
+        "type": "start"
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "ready"
+          },
+          {
+            "type": "state"
+          }
+        ]
+      }
+    },
+    {
+      "sendRaw": "{not json"
+    },
+    {
+      "send": {
+        "type": "nope",
+        "id": "cmd-9"
+      }
+    },
+    {
+      "send": {
+        "type": "dedup.merge",
+        "id": 7,
+        "payload": {
+          "eventIDs": [
+            "gone-1",
+            "gone-2"
+          ]
+        }
+      }
+    },
+    {
+      "send": {
+        "v": 2,
+        "type": "refresh",
+        "id": "old"
+      }
+    },
+    {
+      "send": {
+        "type": "takeover.snooze",
+        "id": "neg",
+        "payload": {
+          "eventID": "x",
+          "seconds": -5
+        }
+      }
+    },
+    {
+      "send": {
+        "type": "account.add",
+        "id": "shape",
+        "payload": {
+          "kind": "google"
+        }
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "event.diagnostic",
+            "id": null,
+            "payload": {
+              "level": "warning",
+              "category": "command",
+              "message": "invalid JSON"
+            }
+          },
+          {
+            "type": "event.diagnostic",
+            "id": "cmd-9",
+            "payload": {
+              "category": "command",
+              "message": "unknown command type"
+            }
+          },
+          {
+            "type": "event.diagnostic",
+            "id": 7,
+            "payload": {
+              "category": "command",
+              "message": "unknown event id"
+            }
+          },
+          {
+            "type": "event.diagnostic",
+            "id": "old",
+            "payload": {
+              "category": "command",
+              "message": "unsupported protocol version"
+            }
+          },
+          {
+            "type": "event.diagnostic",
+            "id": "neg",
+            "payload": {
+              "category": "command",
+              "message": "invalid payload"
+            }
+          },
+          {
+            "type": "event.diagnostic",
+            "id": "shape",
+            "payload": {
+              "category": "command",
+              "message": "invalid payload"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "send": {
+        "type": "refresh",
+        "id": "still-works"
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "state"
+          }
+        ]
+      }
+    }
+  ]
+}

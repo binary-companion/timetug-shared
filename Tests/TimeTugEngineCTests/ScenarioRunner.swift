@@ -112,7 +112,8 @@ final class ScenarioRunner {
                     let matched = await waitUntil { Self.matches(state, host.latestState) }
                     if !matched {
                         failures.append("\(label): expected state \(Self.text(state)); latest state "
-                                        + (host.latestState.map(Self.text) ?? "none"))
+                                        + (host.latestState.map(Self.text) ?? "none")
+                                        + "; received since the last events expectation: " + host.summary(from: cursor))
                         break
                     }
                 }
