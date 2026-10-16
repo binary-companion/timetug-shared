@@ -1,6 +1,7 @@
 import CalendarCore
 import Foundation
 @testable import TimeTugCore
+import TimeTugEngineProtocol
 
 /// Builders shared by the protocol tests. Times are fixed so expected strings are literals.
 enum Fixture {
@@ -67,5 +68,27 @@ enum Conformance {
             return try Data(contentsOf: currentGoldenDirectory.appendingPathComponent(name))
         }
         return try Data(contentsOf: file)
+    }
+
+    /// The comparison a re-encoded fixture must pass: exact equality for the current fixtures; in baseline mode the
+    /// re-encoded value may be a superset of the baseline's (fields added, none removed or changed), because a
+    /// release may add to the contract within a major version.
+    static func matches(_ reencoded: JSONValue, fixture: JSONValue) -> Bool {
+        isBaseline ? reencoded.covers(fixture) : reencoded == fixture
+    }
+}
+
+extension JSONValue {
+    /// True when every member of `baseline` is here with an equal value, recursively: an object may have more
+    /// members; an array has the same length and covers the baseline's element by element; anything else is equal.
+    func covers(_ baseline: JSONValue) -> Bool {
+        switch (self, baseline) {
+        case (.object(let mine), .object(let theirs)):
+            return theirs.allSatisfy { key, value in mine[key].map { $0.covers(value) } ?? false }
+        case (.array(let mine), .array(let theirs)):
+            return mine.count == theirs.count && zip(mine, theirs).allSatisfy { $0.covers($1) }
+        default:
+            return self == baseline
+        }
     }
 }

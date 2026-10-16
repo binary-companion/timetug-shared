@@ -40,15 +40,69 @@ import TimeTugEngine
             let data = try Conformance.golden(name)
             let env = try JSONDecoder().decode(Envelope.self, from: data)
             let again = try JSONEncoder().encode(env)
-            #expect(try json(again) == (try json(data)), "\(name)")
+            #expect(Conformance.matches(try json(again), fixture: try json(data)), "\(name)")
         }
+    }
+
+    /// The payload types of the contract: every fixture of a listed type decodes into its wire type and re-encodes
+    /// to the same JSON (in baseline mode: to a superset of the baseline's, so an added field passes and a removed,
+    /// renamed or retyped one fails).
+    private static let payloadTypes: [(prefix: String, roundTrip: @Sendable (JSONValue) throws -> JSONValue)] = [
+        ("ready", roundTrip(WireReady.self)),
+        ("state", roundTrip(WireState.self)), ("edge-state-", roundTrip(WireState.self)),
+        ("event.takeoverDue", roundTrip(WireTakeoverRequest.self)),
+        ("event.widgetSnapshot", roundTrip(WireWidgetSnapshot.self)),
+        ("event.diagnostic", roundTrip(WireDiagnostic.self)), ("edge-event-diagnostic-", roundTrip(WireDiagnostic.self)),
+        ("edge-settings-patch-", roundTrip(WireSettingsPatch.self)),
+        ("service.credentials.get", roundTrip(CredentialsKeyRequest.self)),
+        ("service.credentials.remove", roundTrip(CredentialsKeyRequest.self)),
+        ("service.credentials.set", roundTrip(CredentialsSetRequest.self)),
+        ("service.credentials.updateRefreshToken", roundTrip(CredentialsUpdateRefreshTokenRequest.self)),
+        ("service.http.send", roundTrip(HTTPSendRequest.self)),
+        ("service.auth.authorize", roundTrip(AuthAuthorizeRequest.self)),
+        ("service.auth.closeRedirect", roundTrip(AuthCloseRedirectRequest.self)),
+        ("service.auth.promptCredentials", roundTrip(AuthPromptCredentialsRequest.self)),
+        ("service.signIn.prepare", roundTrip(SignInPrepareRequest.self)),
+        ("service.text.generate", roundTrip(TextGenerateRequest.self)),
+    ]
+
+    private static func roundTrip<T: Codable>(_ type: T.Type) -> @Sendable (JSONValue) throws -> JSONValue {
+        { payload in
+            let typed = try JSONDecoder().decode(T.self, from: JSONEncoder().encode(payload))
+            return try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(typed))
+        }
+    }
+
+    @Test func typedPayloadsRoundTrip() throws {
+        var checked = 0
+        for name in try Conformance.goldenFiles() {
+            let stem = String(name.dropLast(5))
+            guard let entry = Self.payloadTypes.first(where: { $0.prefix.hasSuffix("-") ? stem.hasPrefix($0.prefix) : stem == $0.prefix })
+            else { continue }
+            let payload = try #require(try envelope(name).payload, "\(name)")
+            let again = try entry.roundTrip(payload)
+            #expect(Conformance.matches(again, fixture: payload), "\(name) does not round-trip through its wire type")
+            checked += 1
+        }
+        #expect(checked >= 15, "only \(checked) fixtures had a wire type")
+    }
+
+    @Test func coversAllowsAddedFieldsOnly() {
+        let base = JSONValue.object(["a": .number(1), "list": .array([.object(["b": .string("x")])])])
+        #expect(JSONValue.object(["a": .number(1), "new": .bool(true),
+                                  "list": .array([.object(["b": .string("x"), "c": .null])])]).covers(base))
+        #expect(!JSONValue.object(["list": .array([.object(["b": .string("x")])])]).covers(base))           // removed
+        #expect(!JSONValue.object(["a": .string("1"), "list": .array([.object(["b": .string("x")])])]).covers(base))  // retyped
+        #expect(!JSONValue.object(["a": .number(2), "list": .array([.object(["b": .string("x")])])]).covers(base))    // changed
+        #expect(!JSONValue.object(["a": .number(1), "list": .array([])]).covers(base))                      // shortened
+        #expect(!JSONValue.object(["a": .number(1), "list": .array([.object(["b": .string("x")]), .null])]).covers(base))
     }
 
     @Test func engineMessagesMatchTheirGoldenFixtures() throws {
         for (name, message) in GoldenMessages.all {
             let fromEngine = try json(try JSONEncoder().encode(message))
             let fromFile = try json(try Conformance.golden("\(name).json"))
-            #expect(fromEngine == fromFile, "\(name) drifted from its fixture")
+            #expect(Conformance.matches(fromEngine, fixture: fromFile), "\(name) drifted from its fixture")
         }
     }
 

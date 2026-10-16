@@ -8,8 +8,15 @@ Usage (from the repository root; the CI jobs `compat` and `compat-dotnet` run th
                                              to $GITHUB_OUTPUT (pull requests only; skipped with a notice for
                                              semver:major, other events and when no X.Y.Z tag exists)
   compat.py baseline [--ref REF]             print the highest X.Y.Z tag reachable from REF (default origin/main)
-  compat.py frozen BASELINE PATH...          fail if a file under PATH that exists in BASELINE was changed or
-                                             deleted since (only additions are allowed)
+  compat.py frozen BASELINE [--strict PATH...] [--additive PATH...] [--appendable PATH...]
+                                             fail if a file under PATH that exists in BASELINE was deleted or
+                                             changed in a way its kind does not allow:
+                                               --strict      no change at all (persisted-data fixtures)
+                                               --additive    the JSON may only gain object members; arrays keep
+                                                             their length (golden fixtures)
+                                               --appendable  as --additive, and arrays may also gain entries at
+                                                             the end (scenarios and their data)
+                                             New files are always allowed.
   compat.py header BASELINE HEADER           fail if a declaration of HEADER at BASELINE (the tt_engine_* functions
                                              and the typedefs) differs, comments and spacing aside
   compat.py exports BASELINE HEADER LIBRARY  fail if LIBRARY does not export every function HEADER declared at BASELINE
@@ -92,6 +99,70 @@ def write_outputs(**values):
 def changed_baseline_files(name_status):
     """The lines of `git diff --name-status --no-renames` that are not additions."""
     return [line for line in name_status.splitlines() if line.strip() and not line.startswith('A\t')]
+
+
+def covers(current, baseline, append=False):
+    """True when every member of the baseline JSON value is in current with an equal value, recursively: an object
+    may gain members; an array keeps its length (or, with append, may gain entries at the end) and covers the
+    baseline's element by element; any other value is equal and of the same JSON type."""
+    if isinstance(baseline, dict):
+        return isinstance(current, dict) and all(
+            key in current and covers(current[key], value, append) for key, value in baseline.items())
+    if isinstance(baseline, list):
+        if not isinstance(current, list) or len(current) < len(baseline) or (not append and len(current) != len(baseline)):
+            return False
+        return all(covers(mine, theirs, append) for mine, theirs in zip(current, baseline))
+    if isinstance(baseline, bool) or isinstance(current, bool):
+        return isinstance(baseline, bool) and isinstance(current, bool) and current == baseline
+    if isinstance(baseline, (int, float)):
+        return isinstance(current, (int, float)) and current == baseline
+    return type(current) is type(baseline) and current == baseline
+
+
+def additive_change(baseline_text, current_text, append):
+    """None when current is an allowed additive change of baseline, else why not."""
+    try:
+        old, new = json.loads(baseline_text), json.loads(current_text)
+    except ValueError:
+        return 'modified (not JSON, so no change is allowed)'
+    if covers(new, old, append):
+        return None
+    return 'modified: a field or entry of the baseline was removed or changed (only additions are allowed)'
+
+
+def frozen_problems(baseline, paths, mode):
+    """[(path, reason)] for the files under paths that exist in baseline and changed in a way mode does not allow."""
+    if not paths:
+        return []
+    problems = []
+    for line in changed_baseline_files(git('diff', '--name-status', '--no-renames', baseline, 'HEAD', '--', *paths)):
+        status, _, path = line.partition('\t')
+        if status == 'D':
+            problems.append((path, 'deleted'))
+        elif mode == 'strict':
+            problems.append((path, 'modified (files here model data on users\' disks: existing ones never change)'))
+        else:
+            why = additive_change(git('show', f'{baseline}:{path}'), git('show', f'HEAD:{path}'), mode == 'appendable')
+            if why:
+                problems.append((path, why))
+            else:
+                print(f'{path}: additive change since {baseline} (allowed)')
+    return problems
+
+
+def parse_frozen(args):
+    """(baseline, {mode: [paths]}) from `BASELINE [--strict P...] [--additive P...] [--appendable P...]`."""
+    if not args or args[0].startswith('--'):
+        return None, {}
+    modes, mode = {'strict': [], 'additive': [], 'appendable': []}, 'strict'
+    for arg in args[1:]:
+        if arg.startswith('--'):
+            mode = arg[2:]
+            if mode not in modes:
+                return None, {}
+        else:
+            modes[mode].append(arg)
+    return args[0], modes
 
 
 def strip_comments(text):
@@ -181,16 +252,17 @@ def main(argv):
         ref = args[args.index('--ref') + 1] if '--ref' in args else 'origin/main'
         print(baseline_tag(ref) or '')
         return 0
-    if command == 'frozen' and len(args) >= 2:
-        baseline, paths = args[0], args[1:]
-        changed = changed_baseline_files(git('diff', '--name-status', '--no-renames', baseline, 'HEAD', '--', *paths))
-        for line in changed:
-            status, _, path = line.partition('\t')
-            error(f'{path}: {"deleted" if status == "D" else "modified"} since {baseline}; files that exist in the '
-                  f'baseline may only be added to (label the pull request {MAJOR_LABEL} for a breaking change)')
-        if not changed:
-            print(f'frozen files unchanged since {baseline}: {" ".join(paths)}')
-        return 1 if changed else 0
+    if command == 'frozen':
+        baseline, modes = parse_frozen(args)
+        if not baseline or not any(modes.values()):
+            print(__doc__, file=sys.stderr)
+            return 2
+        problems = [problem for mode, paths in modes.items() for problem in frozen_problems(baseline, paths, mode)]
+        for path, why in problems:
+            error(f'{path}: {why} since {baseline}; label the pull request {MAJOR_LABEL} for a breaking change')
+        if not problems:
+            print(f'baseline files intact since {baseline}: {" ".join(p for paths in modes.values() for p in paths)}')
+        return 1 if problems else 0
     if command == 'header' and len(args) == 2:
         baseline, header = args
         with open(header, encoding='utf-8') as handle:

@@ -48,7 +48,7 @@ class Repo:
         self.root = Path(directory)
         self.git('init', '-q', '-b', 'main')
         self.write('Conformance/Fixtures/golden/ready.json', '{"v":1,"type":"ready"}\n')
-        self.write('Conformance/Scenarios/start.json', '{"steps":[]}\n')
+        self.write('Conformance/Scenarios/start.json', SCENARIO)
         self.write('Conformance/Scenarios/data/token.json', '{"access_token":"x"}\n')
         self.write('Tests/TimeTugEngineTests/Fixtures/settings-legacy.json', '{"leadTime":60}\n')
         self.write('include/timetug_engine.h', HEADER)
@@ -73,7 +73,11 @@ class Repo:
                               env={**os.environ, **GIT_ENV, **(env or {})})
 
 
-FROZEN = ['Conformance/Fixtures/golden', 'Conformance/Scenarios', 'Tests/TimeTugEngineTests/Fixtures']
+FROZEN = ['--additive', 'Conformance/Fixtures/golden', '--appendable', 'Conformance/Scenarios',
+          '--strict', 'Tests/TimeTugEngineTests/Fixtures']
+FROZEN_PATHS = [path for path in FROZEN if not path.startswith('--')]
+SCENARIO = '{"steps":[{"send":{"type":"start"}},{"expect":{"state":{"takeoverVisible":false}}}]}\n'
+
 
 
 class Baseline(unittest.TestCase):
@@ -146,6 +150,7 @@ class Gate(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             repo = Repo(directory)
             repo.write('Conformance/Fixtures/golden/ready.json', '{"v":1,"kind":"ready"}\n')
+            repo.write('Tests/TimeTugEngineTests/Fixtures/settings-legacy.json', '{"leadTime":60,"added":1}\n')
             (repo.root / 'Conformance/Scenarios/start.json').unlink()
             repo.write('include/timetug_engine.h', HEADER.replace('const char *command_json', 'const char *json, int n'))
             repo.commit('break everything')
@@ -161,35 +166,83 @@ class Gate(unittest.TestCase):
 
 
 class Frozen(unittest.TestCase):
-    def test_unchanged_and_added_files_pass(self):
+    def frozen(self, change):
         with tempfile.TemporaryDirectory() as directory:
             repo = Repo(directory)
+            change(repo)
+            repo.commit('change')
+            return repo.compat('frozen', '1.0.0', *FROZEN)
+
+    def assert_passes(self, change):
+        result = self.frozen(change)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        return result
+
+    def assert_breaks(self, change, needle):
+        result = self.frozen(change)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn(needle, result.stdout)
+        self.assertIn('semver:major', result.stdout)
+
+    def test_unchanged_and_added_files_pass(self):
+        def change(repo):
             repo.write('Conformance/Fixtures/golden/edge-new.json', '{}\n')
             repo.write('Conformance/Scenarios/new.json', '{}\n')
             repo.write('Conformance/Scenarios/data/new.json', '{}\n')
             repo.write('Tests/TimeTugEngineTests/Fixtures/new-format.json', '{}\n')
             repo.write('Sources/Unrelated.swift', '// changed elsewhere\n')
-            repo.commit('additions')
-            result = repo.compat('frozen', '1.0.0', *FROZEN)
-            self.assertEqual(result.returncode, 0, result.stdout)
+        self.assert_passes(change)
 
-    def assert_breaks(self, change, needle):
-        with tempfile.TemporaryDirectory() as directory:
-            repo = Repo(directory)
-            change(repo)
-            repo.commit('change')
-            result = repo.compat('frozen', '1.0.0', *FROZEN)
-            self.assertEqual(result.returncode, 1, result.stdout)
-            self.assertIn(needle, result.stdout)
-            self.assertIn('semver:major', result.stdout)
+    # --- golden fixtures: additive changes only ---
+
+    def test_a_field_added_to_a_golden_fixture_passes(self):
+        result = self.assert_passes(lambda repo: repo.write(
+            'Conformance/Fixtures/golden/ready.json', '{\n  "v": 1,\n  "type": "ready",\n  "payload": {"new": true}\n}\n'))
+        self.assertIn('ready.json: additive change', result.stdout)
 
     def test_a_renamed_field_in_a_golden_fixture_fails(self):
         self.assert_breaks(lambda repo: repo.write('Conformance/Fixtures/golden/ready.json', '{"v":1,"kind":"ready"}\n'),
                            'Conformance/Fixtures/golden/ready.json: modified')
 
+    def test_a_removed_field_in_a_golden_fixture_fails(self):
+        self.assert_breaks(lambda repo: repo.write('Conformance/Fixtures/golden/ready.json', '{"type":"ready"}\n'),
+                           'Conformance/Fixtures/golden/ready.json: modified')
+
+    def test_a_retyped_or_changed_value_in_a_golden_fixture_fails(self):
+        for text in ('{"v":"1","type":"ready"}', '{"v":true,"type":"ready"}', '{"v":2,"type":"ready"}'):
+            with self.subTest(text=text):
+                self.assert_breaks(lambda repo: repo.write('Conformance/Fixtures/golden/ready.json', text + '\n'),
+                                   'Conformance/Fixtures/golden/ready.json: modified')
+
+    def test_an_entry_appended_to_a_golden_array_fails(self):
+        def change(repo):
+            repo.write('Conformance/Fixtures/golden/ready.json', '{"v":1,"type":"ready","list":[1]}\n')
+            repo.commit('baseline list')
+            repo.git('tag', '-f', '1.0.0')
+            repo.write('Conformance/Fixtures/golden/ready.json', '{"v":1,"type":"ready","list":[1,2]}\n')
+        self.assert_breaks(change, 'Conformance/Fixtures/golden/ready.json: modified')
+
+    # --- scenarios and their data: additive changes and appended entries ---
+
+    def test_an_appended_step_or_added_expectation_field_passes(self):
+        self.assert_passes(lambda repo: repo.write('Conformance/Scenarios/start.json', (
+            '{"name":"start","steps":[{"send":{"type":"start"}},'
+            '{"expect":{"state":{"takeoverVisible":false,"revision":1}}},{"expect":{"noMoreMessagesFor":0.2}}]}\n')))
+
     def test_a_changed_scenario_expectation_fails(self):
-        self.assert_breaks(lambda repo: repo.write('Conformance/Scenarios/start.json', '{"steps":[1]}\n'),
+        self.assert_breaks(lambda repo: repo.write('Conformance/Scenarios/start.json',
+                                                   SCENARIO.replace('"takeoverVisible":false', '"takeoverVisible":true')),
                            'Conformance/Scenarios/start.json: modified')
+
+    def test_a_removed_scenario_step_fails(self):
+        self.assert_breaks(lambda repo: repo.write('Conformance/Scenarios/start.json',
+                                                   '{"steps":[{"send":{"type":"start"}}]}\n'),
+                           'Conformance/Scenarios/start.json: modified')
+
+    def test_an_inserted_scenario_step_fails(self):
+        self.assert_breaks(lambda repo: repo.write('Conformance/Scenarios/start.json', (
+            '{"steps":[{"send":{"type":"refresh"}},{"send":{"type":"start"}},'
+            '{"expect":{"state":{"takeoverVisible":false}}}]}\n')), 'Conformance/Scenarios/start.json: modified')
 
     def test_changed_scenario_data_fails(self):
         self.assert_breaks(lambda repo: repo.write('Conformance/Scenarios/data/token.json', '{}\n'),
@@ -198,6 +251,17 @@ class Frozen(unittest.TestCase):
     def test_a_deleted_scenario_fails(self):
         self.assert_breaks(lambda repo: (repo.root / 'Conformance/Scenarios/start.json').unlink(),
                            'Conformance/Scenarios/start.json: deleted')
+
+    def test_a_scenario_that_is_no_longer_json_fails(self):
+        self.assert_breaks(lambda repo: repo.write('Conformance/Scenarios/start.json', 'not json\n'),
+                           'Conformance/Scenarios/start.json: modified (not JSON')
+
+    # --- persisted-data fixtures: never changed ---
+
+    def test_a_field_added_to_a_persisted_fixture_fails(self):
+        self.assert_breaks(
+            lambda repo: repo.write('Tests/TimeTugEngineTests/Fixtures/settings-legacy.json', '{"leadTime":60,"x":1}\n'),
+            'Tests/TimeTugEngineTests/Fixtures/settings-legacy.json: modified')
 
     def test_a_changed_persisted_fixture_fails(self):
         self.assert_breaks(
@@ -209,8 +273,38 @@ class Frozen(unittest.TestCase):
                                                  'Conformance/Fixtures/golden/ready2.json'),
                            'Conformance/Fixtures/golden/ready.json: deleted')
 
-    def test_only_additions_pass(self):
+    def test_usage_errors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Repo(directory)
+            self.assertEqual(repo.compat('frozen', '1.0.0').returncode, 2)
+            self.assertEqual(repo.compat('frozen', '1.0.0', '--loose', 'x').returncode, 2)
+
+    def test_only_additions_are_listed_as_unchanged(self):
         self.assertEqual(compat.changed_baseline_files('A\ta.json\nM\tb.json\nD\tc.json\n'), ['M\tb.json', 'D\tc.json'])
+
+
+class Covers(unittest.TestCase):
+    BASE = {'a': 1, 'b': 'x', 'c': True, 'd': None, 'list': [{'e': 1.5}], 'o': {'f': [1, 2]}}
+
+    def test_added_fields_pass(self):
+        current = {**self.BASE, 'new': 1, 'list': [{'e': 1.5, 'g': 'y'}], 'o': {'f': [1, 2], 'h': {}}}
+        self.assertTrue(compat.covers(current, self.BASE))
+        self.assertTrue(compat.covers({**self.BASE, 'a': 1.0}, self.BASE))  # the same JSON number
+
+    def test_removed_retyped_or_changed_fields_fail(self):
+        for key, value in (('a', '1'), ('a', True), ('a', 2), ('b', 'y'), ('c', 1), ('d', 0), ('d', False),
+                           ('list', {'e': 1.5}), ('o', {'f': [2, 1]}), ('o', {'f': [1]})):
+            with self.subTest(key=key, value=value):
+                self.assertFalse(compat.covers({**self.BASE, key: value}, self.BASE))
+        without = dict(self.BASE)
+        del without['b']
+        self.assertFalse(compat.covers(without, self.BASE))
+
+    def test_arrays_grow_only_when_appending_is_allowed(self):
+        self.assertFalse(compat.covers([1, 2, 3], [1, 2]))
+        self.assertTrue(compat.covers([1, 2, 3], [1, 2], append=True))
+        self.assertFalse(compat.covers([0, 1, 2], [1, 2], append=True))
+        self.assertFalse(compat.covers([1], [1, 2], append=True))
 
 
 class Header(unittest.TestCase):
@@ -314,7 +408,7 @@ class ExportBaseline(unittest.TestCase):
             out = repo.root / 'out'
             subprocess.run([str(target), '1.0.0', str(out)], check=True, capture_output=True, text=True)
             self.assertEqual((out / 'golden' / 'ready.json').read_text(), '{"v":1,"type":"ready"}\n')
-            self.assertEqual((out / 'scenarios' / 'start.json').read_text(), '{"steps":[]}\n')
+            self.assertEqual((out / 'scenarios' / 'start.json').read_text(), SCENARIO)
             self.assertTrue((out / 'scenarios' / 'data' / 'token.json').is_file())
 
 
@@ -346,8 +440,8 @@ class Workflow(unittest.TestCase):
     def test_the_compat_job_runs_every_check(self):
         runs = '\n'.join(step.get('run', '') for step in workflow()['jobs']['compat']['steps'])
         self.assertIn('compat.py frozen "$BASELINE"', runs)
-        for path in FROZEN:
-            self.assertIn(path, runs)
+        self.assertIn('--additive Conformance/Fixtures/golden --appendable Conformance/Scenarios', runs)
+        self.assertIn('--strict Tests/TimeTugEngineTests/Fixtures', runs)
         self.assertIn('compat.py header "$BASELINE" include/timetug_engine.h', runs)
         self.assertIn('diagnose-api-breaking-changes "$BASELINE"', runs)
         for product in ('TimeTugCore', 'CalendarBridge', 'TimeTugEngine', 'TimeTugEngineProtocol', 'TimeTugEngineC'):

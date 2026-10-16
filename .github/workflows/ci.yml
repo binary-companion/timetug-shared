@@ -18,11 +18,12 @@
 #                  the same C# tests against libTimeTugEngineC.dylib and .so (extra coverage).
 #   architecture   portability rules, repository contracts and the tests of the release script, the bump script and workflows.
 #   compat         backward compatibility with the latest release (AGENTS.md, "Backward compatibility"), pull requests only:
-#                  fixtures, scenarios and persisted-format fixtures that exist in the baseline unchanged, the C header's
-#                  declarations unchanged, the Swift public API of every library product (swift package
-#                  diagnose-api-breaking-changes), the baseline's golden fixtures and scenarios through the current code,
-#                  and the baseline's tt_engine_* exports. Skipped with a notice for the label semver:major, and when no
-#                  X.Y.Z tag exists. scripts/ci/compat/ holds the logic; its tests run in the architecture job.
+#                  the baseline's fixtures and scenarios changed only by additions and its persisted-format fixtures
+#                  unchanged, the C header's declarations unchanged, the Swift public API of every library product
+#                  (swift package diagnose-api-breaking-changes), the baseline's golden fixtures (re-encoded to a
+#                  superset) and scenarios through the current code, and the baseline's tt_engine_* exports. Skipped
+#                  with a notice for the label semver:major, and when no X.Y.Z tag exists. scripts/ci/compat/ holds
+#                  the logic; its tests run in the architecture job.
 #   compat-dotnet  the same rule for the managed wrapper: dotnet pack with package validation against the latest
 #                  TimeTug.Engine on nuget.org (skipped for semver:major, and when nothing is published).
 # The labeled and unlabeled triggers re-run CI when a label changes, so adding or removing semver:major re-decides compat.
@@ -319,13 +320,16 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: python3 scripts/ci/compat/compat.py gate --base-ref "origin/${BASE_REF:-main}"
       # Each check below runs even when an earlier one failed, so one run reports every broken category.
-      - name: Files that exist in the baseline are unchanged (fixtures, scenarios, persisted formats)
+      # Golden fixtures and scenarios may only gain fields (scenarios also entries at the end of a list); the
+      # persisted-data fixtures model files on users' disks and never change. Deleting any of them fails.
+      - name: Files that exist in the baseline are intact (fixtures, scenarios, persisted formats)
         if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
         env:
           BASELINE: ${{ steps.gate.outputs.baseline }}
         run: |
           python3 scripts/ci/compat/compat.py frozen "$BASELINE" \
-            Conformance/Fixtures/golden Conformance/Scenarios Tests/TimeTugEngineTests/Fixtures
+            --additive Conformance/Fixtures/golden --appendable Conformance/Scenarios \
+            --strict Tests/TimeTugEngineTests/Fixtures
       - name: C header declarations
         if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
         env:
