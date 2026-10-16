@@ -109,6 +109,15 @@ if (root / '.github' / 'workflows').is_dir():
         require((root / '.github' / 'workflows' / documented).is_file(),
                 f'missing documented path: .github/workflows/{documented}')
 
+# The backward-compatibility jobs (AGENTS.md, "Backward compatibility") are documented by id and become required
+# checks; a renamed or deleted one would silently stop enforcing the rule.
+ci_workflow = root / '.github' / 'workflows' / 'ci.yml'
+if ci_workflow.is_file():
+    ci_jobs = load(ci_workflow).get('jobs')
+    for documented in ('compat', 'compat-dotnet'):
+        require(isinstance(ci_jobs, dict) and documented in ci_jobs,
+                f'.github/workflows/ci.yml: missing documented job {documented}')
+
 for workflow in sorted((root / '.github' / 'workflows').glob('*.y*ml')):
     data = load(workflow)
     name = workflow.name
