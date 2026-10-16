@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/binary-companion/calendar-connectors",
       "state" : {
-        "revision" : "3feb2e4c22a31bd8846994873a347c987c48c62a",
-        "version" : "1.0.7"
+        "revision" : "ab3a0375a66ed45ffbb7565fa202fe7d6a8040b9",
+        "version" : "1.1.0"
       }
     }
   ],
