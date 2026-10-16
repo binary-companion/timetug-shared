@@ -1,0 +1,78 @@
+{
+  "name": "destroy-while-signin-pending",
+  "config": {
+    "v": 1,
+    "platform": "windows",
+    "testing": true,
+    "testClockStart": "2026-10-16T13:00:00.000Z",
+    "timeZone": "America/Chicago",
+    "connectors": {
+      "google": {
+        "clientID": "test-client",
+        "clientSecret": "test-secret"
+      }
+    }
+  },
+  "host": {
+    "auth": {
+      "authorize": "never"
+    }
+  },
+  "steps": [
+    {
+      "send": {
+        "type": "start"
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "ready"
+          }
+        ]
+      }
+    },
+    {
+      "send": {
+        "type": "account.add",
+        "payload": {
+          "kindID": "google"
+        }
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "service.auth.beginRedirect"
+          },
+          {
+            "type": "service.auth.authorize"
+          }
+        ]
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "accountStatus": {
+            "isWorking": true,
+            "waitingStyle": "browser"
+          }
+        }
+      }
+    },
+    {
+      "destroy": true
+    },
+    {
+      "replyToPending": true
+    },
+    {
+      "expect": {
+        "noMoreMessagesFor": 0.3
+      }
+    }
+  ]
+}

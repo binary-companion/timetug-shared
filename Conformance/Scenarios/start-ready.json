@@ -1,0 +1,26 @@
+{
+  "name": "start-ready",
+  "config": { "v": 1, "platform": "windows", "testing": true, "testClockStart": "2026-10-16T13:00:00.000Z", "timeZone": "America/Chicago", "connectors": {} },
+  "steps": [
+    { "send": { "type": "start" } },
+    { "expect": { "events": [
+      { "type": "ready", "payload": { "protocolVersions": [1], "platform": "windows", "capabilities": { "systemCalendar": false, "textGeneration": false } } },
+      { "type": "state" }
+    ] } },
+    { "expect": { "state": {
+      "events": [],
+      "accounts": [],
+      "takeoverVisible": false,
+      "accountStatus": { "isWorking": false },
+      "availableAccountKinds": [
+        { "id": "google", "isConfigured": false },
+        { "id": "icalsub", "isConfigured": true },
+        { "id": "icloud", "isConfigured": true },
+        { "id": "microsoft", "isConfigured": false },
+        { "id": "caldav", "isConfigured": true }
+      ]
+    } } },
+    { "send": { "type": "refresh" } },
+    { "expect": { "events": [ { "type": "state" } ] } }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "name": "add-account-oauth",
+  "config": {
+    "v": 1, "platform": "windows", "testing": true, "testClockStart": "2026-10-16T13:00:00.000Z", "timeZone": "America/Chicago",
+    "connectors": { "google": { "clientID": "test-client", "clientSecret": "test-secret" } }
+  },
+  "host": {
+    "http": [
+      { "match": "https://oauth2.googleapis.com/token", "method": "POST", "bodyFile": "google-token.json" },
+      { "match": "https://www.googleapis.com/calendar/v3/users/me/calendarList", "bodyFile": "google-calendar-list.json" },
+      { "match": "https://www.googleapis.com/calendar/v3/calendars/me%40example.com/events", "bodyFile": "google-events-simple.json" }
+    ],
+    "auth": { "redirectURI": "http://127.0.0.1:53682/", "code": "test-code" }
+  },
+  "steps": [
+    { "send": { "type": "start" } },
+    { "expect": { "events": [ { "type": "ready" } ] } },
+    { "expect": { "state": { "accounts": [], "availableAccountKinds": [
+      { "id": "google", "authorization": "oauth", "isConfigured": true },
+      { "id": "icalsub" }, { "id": "icloud" },
+      { "id": "microsoft", "isConfigured": false },
+      { "id": "caldav" }
+    ] } } },
+    { "send": { "type": "account.add", "payload": { "kindID": "google" } } },
+    { "expect": { "events": [
+      { "type": "service.auth.beginRedirect" },
+      { "type": "service.auth.authorize", "payload": { "sessionID": "session-1" } },
+      { "type": "service.http.send", "payload": { "method": "POST", "url": "https://oauth2.googleapis.com/token" } },
+      { "type": "service.auth.closeRedirect", "payload": { "sessionID": "session-1" } },
+      { "type": "service.http.send", "payload": { "method": "GET" } },
+      { "type": "service.credentials.set", "payload": { "secrets": { "refresh_token": "test-refresh-token" } } }
+    ] } },
+    { "expect": { "state": {
+      "accounts": [ { "kindID": "google", "displayName": "me@example.com", "config": { "email": "me@example.com" } } ],
+      "accountStatus": { "isWorking": false, "waitingStyle": "browser" },
+      "calendars": [ { "title": "Me", "calendarID": "me@example.com", "provider": "google" } ],
+      "events": [ { "title": "Design review" } ]
+    } } }
+  ]
+}

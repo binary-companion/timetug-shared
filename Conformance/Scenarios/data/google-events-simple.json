@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "id": "evt-design-review",
+      "iCalUID": "evt-design-review@google.com",
+      "status": "confirmed",
+      "summary": "Design review",
+      "start": { "dateTime": "2026-10-16T13:16:00Z", "timeZone": "America/Chicago" },
+      "end": { "dateTime": "2026-10-16T13:46:00Z", "timeZone": "America/Chicago" },
+      "hangoutLink": "https://meet.google.com/abc-defg-hij",
+      "attendees": [
+        { "email": "me@example.com", "self": true, "responseStatus": "accepted" },
+        { "email": "colleague@example.com", "responseStatus": "accepted" }
+      ]
+    }
+  ],
+  "nextSyncToken": "sync-token-1"
+}

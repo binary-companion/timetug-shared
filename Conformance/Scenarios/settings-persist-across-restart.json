@@ -1,0 +1,115 @@
+{
+  "name": "settings-persist-across-restart",
+  "config": {
+    "v": 1,
+    "platform": "windows",
+    "testing": true,
+    "testClockStart": "2026-10-16T13:00:00.000Z",
+    "timeZone": "Europe/Berlin",
+    "connectors": {}
+  },
+  "steps": [
+    {
+      "send": {
+        "type": "start"
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "ready"
+          }
+        ]
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "settings": {
+            "takeover": {
+              "leadTime": 60,
+              "requireConferenceLink": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "type": "settings.apply",
+        "payload": {
+          "leadTime": 300,
+          "requireConferenceLink": true,
+          "hiddenCalendarKeys": [
+            "x/y"
+          ]
+        }
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "settings": {
+            "takeover": {
+              "leadTime": 300,
+              "requireConferenceLink": true,
+              "hiddenCalendarKeys": [
+                "x/y"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "type": "settings.apply",
+        "payload": {}
+      }
+    },
+    {
+      "restart": true
+    },
+    {
+      "send": {
+        "type": "start"
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "ready"
+          },
+          {
+            "type": "state",
+            "payload": {
+              "settings": {
+                "takeover": {
+                  "leadTime": 300
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "settings": {
+            "takeover": {
+              "leadTime": 300,
+              "requireConferenceLink": true,
+              "hiddenCalendarKeys": [
+                "x/y"
+              ],
+              "enabled": true
+            }
+          }
+        }
+      }
+    }
+  ]
+}

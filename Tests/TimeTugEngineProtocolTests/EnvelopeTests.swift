@@ -69,5 +69,19 @@ import Testing
         #expect(c.testing && c.textGeneration)
         #expect(c.timeZone == "America/Chicago")
         #expect(c.connectors["google"]?.clientID == "abc")
+        #expect(c.connectors["google"]?.clientSecret == nil)
+        #expect(c.testClockStart == nil)
+    }
+
+    @Test func configReadsTheClientSecretAndTheTestClockStart() throws {
+        let c = try WireConfig.parse(#"""
+        {"v":1,"dataDirectory":"/x","platform":"linux","testing":true,"testClockStart":"2026-10-16T13:00:00.000Z",
+         "connectors":{"google":{"clientID":"abc","clientSecret":"s"}}}
+        """#)
+        #expect(c.connectors["google"]?.clientSecret == "s")
+        #expect(c.testClockStart.flatMap(WireDates.date) == Date(timeIntervalSince1970: 1_792_155_600))
+        #expect(throws: (any Error).self) {
+            try WireConfig.parse(#"{"v":1,"dataDirectory":"/x","platform":"linux","testClockStart":"yesterday"}"#)
+        }
     }
 }

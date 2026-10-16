@@ -1,0 +1,225 @@
+{
+  "name": "snooze-refire",
+  "config": {
+    "v": 1,
+    "platform": "linux",
+    "testing": true,
+    "testClockStart": "2026-10-16T13:00:00.000Z",
+    "timeZone": "America/Chicago",
+    "connectors": {
+      "google": {
+        "clientID": "test-client",
+        "clientSecret": "test-secret"
+      }
+    }
+  },
+  "files": {
+    "accounts.json": [
+      {
+        "kindID": "google",
+        "connectionID": "conn-1",
+        "displayName": "me@example.com",
+        "config": {
+          "email": "me@example.com"
+        }
+      }
+    ],
+    "settings.json": {
+      "takeover": {
+        "takeoverCalendarKeys": [
+          "google-conn-1/me@example.com"
+        ]
+      }
+    }
+  },
+  "host": {
+    "http": [
+      {
+        "match": "https://oauth2.googleapis.com/token",
+        "method": "POST",
+        "bodyFile": "google-token.json"
+      },
+      {
+        "match": "https://www.googleapis.com/calendar/v3/users/me/calendarList",
+        "bodyFile": "google-calendar-list.json"
+      },
+      {
+        "match": "https://www.googleapis.com/calendar/v3/calendars/me%40example.com/events",
+        "bodyFile": "google-events-simple.json"
+      }
+    ],
+    "credentials": {
+      "seed": {
+        "conn-1": {
+          "refresh_token": "test-refresh-token"
+        }
+      }
+    }
+  },
+  "steps": [
+    {
+      "send": {
+        "type": "start"
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "ready"
+          }
+        ]
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "statuses": {
+            "google-conn-1": {
+              "kind": "ok"
+            }
+          },
+          "events": [
+            {
+              "id": "google-conn-1/evt-design-review/1792156560",
+              "title": "Design review"
+            }
+          ],
+          "nextTakeover": {
+            "eventID": "google-conn-1/evt-design-review/1792156560",
+            "fireAt": "2026-10-16T13:15:00.000Z"
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "type": "test.advanceClock",
+        "payload": {
+          "seconds": 900
+        }
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "event.diagnostic",
+            "payload": {
+              "message": "takeover due (lead time)"
+            }
+          },
+          {
+            "type": "event.takeoverDue",
+            "payload": {
+              "event": {
+                "id": "google-conn-1/evt-design-review/1792156560"
+              },
+              "hasStarted": false
+            }
+          }
+        ]
+      }
+    },
+    {
+      "send": {
+        "type": "takeover.presented",
+        "payload": {
+          "eventID": "google-conn-1/evt-design-review/1792156560",
+          "onScreen": true
+        }
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "takeoverVisible": true
+        }
+      }
+    },
+    {
+      "send": {
+        "type": "takeover.snooze",
+        "payload": {
+          "eventID": "google-conn-1/evt-design-review/1792156560",
+          "seconds": 120
+        }
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "takeoverVisible": false,
+          "nextTakeover": {
+            "eventID": "google-conn-1/evt-design-review/1792156560",
+            "fireAt": "2026-10-16T13:17:00.000Z"
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "type": "test.advanceClock",
+        "payload": {
+          "seconds": 119
+        }
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "takeoverVisible": false,
+          "nextTakeover": {
+            "eventID": "google-conn-1/evt-design-review/1792156560",
+            "fireAt": "2026-10-16T13:17:00.000Z"
+          }
+        }
+      }
+    },
+    {
+      "send": {
+        "type": "test.advanceClock",
+        "payload": {
+          "seconds": 1
+        }
+      }
+    },
+    {
+      "expect": {
+        "events": [
+          {
+            "type": "event.diagnostic",
+            "payload": {
+              "message": "takeover due (snooze expired)"
+            }
+          },
+          {
+            "type": "event.takeoverDue",
+            "payload": {
+              "event": {
+                "id": "google-conn-1/evt-design-review/1792156560"
+              },
+              "hasStarted": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "send": {
+        "type": "takeover.dismiss",
+        "payload": {
+          "eventID": "google-conn-1/evt-design-review/1792156560"
+        }
+      }
+    },
+    {
+      "expect": {
+        "state": {
+          "takeoverVisible": false,
+          "nextTakeover": null
+        }
+      }
+    }
+  ]
+}
