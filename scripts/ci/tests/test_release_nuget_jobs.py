@@ -205,6 +205,24 @@ class ReleaseNugetJobsTests(unittest.TestCase):
         self.assertIn("inputs.publish", self.jobs['publish']['if'])
         self.assertIn("!inputs.publish", self.jobs['nuget-version']['if'])
 
+    def test_an_existing_release_is_not_created_again_or_announced_twice(self):
+        job = self.jobs['publish']
+        script = step(job, 'Create the tag and the release')['run']
+        with tempfile.TemporaryDirectory() as directory:
+            fake = Path(directory) / 'gh'
+            calls = Path(directory) / 'calls'
+            fake.write_text(f'#!/bin/bash\necho "$@" >> {calls}\n[ "$1 $2" = "release view" ] && exit "${{GH_VIEW_EXIT:-1}}"\nexit 0\n')
+            fake.chmod(0o755)
+            base = {'PATH': f'{directory}:{os.environ["PATH"]}', 'VERSION': '1.2.3', 'SHA': 'abc'}
+            for exists, created in (('0', 'false'), ('1', 'true')):
+                calls.write_text('')
+                result, outputs = run_step(script, {**base, 'GH_VIEW_EXIT': exists})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(outputs, {'created': created})
+                self.assertEqual('release create' in calls.read_text(), created == 'true')
+        self.assertIn("created == 'true'", self.jobs['notify']['if'])
+        self.assertIn("created == 'true'", step(job, 'Record the connector version in the release notes')['if'])
+
 
 if __name__ == '__main__':
     unittest.main()

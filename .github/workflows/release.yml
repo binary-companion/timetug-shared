@@ -43,6 +43,7 @@ jobs:
       pull-requests: read
     outputs:
       version: ${{ steps.version.outputs.version }}
+      created: ${{ steps.release.outputs.created }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -89,17 +90,27 @@ jobs:
                echo "version=" >> "$GITHUB_OUTPUT" ;;
             *) exit "$status" ;;
           esac
+      # A manual re-run of an existing version (to push the package again, say) finds its release already there:
+      # that is not a failure, and it must not edit the notes or tell the dependents a second time.
       - name: Create the tag and the release
+        id: release
         if: steps.version.outputs.version != ''
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
           SHA: ${{ github.sha }}
-        run: gh release create "$VERSION" --target "$SHA" --title "$VERSION" --generate-notes
+        run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "::notice::Release $VERSION already exists; not creating it again."
+            echo "created=false" >> "$GITHUB_OUTPUT"
+          else
+            gh release create "$VERSION" --target "$SHA" --title "$VERSION" --generate-notes
+            echo "created=true" >> "$GITHUB_OUTPUT"
+          fi
       # The release exists at this point and a re-run would find it already tagged and release nothing,
       # so a failure here must not skip `notify`: the notes are an addition, the dispatch is the contract.
       - name: Record the connector version in the release notes
-        if: steps.version.outputs.version != ''
+        if: steps.release.outputs.created == 'true'
         continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
@@ -116,7 +127,7 @@ jobs:
   # timetug and timetug-shared; the bump environment holds its credentials and is limited to main.
   notify:
     needs: publish
-    if: needs.publish.outputs.version != ''
+    if: needs.publish.outputs.created == 'true'
     runs-on: ubuntu-latest
     environment: bump
     permissions:
