@@ -24,7 +24,8 @@ job = yaml.safe_load(open(workflow))['jobs']['publish']
 def check(condition, message):
     if not condition:
         sys.exit(f'FAIL: {workflow}: {message}')
-check(job.get('if') == "github.ref == 'refs/heads/main'", "job publish must run only for refs/heads/main")
+check(job.get('if') == "github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish)",
+      "job publish must run only for refs/heads/main, and not for a dry-run dispatch (publish: false)")
 check(job.get('environment') == 'publish', "job publish must use the publish environment")
 checkout = [s for s in job['steps'] if str(s.get('uses', '')).startswith('actions/checkout@')]
 check(len(checkout) == 1, "job publish must have exactly one checkout step")

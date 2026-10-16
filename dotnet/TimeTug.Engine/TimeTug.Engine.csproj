@@ -28,4 +28,7 @@
     <InternalsVisibleTo Include="TimeTug.Engine.Tests" />
   </ItemGroup>
 
+  <!-- Package metadata and the native assets, header and fixtures that go into TimeTug.Engine.nupkg. -->
+  <Import Project="..\pack\TimeTug.Engine.nuspec.props" />
+
 </Project>

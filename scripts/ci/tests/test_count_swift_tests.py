@@ -155,6 +155,11 @@ DOTNET_PASSED = ("Passed!  - Failed:     0, Passed:    49, Skipped:     0, Total
 DOTNET_FAILED = ("Failed!  - Failed:    13, Passed:    36, Skipped:     0, Total:    49, Duration: 95 ms - "
                  "TimeTug.Engine.Tests.dll (net8.0)\n")
 
+# The same with `--logger "console;verbosity=normal"` (what the CI jobs use), from the dotnet-macos job.
+DOTNET_NORMAL_PASSED = ("  Passed TimeTug.Engine.Tests.ScenarioTests.SubsetMatching [1 ms]\n\n"
+                        "Test Run Successful.\nTotal tests: 49\n     Passed: 49\n Total time: 2.8157 Seconds\n")
+DOTNET_NORMAL_FAILED = ("Test Run Failed.\nTotal tests: 49\n     Passed: 48\n     Failed: 1\n Total time: 3.1 Seconds\n")
+
 def run_dotnet(text, floor_text='# C# floor\n45\n'):
     with tempfile.TemporaryDirectory() as directory:
         log = Path(directory) / 'dotnet.log'
@@ -170,6 +175,21 @@ class CountDotnetTestsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('Executed C# tests: 49', result.stdout)
         self.assertIn('floor 45', result.stdout)
+
+    def test_the_normal_verbosity_summary_counts(self):
+        result = run_dotnet(DOTNET_NORMAL_PASSED)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Executed C# tests: 49', result.stdout)
+
+    def test_a_failed_normal_verbosity_run_fails(self):
+        result = run_dotnet(DOTNET_NORMAL_FAILED, '1\n')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('1 failed', result.stderr)
+
+    def test_both_summary_shapes_are_not_counted_twice(self):
+        result = run_dotnet(DOTNET_PASSED + DOTNET_NORMAL_PASSED)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Executed C# tests: 49 passed in 1 runs', result.stdout)
 
     def test_below_the_floor_fails(self):
         result = run_dotnet(DOTNET_PASSED, '50\n')

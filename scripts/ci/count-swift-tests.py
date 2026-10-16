@@ -21,7 +21,8 @@ It exits 1 when the total is zero or below the minimum, when a summary reports a
 the log cannot be read.
 
 With --dotnet-floor-file the log is a `dotnet test` log instead: it sums the passed tests of every
-`Passed!|Failed!  - Failed: F, Passed: P, Skipped: S, Total: T` summary (one per test assembly) and
+`Passed!|Failed!  - Failed: F, Passed: P, Skipped: S, Total: T` summary (one per test assembly; with the
+console logger at normal verbosity, the `Test Run Successful|Failed. Total tests: T Passed: P ...` block) and
 fails when there is no summary, when any test failed, or when fewer tests passed than the floor, the
 one number (comments start with #) in FLOOR (scripts/ci/dotnet-test-floor.txt in CI)."""
 import argparse
@@ -29,6 +30,7 @@ import re
 import sys
 
 SWIFT_TESTING = re.compile(r'Test run with (\d+) tests?\b[^\r\n]*?\b(passed|failed)\b')
+DOTNET_NORMAL = re.compile(r'Test Run (Successful|Failed)\.\s+Total tests: (\d+)((?:\s+(?:Passed|Failed|Skipped): \d+)*)')
 DOTNET = re.compile(r'(Passed|Failed)!\s+-\s+Failed:\s+(\d+),\s+Passed:\s+(\d+),\s+Skipped:\s+(\d+),\s+Total:\s+(\d+)')
 XCTEST = re.compile(r"Test Suite 'All tests' (passed|failed) at [^\r\n]*\s+"
                     r"Executed (\d+) tests?, with (\d+) failures?")
@@ -69,6 +71,11 @@ if args.dotnet_floor_file is not None:
     problems = []
     passed_total = 0
     summaries = DOTNET.findall(text)
+    # `--logger "console;verbosity=normal"` prints a multi-line summary instead; read it into the same shape. Only
+    # when there is no one-line summary, so a log that had both would not count its tests twice.
+    for status, total, counts in ([] if summaries else DOTNET_NORMAL.findall(text)):
+        found = dict(re.findall(r'(Passed|Failed|Skipped): (\d+)', counts))
+        summaries.append((status, found.get('Failed', '0'), found.get('Passed', '0'), found.get('Skipped', '0'), total))
     for _status, failed, passed, skipped, total in summaries:
         passed_total += int(passed)
         if int(failed) > 0:

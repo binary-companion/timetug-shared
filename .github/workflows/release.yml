@@ -3,6 +3,13 @@
 # by default; the highest wins, so a replaced pending run cannot lose a major). Nothing is released
 # while the repository has no X.Y.Z tag (the first version is dispatched by hand), nor when the
 # pushed commit already carries one (a re-run).
+#
+# Every release also builds the TimeTug.Engine NuGet package with the same version (nuget-version, nuget-native on
+# windows-latest and windows-11-arm, nuget-pack) and pushes it to nuget.org with trusted publishing (publish-nuget,
+# environment publish, no stored key). publish-nuget only reports a notice while the repository variable NUGET_USER
+# (the nuget.org account of the trusted-publishing policy) is unset; the package is still built, tested and
+# uploaded as a workflow artifact. A dispatch with publish: false is a dry run on any branch: no tag, no release,
+# no notification and no push, only the package (version: the version input, or 0.0.0-dryrun.<run number>).
 name: Release
 
 on:
@@ -14,6 +21,11 @@ on:
         description: "X.Y.Z to publish. Needed for the first release and for recovery. A version lower than the latest tag is refused; the latest tag itself recovers its missing release."
         required: false
         type: string
+      publish:
+        description: "Publish (tag, release, notify, push the package). False: a dry run that only builds, tests and uploads the NuGet package, on any branch."
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
   group: release
@@ -23,7 +35,7 @@ permissions: {}
 
 jobs:
   publish:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish)
     runs-on: ubuntu-latest
     environment: publish
     permissions:
@@ -132,3 +144,181 @@ jobs:
               -f "client_payload[library]=timetug-shared" \
               -f "client_payload[version]=$VERSION"
           done
+
+  # The package version: the released tag, or for a dry run the version input or 0.0.0-dryrun.<run number>.
+  nuget-version:
+    needs: publish
+    if: ${{ !cancelled() && (needs.publish.outputs.version != '' || (github.event_name == 'workflow_dispatch' && !inputs.publish)) }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Choose the package version
+        id: version
+        env:
+          RELEASED: ${{ needs.publish.outputs.version }}
+          REQUESTED: ${{ inputs.version }}
+          RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          version="${RELEASED:-${REQUESTED:-0.0.0-dryrun.$RUN_NUMBER}}"
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::not a package version: $version"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Package version $version"
+
+  # The native set per architecture, built on its own runner with the version stamped in, and tested there.
+  nuget-native:
+    needs: nuget-version
+    if: ${{ !cancelled() && needs.nuget-version.result == 'success' }}
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - runner: windows-latest
+            rid: win-x64
+          - runner: windows-11-arm
+            rid: win-arm64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    env:
+      VERSION: ${{ needs.nuget-version.outputs.version }}
+      RID: ${{ matrix.rid }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install Swift
+        shell: pwsh
+        run: ./scripts/ci/install-swift-windows.ps1
+      - name: Stamp the version into the engine
+        shell: pwsh
+        run: |
+          python scripts/release/stamp-engine-version.py $env:VERSION
+          exit $LASTEXITCODE
+      - name: Build the engine library
+        shell: pwsh
+        run: |
+          swift build -c release --product TimeTugEngineC
+          exit $LASTEXITCODE
+      - name: Assemble the native set and check its exports
+        shell: pwsh
+        run: ./dotnet/pack/assemble-native.ps1 -Rid $env:RID -Out "build/native/$env:RID"
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+      - name: C# tests against the native set
+        shell: pwsh
+        env:
+          TIMETUG_EXPECTED_ENGINE_VERSION: ${{ needs.nuget-version.outputs.version }}
+        run: ./scripts/ci/run-dotnet-tests.ps1 -NativeDir "build/native/$env:RID"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: native-${{ matrix.rid }}
+          path: build/native/${{ matrix.rid }}
+          if-no-files-found: error
+          retention-days: 7
+
+  # One package with both native sets. Its C# tests run on a runner with no Swift toolchain at all, so they also
+  # prove the x64 set is complete. The package is checked and measured, then uploaded whether or not it is pushed.
+  nuget-pack:
+    needs: [nuget-version, nuget-native]
+    if: ${{ !cancelled() && needs.nuget-native.result == 'success' }}
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    env:
+      VERSION: ${{ needs.nuget-version.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: native-win-x64
+          path: build/native/win-x64
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: native-win-arm64
+          path: build/native/win-arm64
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+      - name: C# tests on this architecture
+        shell: pwsh
+        env:
+          TIMETUG_EXPECTED_ENGINE_VERSION: ${{ needs.nuget-version.outputs.version }}
+        run: ./scripts/ci/run-dotnet-tests.ps1 -NativeDir build/native/win-x64
+      - name: Pack
+        shell: pwsh
+        run: |
+          dotnet pack dotnet/TimeTug.Engine -c Release -o build/nupkg "-p:Version=$env:VERSION" `
+            "-p:NativeWinX64Dir=$PWD/build/native/win-x64" "-p:NativeWinArm64Dir=$PWD/build/native/win-arm64" `
+            -p:RequireNativeAssets=true
+          exit $LASTEXITCODE
+      - name: Check the package
+        shell: pwsh
+        run: |
+          python scripts/ci/tests/test_pack_inventory.py "build/nupkg/TimeTug.Engine.$env:VERSION.nupkg" --version $env:VERSION
+          exit $LASTEXITCODE
+      - name: Measure the package
+        shell: pwsh
+        run: ./dotnet/pack/measure-size.ps1 -NativeRoot build/native -Package "build/nupkg/TimeTug.Engine.$env:VERSION.nupkg"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: TimeTug.Engine-${{ needs.nuget-version.outputs.version }}
+          path: build/nupkg/*.nupkg
+          if-no-files-found: error
+
+  # Pushes the package with nuget.org trusted publishing: a short-lived key from GitHub OIDC (NuGet/login), no stored
+  # secret. Releases only; nuget.org versions are immutable and --skip-duplicate makes a re-run safe.
+  publish-nuget:
+    needs: [publish, nuget-version, nuget-pack]
+    if: ${{ !cancelled() && needs.publish.outputs.version != '' && needs.nuget-pack.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment: publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check the trusted-publishing setup
+        id: setup
+        env:
+          NUGET_USER: ${{ vars.NUGET_USER }}
+        run: |
+          if [ -z "$NUGET_USER" ]; then
+            echo "::notice::nuget.org trusted publishing is not configured; package built and tested, not pushed"
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        if: steps.setup.outputs.configured == 'true'
+        with:
+          name: TimeTug.Engine-${{ needs.nuget-version.outputs.version }}
+          path: build/nupkg
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        if: steps.setup.outputs.configured == 'true'
+        with:
+          dotnet-version: 8.0.x
+      - name: Log in to nuget.org (OIDC)
+        id: login
+        if: steps.setup.outputs.configured == 'true'
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Push
+        if: steps.setup.outputs.configured == 'true'
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+          VERSION: ${{ needs.nuget-version.outputs.version }}
+        run: |
+          dotnet nuget push "build/nupkg/TimeTug.Engine.$VERSION.nupkg" --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json --skip-duplicate
+          echo "::notice::TimeTug.Engine $VERSION pushed to nuget.org"

@@ -1,0 +1,54 @@
+<Project>
+
+  <!--
+    The TimeTug.Engine package: imported by TimeTug.Engine.csproj. `dotnet pack` with
+      -p:Version=<the timetug-shared tag>
+      -p:NativeWinX64Dir=<native set for win-x64>  -p:NativeWinArm64Dir=<native set for win-arm64>
+      -p:RequireNativeAssets=true
+    (release.yml, job nuget-pack) produces:
+      lib/net8.0/TimeTug.Engine.dll                 the managed wrapper
+      runtimes/win-x64/native/*.dll                 TimeTugEngineC.dll and its Swift runtime closure
+      runtimes/win-arm64/native/*.dll               (dotnet/pack/assemble-native.ps1)
+      contentFiles/any/any/include/timetug_engine.h the C header
+      contentFiles/any/any/fixtures/*.json          the golden fixtures of the contract
+    The Visual C++ runtime is not bundled: an app takes it from the Visual C++ runtime framework package.
+  -->
+  <PropertyGroup>
+    <PackageId>TimeTug.Engine</PackageId>
+    <Authors>Binary Companion</Authors>
+    <Company>Binary Companion</Company>
+    <Product>TimeTug</Product>
+    <Description>The TimeTug engine (calendar sources, takeover scheduling, duplicate detection) for Windows apps: the native engine for win-x64 and win-arm64 and a managed wrapper over its C interface, with the C header and the golden fixtures of its JSON contract.</Description>
+    <PackageTags>timetug;calendar;meetings;engine</PackageTags>
+    <PackageProjectUrl>https://github.com/binary-companion/timetug-shared</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/binary-companion/timetug-shared</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <TimeTugRepositoryRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)..\..\'))</TimeTugRepositoryRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(TimeTugRepositoryRoot)LICENSE" Pack="true" PackagePath="" Visible="false" />
+    <None Include="$(TimeTugRepositoryRoot)include\timetug_engine.h" Pack="true" PackagePath="contentFiles/any/any/include/"
+          BuildAction="None" PackageCopyToOutput="false" Visible="false" />
+    <None Include="$(TimeTugRepositoryRoot)Conformance\Fixtures\golden\*.json" Pack="true" PackagePath="contentFiles/any/any/fixtures/"
+          BuildAction="None" PackageCopyToOutput="false" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(NativeWinX64Dir)' != ''">
+    <None Include="$(NativeWinX64Dir)\*.dll" Pack="true" PackagePath="runtimes/win-x64/native/" Visible="false" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(NativeWinArm64Dir)' != ''">
+    <None Include="$(NativeWinArm64Dir)\*.dll" Pack="true" PackagePath="runtimes/win-arm64/native/" Visible="false" />
+  </ItemGroup>
+
+  <!-- A release package without the engine for both architectures is refused before the nuspec is written. -->
+  <Target Name="TimeTugRequireNativeAssets" BeforeTargets="GenerateNuspec" Condition="'$(RequireNativeAssets)' == 'true'">
+    <Error Condition="'$(NativeWinX64Dir)' == '' Or !Exists('$(NativeWinX64Dir)\TimeTugEngineC.dll')"
+           Text="TimeTugEngineC.dll for win-x64 not found: pass -p:NativeWinX64Dir=&lt;dotnet/pack/assemble-native.ps1 output&gt;" />
+    <Error Condition="'$(NativeWinArm64Dir)' == '' Or !Exists('$(NativeWinArm64Dir)\TimeTugEngineC.dll')"
+           Text="TimeTugEngineC.dll for win-arm64 not found: pass -p:NativeWinArm64Dir=&lt;dotnet/pack/assemble-native.ps1 output&gt;" />
+  </Target>
+
+</Project>

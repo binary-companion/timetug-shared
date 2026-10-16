@@ -51,9 +51,24 @@ public class EngineTests
         Assert.False(ready.Info.Capabilities.SystemCalendar);
         Assert.False(ready.Info.Capabilities.TextGeneration);
 
-        var state = await Wait.WithTimeout(First(engine.State));
+        // The first state may be published before the account kinds are registered; wait for them.
+        var state = await Wait.WithTimeout(FirstWhere(engine.State, s => s.AvailableAccountKinds.Count > 0));
         Assert.Contains(state.AvailableAccountKinds, kind => kind.Id == "google" && !kind.IsConfigured);
         Assert.Equal(60, state.Settings.Takeover.LeadTime);
+    }
+
+    /// <summary>The release workflow stamps the tag into the library and sets TIMETUG_EXPECTED_ENGINE_VERSION: the
+    /// packaged engine must report it in <c>ready</c>. Without the variable (CI and local runs) any version passes.</summary>
+    [Fact]
+    public async Task ReadyReportsTheStampedEngineVersion()
+    {
+        using var directory = new TemporaryDirectory();
+        await using var engine = EngineFactory.Create(Options(directory.Path, new QuietHost()));
+        await engine.SendAsync(new EngineCommand.Start());
+        var ready = Assert.IsType<EngineEvent.Ready>(await Wait.WithTimeout(First(engine.Events)));
+        var expected = Environment.GetEnvironmentVariable("TIMETUG_EXPECTED_ENGINE_VERSION");
+        if (!string.IsNullOrEmpty(expected)) Assert.Equal(expected, ready.Info.EngineVersion);
+        else Assert.NotEmpty(ready.Info.EngineVersion);
     }
 
     [Fact]
