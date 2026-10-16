@@ -368,8 +368,12 @@ jobs:
             -e TT_BASELINE_FIXTURES=/work/build/compat-baseline/golden \
             -e TT_BASELINE_SCENARIOS=/work/build/compat-baseline/scenarios \
             swift:6.0 swift test --force-resolved-versions --filter FixtureTests --filter ScenarioTests 2>&1 | tee build/compat-test.log
-          # Two targets (protocol fixtures, C scenarios); a filter that matched nothing must not pass.
-          python3 scripts/ci/count-swift-tests.py build/compat-test.log --minimum 10 --minimum-runs 2
+          # A filter that matched nothing must not pass: both suites must have run (on Linux every target reports in
+          # one summary, so the count of summaries cannot show it).
+          python3 scripts/ci/count-swift-tests.py build/compat-test.log --minimum 20
+          for suite in FixtureTests ScenarioTests; do
+            grep -q "Suite $suite passed" build/compat-test.log || { echo "::error::$suite did not run"; exit 1; }
+          done
       - name: The library still exports the baseline's C functions
         if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
         env:
