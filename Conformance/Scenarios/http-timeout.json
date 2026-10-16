@@ -1,0 +1,41 @@
+{
+  "name": "http-timeout",
+  "config": {
+    "v": 1, "platform": "linux", "testing": true, "testClockStart": "2026-10-16T13:00:00.000Z", "timeZone": "America/Chicago",
+    "connectors": { "google": { "clientID": "test-client", "clientSecret": "test-secret" } }
+  },
+  "files": {
+    "accounts.json": [
+      { "kindID": "google", "connectionID": "conn-1", "displayName": "me@example.com", "config": { "email": "me@example.com" } },
+      { "kindID": "icalsub", "connectionID": "conn-2", "displayName": "feeds.example.com", "config": { "host": "feeds.example.com" } }
+    ]
+  },
+  "host": {
+    "http": [
+      { "match": "https://oauth2.googleapis.com/token", "method": "POST", "bodyFile": "google-token.json" },
+      { "match": "https://www.googleapis.com/calendar/v3/users/me/calendarList", "bodyFile": "google-calendar-list.json" },
+      { "match": "https://www.googleapis.com/calendar/v3/calendars/me%40example.com/events", "bodyFile": "google-events-simple.json" },
+      { "match": "https://feeds.example.com/", "noReply": true }
+    ],
+    "credentials": { "seed": {
+      "conn-1": { "refresh_token": "test-refresh-token" },
+      "conn-2": { "link": "https://feeds.example.com/team.ics" }
+    } }
+  },
+  "steps": [
+    { "send": { "type": "start" } },
+    { "expect": { "events": [
+      { "type": "ready" },
+      { "type": "service.http.send", "payload": { "url": "https://feeds.example.com/team.ics" } }
+    ] } },
+    { "expect": { "state": {
+      "statuses": { "google-conn-1": { "kind": "ok" } },
+      "events": [ { "title": "Design review" } ]
+    } } },
+    { "send": { "type": "test.advanceClock", "payload": { "seconds": 61 } } },
+    { "expect": { "state": {
+      "statuses": { "google-conn-1": { "kind": "ok" }, "icalsub-conn-2": { "kind": "failing" } },
+      "events": [ { "title": "Design review" } ]
+    } } }
+  ]
+}
