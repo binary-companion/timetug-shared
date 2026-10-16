@@ -35,6 +35,8 @@ status="${response##*$'\n'}"
 response="${response%$'\n'*}"
 if [ "$status" != 200 ]; then
   echo "::error::token exchange failed (HTTP $status) at $service; NUGET_USER must be the account that created the policy"
+  # A failed exchange carries no key; nuget.org's message says which policy field did not match.
+  echo "::error::nuget.org said: $(printf '%s' "$response" | head -c 500)"
   exit 1
 fi
 key="$(printf '%s' "$response" | jq -r '.apiKey // empty')"
