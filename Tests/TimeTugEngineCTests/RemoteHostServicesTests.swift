@@ -223,4 +223,31 @@ import TimeTugEngineProtocol
         #expect(sent.value[2].payload?["expectedRevision"] == .string(revision.uuidString))
         #expect(sent.value[0].payload == .object(["connectionID": .string("c1")]))
     }
+
+    /// The revision is the host's string: a lower-case one (.NET's `Guid.ToString()`) must come back exactly as the
+    /// host sent it, not re-spelled by `UUID.uuidString`, or the host's compare-and-set never matches.
+    @Test func credentialRevisionComesBackAsTheHostSpelledIt() async throws {
+        let (table, sent, _) = makeTable()
+        let store = RemoteCredentialStore(table: table)
+        let spelled = UUID().uuidString.lowercased()
+        let answering = Task {
+            var answered = 0
+            while answered < 2 {
+                for envelope in sent.value.dropFirst(answered) {
+                    guard case .number(let id)? = envelope.id else { continue }
+                    if envelope.type == "service.credentials.snapshot" {
+                        table.fulfill(id: id, reply: #"{"v":1,"result":{"snapshot":{"secrets":{},"revision":"\#(spelled)"}}}"#)
+                    } else {
+                        table.fulfill(id: id, reply: #"{"v":1,"result":{"updated":true}}"#)
+                    }
+                    answered += 1
+                }
+                try? await Task.sleep(nanoseconds: 1_000_000)
+            }
+        }
+        let snapshot = try #require(try await store.credentialSnapshot(for: "c1"))
+        #expect(try await store.updateRefreshToken("n", for: "c1", expectedRevision: snapshot.revision))
+        await answering.value
+        #expect(sent.value[1].payload?["expectedRevision"] == .string(spelled))
+    }
 }

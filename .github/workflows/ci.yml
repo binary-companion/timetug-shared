@@ -8,6 +8,14 @@
 # The C smoke test builds the TimeTugEngineC library, compiles c-smoke/smoke.c against include/timetug_engine.h
 # with the system C compiler and runs it; on macOS and Linux it first checks that the library exports the four
 # tt_engine_* functions.
+#   dotnet-windows-x64, dotnet-windows-arm64
+#                  the managed wrapper and its tests (dotnet/TimeTug.Engine.Tests: golden fixtures, the conformance
+#                  scenarios through the real DLL, lifecycle) on windows-latest and windows-11-arm: build the DLL,
+#                  assemble it with its Swift runtime closure and check its exports (dotnet/pack/assemble-native.ps1),
+#                  then run the tests with the Swift runtime removed from the PATH (scripts/ci/run-dotnet-tests.ps1),
+#                  with a floor on the test count (scripts/ci/dotnet-test-floor.txt).
+#   dotnet-macos, dotnet-linux
+#                  the same C# tests against libTimeTugEngineC.dylib and .so (extra coverage).
 #   architecture   portability rules, repository contracts and the tests of the release script, the bump script and workflows.
 # Every swift test runs with --force-resolved-versions, so a Package.resolved that no longer matches
 # Package.swift fails here instead of being silently re-resolved.
@@ -86,7 +94,7 @@ jobs:
           # overwrites $LASTEXITCODE (a failing swift test followed by git made a step pass in the
           # bring-up probe). So the exit code is read on the very next statement, and the step can
           # only succeed when swift test exited 0 AND the log shows enough executed tests.
-          # Floor: Core 301 + Bridge 13 + Engine 152 + Protocol 59 + C interface 33 = 558 Swift Testing tests on macOS
+          # Floor: Core 301 + Bridge 13 + Engine 152 + Protocol 59 + C interface 34 = 559 Swift Testing tests on macOS
           # (a parameterized test, such as the one that runs every conformance scenario, counts once); 499 is about
           # 90 % of that, so a silently skipped target or a zero turns the job red while normal growth needs no edit.
           # --minimum-runs 5 is one summary per test target (TimeTugCoreTests, CalendarBridgeTests, TimeTugEngineTests,
@@ -141,6 +149,121 @@ jobs:
       - name: C smoke test
         shell: pwsh
         run: ./scripts/ci/run-c-smoke.ps1
+
+  dotnet-windows-x64:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install Swift
+        shell: pwsh
+        run: ./scripts/ci/install-swift-windows.ps1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+      - name: Build the engine library
+        shell: pwsh
+        run: |
+          swift build -c release --product TimeTugEngineC
+          exit $LASTEXITCODE
+      - name: Assemble the native set and check its exports
+        shell: pwsh
+        run: ./dotnet/pack/assemble-native.ps1 -Rid win-x64 -Out build/native/win-x64
+      - name: C# tests
+        shell: pwsh
+        run: ./scripts/ci/run-dotnet-tests.ps1 -NativeDir build/native/win-x64
+
+  dotnet-windows-arm64:
+    runs-on: windows-11-arm
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install Swift
+        shell: pwsh
+        run: ./scripts/ci/install-swift-windows.ps1
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+      - name: Build the engine library
+        shell: pwsh
+        run: |
+          swift build -c release --product TimeTugEngineC
+          exit $LASTEXITCODE
+      - name: Assemble the native set and check its exports
+        shell: pwsh
+        run: ./dotnet/pack/assemble-native.ps1 -Rid win-arm64 -Out build/native/win-arm64
+      - name: C# tests
+        shell: pwsh
+        run: ./scripts/ci/run-dotnet-tests.ps1 -NativeDir build/native/win-arm64
+
+  dotnet-macos:
+    runs-on: macos-26
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Select newest Xcode
+        run: scripts/ci/select-xcode.sh
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+      - name: Build the engine library
+        run: swift build -c release --product TimeTugEngineC
+      - name: C# tests
+        run: |
+          set -euo pipefail
+          export TIMETUG_ENGINE_LIBRARY="$(swift build -c release --show-bin-path)/libTimeTugEngineC.dylib"
+          dotnet test dotnet/TimeTug.Engine.Tests -c Release --logger 'console;verbosity=normal' 2>&1 | tee dotnet-test.log
+          python3 scripts/ci/count-swift-tests.py dotnet-test.log --dotnet-floor-file scripts/ci/dotnet-test-floor.txt
+
+  dotnet-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Log in to Docker Hub
+        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
+        run: |
+          for attempt in 1 2 3; do
+            echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin && exit 0
+            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 15)); fi
+          done
+          echo "::warning::Docker Hub login failed; pulling anonymously."
+      - name: Pull the Swift image
+        run: |
+          for attempt in 1 2 3; do
+            docker pull swift:6.0 && exit 0
+            sleep $((attempt * 15))
+          done
+          exit 1
+      # The library is built in the swift:6.0 container; its Swift runtime is copied out beside it, and the tests run
+      # on the runner (a newer glibc than the image's, which runs what the image built).
+      - name: Build the engine library
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work swift:6.0 bash -c '
+            set -euo pipefail
+            swift build -c release --product TimeTugEngineC
+            mkdir -p build/native/linux
+            cp "$(swift build -c release --show-bin-path)/libTimeTugEngineC.so" build/native/linux/
+            cp -L /usr/lib/swift/linux/*.so build/native/linux/'
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 8.0.x
+      - name: C# tests
+        run: |
+          set -euo pipefail
+          export TIMETUG_ENGINE_LIBRARY="$PWD/build/native/linux/libTimeTugEngineC.so"
+          export LD_LIBRARY_PATH="$PWD/build/native/linux"
+          dotnet test dotnet/TimeTug.Engine.Tests -c Release --logger 'console;verbosity=normal' 2>&1 | tee dotnet-test.log
+          python3 scripts/ci/count-swift-tests.py dotnet-test.log --dotnet-floor-file scripts/ci/dotnet-test-floor.txt
 
   architecture:
     runs-on: ubuntu-latest

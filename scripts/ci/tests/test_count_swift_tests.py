@@ -147,3 +147,57 @@ class CountSwiftTestsTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# `dotnet test` summaries (the shape printed by the .NET 8 SDK's VSTest console logger).
+DOTNET_PASSED = ("Passed!  - Failed:     0, Passed:    49, Skipped:     0, Total:    49, Duration: 1 s - "
+                 "TimeTug.Engine.Tests.dll (net8.0)\n")
+DOTNET_FAILED = ("Failed!  - Failed:    13, Passed:    36, Skipped:     0, Total:    49, Duration: 95 ms - "
+                 "TimeTug.Engine.Tests.dll (net8.0)\n")
+
+def run_dotnet(text, floor_text='# C# floor\n45\n'):
+    with tempfile.TemporaryDirectory() as directory:
+        log = Path(directory) / 'dotnet.log'
+        log.write_text(text, encoding='utf-8')
+        floor = Path(directory) / 'floor.txt'
+        floor.write_text(floor_text, encoding='utf-8')
+        return subprocess.run([sys.executable, str(SCRIPT), str(log), '--dotnet-floor-file', str(floor)],
+                              capture_output=True, text=True)
+
+class CountDotnetTestsTests(unittest.TestCase):
+    def test_a_passing_run_above_the_floor_passes(self):
+        result = run_dotnet('Starting test execution, please wait...\n' + DOTNET_PASSED)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('Executed C# tests: 49', result.stdout)
+        self.assertIn('floor 45', result.stdout)
+
+    def test_below_the_floor_fails(self):
+        result = run_dotnet(DOTNET_PASSED, '50\n')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('49 < 50', result.stderr)
+
+    def test_a_failed_run_fails(self):
+        result = run_dotnet(DOTNET_FAILED, '1\n')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('13 failed', result.stderr)
+
+    def test_no_summary_fails(self):
+        result = run_dotnet('Build FAILED.\n')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('no dotnet test summary', result.stderr)
+
+    def test_swift_summaries_do_not_count_as_csharp_tests(self):
+        result = run_dotnet(REAL_PASSING)
+        self.assertEqual(result.returncode, 1)
+
+    def test_a_floor_file_without_a_number_fails(self):
+        result = run_dotnet(DOTNET_PASSED, '# nothing here\n')
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('floor', result.stderr)
+
+    def test_the_repository_floor_file_holds_a_number(self):
+        floor = Path(__file__).resolve().parents[1] / 'dotnet-test-floor.txt'
+        numbers = [line.strip() for line in floor.read_text(encoding='utf-8').splitlines()
+                   if line.strip() and not line.strip().startswith('#')]
+        self.assertEqual(len(numbers), 1)
+        self.assertGreater(int(numbers[0]), 0)

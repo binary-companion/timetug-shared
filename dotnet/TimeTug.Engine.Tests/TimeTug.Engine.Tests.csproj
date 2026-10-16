@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Golden-fixture round trips and the conformance scenarios, run through the wrapper against the real native
+    library. The library is found through TIMETUG_ENGINE_LIBRARY (a file or a directory), or copied next to the test
+    assembly with -p:TimeTugNativeDir=<directory holding TimeTugEngineC.dll and its Swift runtime DLLs>.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12.0</LangVersion>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TimeTug.Engine\TimeTug.Engine.csproj" />
+  </ItemGroup>
+
+  <!-- One copy of the conformance files: the repository's, linked in. -->
+  <ItemGroup>
+    <Content Include="..\..\Conformance\**\*.json" LinkBase="Conformance" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TimeTugNativeDir)' != ''">
+    <None Include="$(TimeTugNativeDir)\*.dll;$(TimeTugNativeDir)\*.dylib;$(TimeTugNativeDir)\*.so"
+          Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

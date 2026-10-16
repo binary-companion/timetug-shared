@@ -1,0 +1,5 @@
+# The least number of C# tests (TimeTug.Engine.Tests) that must pass in the dotnet CI jobs, read by
+# scripts/ci/count-swift-tests.py --dotnet-floor-file. 49 tests ran when this was set (each scenario
+# and each InlineData row counts once); 45 is about 90 % of that, so a vanished test class or an empty
+# scenario list turns the job red while normal growth needs no edit. Raise it when tests are added.
+45
