@@ -245,4 +245,63 @@ import TimeTugEngineProtocol
         #expect(firstFile.contains("300") && !firstFile.contains("600"))
         #expect(secondFile.contains("600") && !secondFile.contains("300"))
     }
+
+    // MARK: - External tokens
+
+    /// The kinds of the first `state` that lists any an engine with `config` publishes: id to `isConfigured`.
+    private func accountKinds(config: String) async throws -> [String: Bool] {
+        let collector = MessageCollector()
+        let handle = try await startedEngine(collector, config: config)
+        func kinds() -> [JSONValue] {
+            for envelope in collector.envelopes where envelope.type == "state" {
+                if case .array(let kinds)? = envelope.payload?["availableAccountKinds"], !kinds.isEmpty { return kinds }
+            }
+            return []
+        }
+        await poll("a state with account kinds") { !kinds().isEmpty }
+        let found = kinds()
+        await destroy(handle)
+        var result: [String: Bool] = [:]
+        for kind in found {
+            guard case .string(let id)? = kind["id"], case .bool(let configured)? = kind["isConfigured"] else { continue }
+            result[id] = configured
+        }
+        return result
+    }
+
+    private let microsoftClient: JSONValue = .object(["microsoft": .object(["clientID": .string("ms-client")])])
+
+    @Test func kindRegisteredOnlyWithFlagAndMicrosoftClientId() async throws {
+        let both = try await accountKinds(config: testConfig(extra: ["externalTokens": .bool(true), "connectors": microsoftClient]))
+        #expect(both["microsoft-brokered"] == true)
+        #expect(both["microsoft"] == true)
+
+        let flagOnly = try await accountKinds(config: testConfig(extra: ["externalTokens": .bool(true)]))
+        #expect(flagOnly["microsoft-brokered"] == false, "listed, but unconfigured, like microsoft")
+        #expect(flagOnly["microsoft"] == false)
+
+        let clientOnly = try await accountKinds(config: testConfig(extra: ["connectors": microsoftClient]))
+        #expect(clientOnly["microsoft-brokered"] == nil, "without the flag the kind is not offered")
+        #expect(clientOnly["microsoft"] == true)
+
+        let neither = try await accountKinds(config: testConfig())
+        #expect(neither["microsoft-brokered"] == nil)
+        #expect(neither["microsoft"] == false)
+    }
+
+    @Test func readyAdvertisesExternalTokensOnlyWhenTheFlagIsSet() async throws {
+        let flagged = MessageCollector()
+        let first = try await startedEngine(flagged, config: testConfig(extra: ["externalTokens": .bool(true)]))
+        let ready = try #require(flagged.envelopes.first?.payload)
+        #expect(ready["capabilities"] == .object([
+            "systemCalendar": .bool(false), "textGeneration": .bool(false), "externalTokens": .bool(true)]))
+        await destroy(first)
+
+        let plain = MessageCollector()
+        let second = try await startedEngine(plain, config: testConfig(extra: ["externalTokens": .bool(false)]))
+        let plainReady = try #require(plain.envelopes.first?.payload)
+        #expect(plainReady["capabilities"] == .object(["systemCalendar": .bool(false), "textGeneration": .bool(false)]),
+                "an explicit false is the 1.7.0 ready text")
+        await destroy(second)
+    }
 }

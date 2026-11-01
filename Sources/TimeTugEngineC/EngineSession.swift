@@ -83,7 +83,8 @@ final class EngineSession: @unchecked Sendable {
         self.requests = requests
         let diagnostics: EngineDiagnosticSink = { outbox.post(Self.encode(wireDiagnostic($0))) }
         let connectors = ConnectorSetup.make(
-            config: config, transport: RemoteHTTPTransport(table: requests), clock: clock, defaultZone: zone.current)
+            config: config, transport: RemoteHTTPTransport(table: requests), clock: clock, defaultZone: zone.current,
+            tokenSource: config.externalTokens ? RemoteExternalTokenSource(table: requests, diagnostics: diagnostics) : nil)
         let host = EngineHost(
             dataDirectory: directory,
             settings: FileSettingsStorage(directory: directory, diagnostics: diagnostics),
@@ -203,7 +204,9 @@ final class EngineSession: @unchecked Sendable {
         }) else { return }
         let ready = WireReady(
             engineVersion: EngineBuild.version, platform: config.platform,
-            capabilities: .init(systemCalendar: false, textGeneration: config.textGeneration))
+            capabilities: .init(
+                systemCalendar: false, textGeneration: config.textGeneration,
+                externalTokens: config.externalTokens ? true : nil))
         outbox.openWith(ready: Self.encode(Envelope(type: "ready", payload: JSONValue(encoding: ready))))
         let states = await engine.states
         let events = await engine.events

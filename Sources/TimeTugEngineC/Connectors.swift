@@ -18,7 +18,8 @@ enum ConnectorSetup {
     }
 
     static func make(
-        config: WireConfig, transport: any HTTPTransport, clock: any EngineClock, defaultZone: TimeZone
+        config: WireConfig, transport: any HTTPTransport, clock: any EngineClock, defaultZone: TimeZone,
+        tokenSource: (any ExternalTokenSource)? = nil
     ) -> Result {
         let now: @Sendable () -> Date = { clock.now() }
         let sleep: Sleeper = { duration in
@@ -47,6 +48,16 @@ enum ConnectorSetup {
                 config: MicrosoftOAuthConfig(clientID: microsoft.clientID), transport: transport, now: now, sleep: sleep))
         } else {
             unconfigured.append(MicrosoftConnectorKind.kindID)
+        }
+        // The brokered kind exists only for a host that opted in (`tokenSource` is non-nil exactly then), and it
+        // shares the browser kind's Microsoft client id: there is no separate configuration entry.
+        if let tokenSource {
+            if let microsoft = config.connectors["microsoft"], !microsoft.clientID.isEmpty {
+                registry.register(MicrosoftBrokeredConnectorKind(
+                    tokenSource: tokenSource, transport: transport, now: now, sleep: sleep))
+            } else {
+                unconfigured.append(MicrosoftBrokeredConnectorKind.kindID)
+            }
         }
         return Result(registry: registry, unconfiguredKindIDs: unconfigured)
     }
