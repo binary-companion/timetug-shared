@@ -37,6 +37,12 @@ internal sealed record AuthPromptCredentialsRequest(List<CredentialField> Fields
 
 internal sealed record TextGenerateRequest(string Instructions, string Prompt);
 
+internal sealed record TokenGetRequest(string ConnectionID, string AccountID, string? Email, List<string> Scopes, bool ForceRefresh);
+
+internal sealed record TokenSignInRequest(string SignInID, List<string> Scopes, string? AccountID, string? Email);
+
+internal sealed record TokenCancelSignInRequest(string SignInID);
+
 internal sealed record EmptyResult;
 
 internal sealed record CredentialsGetReply(IReadOnlyDictionary<string, string>? Secrets);
@@ -56,6 +62,11 @@ internal sealed record SignInLastValuesReply(IReadOnlyDictionary<string, string>
 
 internal sealed record TextGenerateReply(string Text);
 
+/// <summary><see cref="ExpiresAt"/> is the UTC millisecond instant, present with status <c>ok</c>.</summary>
+internal sealed record TokenGetReply(string Status, string? AccessToken, DateTimeOffset? ExpiresAt, string? Reason);
+
+internal sealed record TokenSignInReply(string Status, string? AccountID, string? AccessToken, DateTimeOffset? ExpiresAt, string? Reason);
+
 internal sealed record ReplyError(string Kind, string Message);
 
 /// <summary>The <c>tt_engine_create</c> configuration.</summary>
@@ -66,6 +77,11 @@ internal sealed record WireConfig
     public string Platform { get; init; } = "";
     public Dictionary<string, WireConnectorClient> Connectors { get; init; } = new();
     public bool TextGeneration { get; init; }
+
+    /// <summary>Left out of the JSON when false, so the config of a host that did not opt in is unchanged.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ExternalTokens { get; init; }
+
     public string? TimeZone { get; init; }
     public bool Testing { get; init; }
     public DateTimeOffset? TestClockStart { get; init; }
@@ -138,6 +154,9 @@ internal sealed class WireInstantConverter : JsonConverter<DateTimeOffset>
 [JsonSerializable(typeof(AuthPromptCredentialsRequest))]
 [JsonSerializable(typeof(SignInForm))]
 [JsonSerializable(typeof(TextGenerateRequest))]
+[JsonSerializable(typeof(TokenGetRequest))]
+[JsonSerializable(typeof(TokenSignInRequest))]
+[JsonSerializable(typeof(TokenCancelSignInRequest))]
 [JsonSerializable(typeof(EmptyResult))]
 [JsonSerializable(typeof(CredentialsGetReply))]
 [JsonSerializable(typeof(CredentialsSnapshotReply))]
@@ -149,6 +168,8 @@ internal sealed class WireInstantConverter : JsonConverter<DateTimeOffset>
 [JsonSerializable(typeof(SignInLastValuesReply))]
 [JsonSerializable(typeof(TextAvailability))]
 [JsonSerializable(typeof(TextGenerateReply))]
+[JsonSerializable(typeof(TokenGetReply))]
+[JsonSerializable(typeof(TokenSignInReply))]
 [JsonSerializable(typeof(ReplyError))]
 internal sealed partial class WireJson : JsonSerializerContext
 {
@@ -209,6 +230,9 @@ internal static class WireCatalog
         ["service.signIn.lastNonSecretValues"] = null,
         ["service.text.availability"] = null,
         ["service.text.generate"] = WireJson.Default.TextGenerateRequest,
+        ["service.token.get"] = WireJson.Default.TokenGetRequest,
+        ["service.token.signIn"] = WireJson.Default.TokenSignInRequest,
+        ["service.token.cancelSignIn"] = WireJson.Default.TokenCancelSignInRequest,
     };
 
     /// <summary>The payload record of any message type, or null for a type without payload.</summary>

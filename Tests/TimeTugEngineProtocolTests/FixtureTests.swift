@@ -64,6 +64,10 @@ import TimeTugEngine
         ("service.auth.promptCredentials", roundTrip(AuthPromptCredentialsRequest.self)),
         ("service.signIn.prepare", roundTrip(SignInPrepareRequest.self)),
         ("service.text.generate", roundTrip(TextGenerateRequest.self)),
+        ("service.token.get", roundTrip(TokenGetRequest.self)),
+        ("service.token.signIn", roundTrip(TokenSignInRequest.self)),
+        ("service.token.cancelSignIn", roundTrip(TokenCancelSignInRequest.self)),
+        ("edge-ready-", roundTrip(WireReady.self)),
     ]
 
     private static func roundTrip<T: Codable>(_ type: T.Type) -> @Sendable (JSONValue) throws -> JSONValue {
@@ -210,5 +214,88 @@ import TimeTugEngine
         #expect(try dec.decode(SignInLastValuesReply.self, from: result("edge-reply-signin-last.json")).values != nil)
         #expect(try dec.decode(TextAvailabilityReply.self, from: result("edge-reply-text-availability.json")).kind == "available")
         #expect(try dec.decode(TextGenerateReply.self, from: result("edge-reply-text-generate.json")).text == "yes")
+    }
+
+    // MARK: - External tokens (1.8.0)
+
+    @Test func tokenRequestsDecodeIntoTheirDTOs() throws {
+        func payload(_ type: String) throws -> Data {
+            try JSONEncoder().encode(try #require(try envelope("\(type).json").payload))
+        }
+        let dec = JSONDecoder()
+        let get = try dec.decode(TokenGetRequest.self, from: payload("service.token.get"))
+        #expect(get.connectionID == "1" && get.accountID == "acct-1" && get.email == "me@example.com")
+        #expect(get.scopes == ["User.Read", "Calendars.Read"] && !get.forceRefresh)
+        let signIn = try dec.decode(TokenSignInRequest.self, from: payload("service.token.signIn"))
+        #expect(signIn.signInID == "signin-1" && signIn.accountID == nil && signIn.email == nil)
+        #expect(try dec.decode(TokenCancelSignInRequest.self, from: payload("service.token.cancelSignIn")).signInID == "signin-1")
+        for type in ["service.token.get", "service.token.signIn", "service.token.cancelSignIn"] {
+            guard case .number? = try envelope("\(type).json").id else { Issue.record(Comment(rawValue: "\(type) id")); continue }
+        }
+    }
+
+    @Test func tokenRepliesDecodeIntoTheirDTOs() throws {
+        func result(_ name: String) throws -> Data {
+            guard case .result(let value) = WireReply.parse(try text(name)) else { throw CocoaError(.coderReadCorrupt) }
+            return try JSONEncoder().encode(value)
+        }
+        let dec = JSONDecoder()
+        let ok = try dec.decode(TokenGetReply.self, from: result("edge-reply-token-ok.json"))
+        #expect(ok.status == "ok" && ok.accessToken == "redacted-example" && ok.expiresAt == "2026-10-09T09:53:20.000Z")
+        let interaction = try dec.decode(TokenGetReply.self, from: result("edge-reply-token-interaction-required.json"))
+        #expect(interaction.status == "interactionRequired" && interaction.reason == "signedOut" && interaction.accessToken == nil)
+        let unavailable = try dec.decode(TokenGetReply.self, from: result("edge-reply-token-unavailable.json"))
+        #expect(unavailable.status == "unavailable" && unavailable.reason == "brokerUnavailable")
+        let blocked = try dec.decode(TokenSignInReply.self, from: result("edge-reply-token-blocked.json"))
+        #expect(blocked.status == "blocked" && blocked.reason == "adminConsentRequired" && blocked.accountID == nil)
+    }
+
+    @Test func tokenReplyWithUnknownStatusParsesAsIs() throws {
+        // The engine, not the parser, decides what an unknown status means (it is an incomplete answer there).
+        let reply = try JSONDecoder().decode(
+            TokenGetReply.self, from: Data(#"{"status":"somethingNew","extra":1}"#.utf8))
+        #expect(reply.status == "somethingNew" && reply.accessToken == nil)
+        let signIn = try JSONDecoder().decode(TokenSignInReply.self, from: Data(#"{"status":"somethingNew"}"#.utf8))
+        #expect(signIn.status == "somethingNew")
+    }
+
+    @Test func tokenReplyErrorKindsParse() throws {
+        for kind in [ReplyErrorKind.network, .cancelled, .failed] {
+            let parsed = WireReply.parse(try text("edge-reply-error-\(kind.rawValue).json"))
+            #expect(parsed == .error(kind: kind, message: "\(kind.rawValue) example"))
+        }
+    }
+
+    @Test func tokenTypesAreInTheServiceCatalog() {
+        for type in ["service.token.get", "service.token.signIn", "service.token.cancelSignIn"] {
+            #expect(MessageCatalog.services.contains(type))
+        }
+    }
+
+    @Test func oldReadyFixtureStillDecodesAndReencodesIdentically() throws {
+        let payload = try #require(try envelope("ready.json").payload)
+        let ready = try JSONDecoder().decode(WireReady.self, from: JSONEncoder().encode(payload))
+        #expect(ready.capabilities.externalTokens == nil)
+        let again = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encode(ready))
+        #expect(Conformance.matches(again, fixture: payload))
+        // The absent capability is omitted, not written as null or false, so an old host sees the 1.7.0 shape.
+        guard case .object(let object) = again, case .object(let capabilities)? = object["capabilities"] else {
+            Issue.record("no capabilities"); return
+        }
+        #expect(capabilities["externalTokens"] == nil)
+    }
+
+    @Test func readyWithExternalTokensTrueRoundTrips() throws {
+        let payload = try #require(try envelope("edge-ready-external-tokens.json").payload)
+        let ready = try JSONDecoder().decode(WireReady.self, from: JSONEncoder().encode(payload))
+        #expect(ready.capabilities.externalTokens == true)
+        let built = WireReady(engineVersion: "1.8.0", platform: "windows",
+                              capabilities: .init(systemCalendar: false, textGeneration: false, externalTokens: true))
+        #expect(built == ready)
+    }
+
+    @Test func readyCapabilitiesKeepTheTwoArgumentInitializer() {
+        let old = WireReady.Capabilities(systemCalendar: true, textGeneration: false)
+        #expect(old.externalTokens == nil)
     }
 }

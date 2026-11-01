@@ -203,3 +203,114 @@ struct RemoteTextGenerator: TextGenerator {
         return reply.text
     }
 }
+
+/// The host's own account service (Windows' Web Account Manager) as the library's `ExternalTokenSource`, over
+/// `service.token.*`. Present only when the config sets `externalTokens`.
+///
+/// Silent requests time out after `hostServiceTimeout` on the engine clock. A sign-in has no timeout: it ends with
+/// the host's answer or with a cancellation, which tells the host to close its dialog (`service.token.cancelSignIn`,
+/// best effort). Nothing a diagnostic carries comes from the host except a `reason` that is one of the documented
+/// codes; tokens, account ids, emails and the host's error text never reach one or a thrown error.
+struct RemoteExternalTokenSource: ExternalTokenSource {
+    /// The `reason` codes a host may send, as documented in `docs/engine-protocol.md`.
+    static let documentedReasons: Set<String> = [
+        "consent", "signedOut", "mfa", "policy", "accountMissing", "adminConsentRequired", "brokerUnavailable", "other",
+    ]
+    private static let incomplete = CalendarCore.SourceError.invalidResponse("the host's token answer was incomplete")
+    private static let unavailable = CalendarCore.SourceError.invalidResponse("Windows sign-in is not available")
+
+    let table: RequestTable
+    let diagnostics: EngineDiagnosticSink
+
+    init(table: RequestTable, diagnostics: @escaping EngineDiagnosticSink = { _ in }) {
+        self.table = table
+        self.diagnostics = diagnostics
+    }
+
+    func accessToken(for account: ExternalAccount, scopes: [String], forceRefresh: Bool) async throws -> ExternalAccessToken {
+        let request = TokenGetRequest(
+            connectionID: account.connectionID ?? "", accountID: account.id, email: account.email, scopes: scopes,
+            forceRefresh: forceRefresh)
+        let reply: TokenGetReply
+        do {
+            reply = try await table.call("service.token.get", payload: wire(request), timeout: hostServiceTimeout)
+        } catch let error as ServiceError {
+            throw Self.sourceError(for: error)
+        }
+        noteReason(reply.reason)
+        switch reply.status {
+        case "ok": return try Self.token(reply.accessToken, reply.expiresAt)
+        case "interactionRequired": throw CalendarCore.SourceError.authExpired
+        case "unavailable": throw Self.unavailable
+        default: throw Self.incomplete
+        }
+    }
+
+    func signIn(_ request: ExternalSignInRequest) async throws -> ExternalSignInResult {
+        let signInID = UUID().uuidString
+        let wireRequest = TokenSignInRequest(
+            signInID: signInID, scopes: request.scopes, accountID: request.account?.id,
+            email: request.email ?? request.account?.email)
+        let table = table
+        let answered = LockedFlag()
+        let reply: TokenSignInReply
+        do {
+            reply = try await withTaskCancellationHandler {
+                defer { answered.set() }
+                return try await table.call("service.token.signIn", payload: wire(wireRequest), timeout: nil)
+            } onCancel: {
+                // Best effort, and only while the dialog may still be open: an answer that already arrived needs
+                // no cancel. The task is unstructured on purpose: the cancelled sign-in's own task is done.
+                guard !answered.isSet else { return }
+                Task {
+                    _ = try? await table.call(
+                        "service.token.cancelSignIn", payload: wire(TokenCancelSignInRequest(signInID: signInID)),
+                        timeout: hostServiceTimeout, as: IgnoredResult.self)
+                }
+            }
+        } catch let error as ServiceError {
+            throw Self.sourceError(for: error)
+        }
+        noteReason(reply.reason)
+        switch reply.status {
+        case "ok":
+            guard let accountID = reply.accountID, !accountID.isEmpty else { throw Self.incomplete }
+            return ExternalSignInResult(
+                account: ExternalAccount(id: accountID, email: request.email ?? request.account?.email,
+                                         connectionID: request.account?.connectionID),
+                token: try Self.token(reply.accessToken, reply.expiresAt))
+        case "blocked": throw CalendarCore.SourceError.invalidResponse("admin approval is required")
+        case "unavailable": throw Self.unavailable
+        default: throw Self.incomplete
+        }
+    }
+
+    private static func token(_ accessToken: String?, _ expiresAt: String?) throws -> ExternalAccessToken {
+        guard let accessToken, !accessToken.isEmpty, let expiresAt, let date = WireDates.date(expiresAt) else {
+            throw incomplete
+        }
+        return ExternalAccessToken(accessToken: accessToken, expiresAt: date)
+    }
+
+    /// The host's error text is not used: it could carry account data.
+    private static func sourceError(for error: ServiceError) -> CalendarCore.SourceError {
+        switch error.kind {
+        case .network: .network("Windows sign-in could not reach the network")
+        case .notFound, .denied: unavailable
+        case .failed, .cancelled: .invalidResponse("the Windows account service failed")
+        }
+    }
+
+    private func noteReason(_ reason: String?) {
+        guard let reason, Self.documentedReasons.contains(reason) else { return }
+        diagnostics(EngineDiagnostic(level: .info, category: "tokens", message: "the host reported reason \(reason)"))
+    }
+}
+
+/// A flag set once from one thread and read from another.
+private final class LockedFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = false
+    var isSet: Bool { lock.withLock { value } }
+    func set() { lock.withLock { value = true } }
+}

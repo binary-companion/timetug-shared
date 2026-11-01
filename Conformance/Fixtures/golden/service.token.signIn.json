@@ -1,0 +1,12 @@
+{
+  "id": 16,
+  "payload": {
+    "scopes": [
+      "User.Read",
+      "Calendars.Read"
+    ],
+    "signInID": "signin-1"
+  },
+  "type": "service.token.signIn",
+  "v": 1
+}

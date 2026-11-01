@@ -28,7 +28,8 @@ public class ScenarioTests
         var names = ScenarioRunner.ScenarioFiles().Select(Path.GetFileNameWithoutExtension).ToList();
         Assert.Equal(
             [
-                "add-account-oauth", "destroy-while-signin-pending", "http-timeout", "invalid-command",
+                "add-account-brokered", "add-account-oauth", "brokered-cancel", "brokered-needs-reconnect",
+                "destroy-while-signin-pending", "http-timeout", "invalid-command",
                 "late-takeover-after-wake", "settings-persist-across-restart", "snooze-refire", "start-ready",
                 "takeover-after-clock", "time-zone-change",
             ],

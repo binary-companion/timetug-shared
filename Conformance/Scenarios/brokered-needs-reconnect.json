@@ -1,0 +1,59 @@
+{
+  "name": "brokered-needs-reconnect",
+  "config": {
+    "v": 1, "platform": "windows", "testing": true, "testClockStart": "2026-10-16T13:00:00.000Z", "timeZone": "America/Chicago",
+    "externalTokens": true,
+    "connectors": { "microsoft": { "clientID": "test-client" } }
+  },
+  "files": {
+    "accounts.json": [
+      { "kindID": "microsoft-brokered", "connectionID": "conn-1", "displayName": "me@example.com",
+        "config": { "email": "me@example.com", "authMode": "external", "externalAccountID": "acct-1" } }
+    ]
+  },
+  "host": {
+    "http": [
+      { "match": "https://graph.microsoft.com/v1.0/me?", "bodyFile": "graph-me.json" },
+      { "match": "https://graph.microsoft.com/v1.0/me/mailboxSettings/timeZone", "bodyFile": "graph-timezone.json" },
+      { "match": "https://graph.microsoft.com/v1.0/me/calendars?", "bodyFile": "graph-calendars.json" },
+      { "match": "https://graph.microsoft.com/v1.0/me/calendars/cal-1/calendarView/delta", "body": { "value": [], "@odata.deltaLink": "https://graph.microsoft.com/v1.0/me/calendars/cal-1/calendarView/delta?$deltatoken=d1" } },
+      { "match": "https://graph.microsoft.com/v1.0/me/calendars/cal-1/calendarView?", "bodyFile": "graph-events-simple.json" }
+    ],
+    "tokens": {
+      "signIn": { "status": "ok", "accountID": "acct-1", "accessToken": "token-3", "expiresInSeconds": 3600 },
+      "get": { "status": "ok", "accessToken": "token-1", "expiresInSeconds": 3600 }
+    }
+  },
+  "steps": [
+    { "send": { "type": "start" } },
+    { "expect": { "events": [ { "type": "ready" }, { "type": "service.token.get", "payload": { "accountID": "acct-1", "connectionID": "conn-1", "email": "me@example.com" } } ] } },
+    { "expect": { "state": {
+      "statuses": { "microsoft-brokered-conn-1": { "kind": "ok" } },
+      "events": [ { "title": "Design review" } ]
+    } } },
+    { "setTokens": { "get": { "error": { "kind": "network" } } } },
+    { "send": { "type": "test.advanceClock", "payload": { "seconds": 3700 } } },
+    { "expect": { "state": {
+      "statuses": { "microsoft-brokered-conn-1": { "kind": "failing" } },
+      "events": [ { "title": "Design review" } ]
+    } } },
+    { "setTokens": { "get": { "status": "ok", "accessToken": "token-2", "expiresInSeconds": 3600 } } },
+    { "send": { "type": "system.event", "payload": { "kind": "networkReturned" } } },
+    { "expect": { "state": { "statuses": { "microsoft-brokered-conn-1": { "kind": "ok" } } } } },
+    { "setTokens": { "get": { "status": "interactionRequired", "reason": "signedOut" } } },
+    { "send": { "type": "test.advanceClock", "payload": { "seconds": 3700 } } },
+    { "expect": { "state": {
+      "statuses": { "microsoft-brokered-conn-1": { "kind": "authExpired" } },
+      "events": [ { "title": "Design review" } ]
+    } } },
+    { "setTokens": { "get": { "status": "ok", "accessToken": "token-4", "expiresInSeconds": 3600 } } },
+    { "send": { "type": "account.reconnect", "payload": { "connectionID": "conn-1" } } },
+    { "expect": { "events": [ { "type": "service.token.signIn", "payload": { "accountID": "acct-1", "email": "me@example.com" } } ] } },
+    { "expect": { "state": {
+      "statuses": { "microsoft-brokered-conn-1": { "kind": "ok" } },
+      "accountStatus": { "isWorking": false },
+      "events": [ { "title": "Design review" } ]
+    } } },
+    { "expect": { "diagnosticsExclude": [ "token-1", "token-2", "token-3", "token-4", "acct-1", "me@example.com" ] } }
+  ]
+}

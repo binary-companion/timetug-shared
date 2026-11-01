@@ -1,0 +1,46 @@
+{
+  "name": "add-account-brokered",
+  "config": {
+    "v": 1, "platform": "windows", "testing": true, "testClockStart": "2026-10-16T13:00:00.000Z", "timeZone": "America/Chicago",
+    "externalTokens": true,
+    "connectors": { "microsoft": { "clientID": "test-client" } }
+  },
+  "host": {
+    "http": [
+      { "match": "https://graph.microsoft.com/v1.0/me?", "bodyFile": "graph-me.json" },
+      { "match": "https://graph.microsoft.com/v1.0/me/mailboxSettings/timeZone", "bodyFile": "graph-timezone.json" },
+      { "match": "https://graph.microsoft.com/v1.0/me/calendars?", "bodyFile": "graph-calendars.json" },
+      { "match": "https://graph.microsoft.com/v1.0/me/calendars/cal-1/calendarView?", "bodyFile": "graph-events-simple.json" }
+    ],
+    "tokens": {
+      "signIn": { "status": "ok", "accountID": "acct-1", "accessToken": "token-1", "expiresInSeconds": 3600 },
+      "get": { "status": "ok", "accessToken": "token-2", "expiresInSeconds": 3600 }
+    }
+  },
+  "steps": [
+    { "send": { "type": "start" } },
+    { "expect": { "events": [ { "type": "ready", "payload": { "capabilities": { "externalTokens": true } } } ] } },
+    { "expect": { "state": { "accounts": [], "availableAccountKinds": [
+      { "id": "google", "isConfigured": false },
+      { "id": "icalsub" }, { "id": "icloud" },
+      { "id": "microsoft", "authorization": "oauth", "isConfigured": true },
+      { "id": "microsoft-brokered", "authorization": "oauth", "isConfigured": true },
+      { "id": "caldav" }
+    ] } } },
+    { "send": { "type": "account.add", "payload": { "kindID": "microsoft-brokered" } } },
+    { "expect": { "events": [
+      { "type": "service.token.signIn", "payload": { "scopes": [ "User.Read", "MailboxSettings.Read", "Calendars.Read", "Calendars.Read.Shared" ] } },
+      { "type": "service.http.send", "payload": { "method": "GET", "url": "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName" } },
+      { "type": "service.http.send", "payload": { "url": "https://graph.microsoft.com/v1.0/me/calendars?$top=100" } }
+    ] } },
+    { "expect": { "state": {
+      "accounts": [ { "kindID": "microsoft-brokered", "displayName": "me@example.com",
+        "config": { "email": "me@example.com", "authMode": "external", "externalAccountID": "acct-1" } } ],
+      "accountStatus": { "isWorking": false },
+      "calendars": [ { "title": "Calendar", "calendarID": "cal-1", "provider": "microsoft" } ],
+      "events": [ { "title": "Design review" } ]
+    } } },
+    { "expect": { "absent": [ { "type": "service.credentials.set" }, { "type": "service.credentials.snapshot" } ] } },
+    { "expect": { "diagnosticsExclude": [ "token-1", "token-2", "acct-1", "me@example.com" ] } }
+  ]
+}

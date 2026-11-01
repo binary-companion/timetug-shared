@@ -51,7 +51,7 @@ actor FakeReconciler: SourceReconciling {
 }
 
 /// A kind with configurable authorization method and outcome.
-final class FakeConnectorKind: ConnectorKind, @unchecked Sendable {
+class FakeConnectorKind: ConnectorKind, @unchecked Sendable {
     enum Outcome: Sendable {
         case succeed
         /// Stores secrets for `connectionID`, returns the connection, and cancels the signing-in task as it returns.
@@ -126,6 +126,15 @@ final class FakeConnectorKind: ConnectorKind, @unchecked Sendable {
     func makeSource(for connection: Connection, credentials: any CredentialStore, syncState: any SyncStateStore) throws -> any CalendarCore.CalendarSource {
         if let sourceFactory { return try sourceFactory(connection) }
         throw CalendarCore.SourceError.invalidResponse("unused")
+    }
+}
+
+/// A kind that says it is the same people as another kind's (Microsoft in the browser and through the broker).
+final class FakeFamilyKind: FakeConnectorKind, AccountIdentityFamily, @unchecked Sendable {
+    let identityFamily: String
+    init(id: String, displayName: String, family: String) {
+        identityFamily = family
+        super.init(id: id, displayName: displayName)
     }
 }
 

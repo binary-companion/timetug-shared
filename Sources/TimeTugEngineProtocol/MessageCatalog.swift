@@ -28,9 +28,17 @@ public struct WireReady: Codable, Equatable, Sendable {
     public struct Capabilities: Codable, Equatable, Sendable {
         public var systemCalendar: Bool
         public var textGeneration: Bool
+        /// True when the engine will ask the host for access tokens (`service.token.*`). Omitted when false, so the
+        /// `ready` message of a host that did not opt in is the 1.7.0 text.
+        public var externalTokens: Bool?
         public init(systemCalendar: Bool, textGeneration: Bool) {
             self.systemCalendar = systemCalendar
             self.textGeneration = textGeneration
+        }
+        public init(systemCalendar: Bool, textGeneration: Bool, externalTokens: Bool?) {
+            self.systemCalendar = systemCalendar
+            self.textGeneration = textGeneration
+            self.externalTokens = externalTokens
         }
     }
 

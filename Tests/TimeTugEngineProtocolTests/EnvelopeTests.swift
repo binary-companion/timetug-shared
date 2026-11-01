@@ -84,4 +84,24 @@ import Testing
             try WireConfig.parse(#"{"v":1,"dataDirectory":"/x","platform":"linux","testClockStart":"yesterday"}"#)
         }
     }
+
+    @Test func configWithoutExternalTokensDecodesAsFalse() throws {
+        // The 1.7.0 config text: no `externalTokens` key at all.
+        let c = try WireConfig.parse(#"{"v":1,"dataDirectory":"/x","platform":"windows","connectors":{"microsoft":{"clientID":"m"}}}"#)
+        #expect(!c.externalTokens)
+    }
+
+    @Test func configWithExternalTokensTrueRoundTrips() throws {
+        let c = try WireConfig.parse(#"{"v":1,"dataDirectory":"/x","platform":"windows","externalTokens":true}"#)
+        #expect(c.externalTokens)
+        let again = try WireConfig.parse(String(decoding: try JSONEncoder().encode(c), as: UTF8.self))
+        #expect(again == c)
+        let built = WireConfig(dataDirectory: "/x", platform: "windows", externalTokens: true)
+        #expect(built.externalTokens && built == c)
+    }
+
+    @Test func configOldInitializerStillMeansNoExternalTokens() {
+        #expect(!WireConfig(dataDirectory: "/x", platform: "windows").externalTokens)
+        #expect(!WireConfig(dataDirectory: "/x", platform: "windows", textGeneration: true).externalTokens)
+    }
 }

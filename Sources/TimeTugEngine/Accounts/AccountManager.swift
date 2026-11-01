@@ -144,7 +144,7 @@ public actor AccountManager {
                 current.errorMessage = "That account is being removed."
                 return
             }
-            if current.accounts.contains(where: { $0.kindID == connection.kindID && $0.displayName == connection.displayName }) {
+            if current.accounts.contains(where: { sameAccount($0, connection) }) {
                 await discardSecretsIfUnowned(connection.connectionID)
                 current.errorMessage = "\(connection.displayName) is already added."
                 return
@@ -158,6 +158,16 @@ public actor AccountManager {
             if let authorized { await discardSecretsIfUnowned(authorized.connectionID) }
             current.errorMessage = Self.describe(error)
         }
+    }
+
+    /// Two connections are one account when their kinds are the same people (the same identity family; a kind
+    /// without one is its own family) and their names, the email, are equal ignoring case.
+    private func sameAccount(_ existing: Connection, _ added: Connection) -> Bool {
+        func family(_ kindID: String) -> String {
+            (host.registry.kind(id: kindID) as? AccountIdentityFamily)?.identityFamily ?? kindID
+        }
+        return family(existing.kindID) == family(added.kindID)
+            && existing.displayName.caseInsensitiveCompare(added.displayName) == .orderedSame
     }
 
     /// Deletes a discarded sign-in's secrets, unless a stored account has the same connection id.

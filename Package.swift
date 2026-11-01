@@ -12,7 +12,7 @@ let package = Package(
         // The C interface: a native library exporting the four tt_engine_* functions of include/timetug_engine.h.
         .library(name: "TimeTugEngineC", type: .dynamic, targets: ["TimeTugEngineC"]),
     ],
-    dependencies: [.package(url: "https://github.com/binary-companion/calendar-connectors", from: "1.0.0")],
+    dependencies: [.package(url: "https://github.com/binary-companion/calendar-connectors", from: "1.2.0")],
     targets: [
         .target(name: "TimeTugCore", dependencies: [.product(name: "CalendarCore", package: "calendar-connectors")]),
         .target(name: "CalendarBridge", dependencies: [

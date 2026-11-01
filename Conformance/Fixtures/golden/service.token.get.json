@@ -1,0 +1,15 @@
+{
+  "id": 15,
+  "payload": {
+    "accountID": "acct-1",
+    "connectionID": "1",
+    "email": "me@example.com",
+    "forceRefresh": false,
+    "scopes": [
+      "User.Read",
+      "Calendars.Read"
+    ]
+  },
+  "type": "service.token.get",
+  "v": 1
+}
