@@ -340,4 +340,102 @@ private let caldavFields = [
         #expect(await FileConnectionStore(url: h.accountsFile).connections().map(\.displayName) == ["a@x.test"])
         #expect(await h.reconciler.builds == buildsBefore)
     }
+
+    // MARK: - Identity families (one mailbox through two Microsoft kinds is one account)
+
+    /// A browser kind with no family (its own kind id) and a brokered kind whose family is "microsoft".
+    private func microsoftKinds() -> (browser: FakeConnectorKind, brokered: FakeFamilyKind) {
+        let browser = FakeFamilyKind(id: "microsoft", displayName: "Microsoft", family: "microsoft")
+        let brokered = FakeFamilyKind(id: "microsoft-brokered", displayName: "Microsoft", family: "microsoft")
+        return (browser, brokered)
+    }
+
+    @Test func brokeredMicrosoftIsRefusedWhenBrowserMicrosoftHasTheSameEmail() async throws {
+        let (browser, brokered) = microsoftKinds()
+        let h = try AccountHarness(kinds: [browser, brokered])
+        await h.manager.addAccount(kindID: "microsoft")
+        brokered.nextConnectionID = "2"
+        await h.manager.addAccount(kindID: "microsoft-brokered")
+        let status = await h.manager.status()
+        #expect(status.accounts.map(\.connectionID) == ["1"])
+        #expect(status.errorMessage == "a@x.test is already added.")
+        #expect(h.applied.get().last == ["eventkit", "microsoft-1"])
+    }
+
+    @Test func browserMicrosoftIsRefusedWhenBrokeredHasTheSameEmail() async throws {
+        let (browser, brokered) = microsoftKinds()
+        let h = try AccountHarness(kinds: [browser, brokered])
+        await h.manager.addAccount(kindID: "microsoft-brokered")
+        browser.nextConnectionID = "2"
+        await h.manager.addAccount(kindID: "microsoft")
+        let status = await h.manager.status()
+        #expect(status.accounts.map(\.kindID) == ["microsoft-brokered"])
+        #expect(status.errorMessage == "a@x.test is already added.")
+    }
+
+    @Test func sameEmailInDifferentCaseIsRefused() async throws {
+        let (browser, brokered) = microsoftKinds()
+        let h = try AccountHarness(kinds: [browser, brokered])
+        browser.nextEmail = "Me@Example.com"
+        await h.manager.addAccount(kindID: "microsoft")
+        brokered.nextEmail = "me@example.com"
+        brokered.nextConnectionID = "2"
+        await h.manager.addAccount(kindID: "microsoft-brokered")
+        let status = await h.manager.status()
+        #expect(status.accounts.map(\.connectionID) == ["1"])
+        #expect(status.errorMessage == "me@example.com is already added.")
+    }
+
+    @Test func sameEmailOnDifferentFamiliesIsAllowed() async throws {
+        let google = FakeConnectorKind()
+        let (_, brokered) = microsoftKinds()
+        let h = try AccountHarness(kinds: [google, brokered])
+        await h.manager.addAccount(kindID: "google")
+        brokered.nextConnectionID = "2"
+        await h.manager.addAccount(kindID: "microsoft-brokered")
+        let status = await h.manager.status()
+        #expect(status.accounts.map(\.connectionID) == ["1", "2"])
+        #expect(status.errorMessage == nil)
+    }
+
+    @Test func unknownKindOfAnExistingAccountFallsBackToItsKindID() async throws {
+        // A stored account whose kind this build no longer registers is its own family: it does not match a
+        // registered kind's account even with the same name, and a second account of the same unknown kind would.
+        let dir = try TempDir.make()
+        try await FileConnectionStore(url: dir.appendingPathComponent("accounts.json"))
+            .save([Connection(kindID: "retired", connectionID: "1", displayName: "a@x.test")])
+        let (browser, brokered) = microsoftKinds()
+        brokered.nextConnectionID = "2"
+        let h = try AccountHarness(kinds: [browser, brokered], directory: dir)
+        await h.manager.start()
+        await h.manager.addAccount(kindID: "microsoft-brokered")
+        let status = await h.manager.status()
+        #expect(status.accounts.map(\.connectionID) == ["1", "2"])
+        #expect(status.errorMessage == nil)
+    }
+
+    @Test func refusedBrokeredAddLeavesStoredAccountsAndCredentialsUntouched() async throws {
+        let (browser, brokered) = microsoftKinds()
+        let h = try AccountHarness(kinds: [browser, brokered])
+        await h.manager.addAccount(kindID: "microsoft")
+        let before = try Data(contentsOf: h.accountsFile)
+        brokered.nextConnectionID = "2"
+        await h.manager.addAccount(kindID: "microsoft-brokered")
+        #expect(try Data(contentsOf: h.accountsFile) == before)
+        #expect(try await h.credentials.secrets(for: "1") != nil)
+        #expect(try await h.credentials.secrets(for: "2") == nil, "the refused sign-in's fresh secrets are discarded")
+    }
+
+    @Test func sameKindDuplicateRuleUnchanged() async throws {
+        // A kind without the family protocol is its own family, so the old rule (same kind, same name) holds.
+        let kind = FakeConnectorKind()
+        let h = try AccountHarness(kinds: [kind])
+        await h.manager.addAccount(kindID: "google")
+        kind.nextConnectionID = "2"
+        await h.manager.addAccount(kindID: "google")
+        #expect(await h.manager.status().errorMessage == "a@x.test is already added.")
+        kind.nextEmail = "b@x.test"
+        await h.manager.addAccount(kindID: "google")
+        #expect(await h.manager.status().accounts.map(\.displayName) == ["a@x.test", "b@x.test"])
+    }
 }
