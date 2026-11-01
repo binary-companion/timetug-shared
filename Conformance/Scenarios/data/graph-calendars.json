@@ -1,0 +1,12 @@
+{
+  "value": [
+    {
+      "id": "cal-1",
+      "name": "Calendar",
+      "hexColor": "#0078d4",
+      "isDefaultCalendar": true,
+      "canEdit": true,
+      "owner": { "name": "Me", "address": "me@example.com" }
+    }
+  ]
+}

@@ -17,12 +17,21 @@ import TimeTugEngineProtocol
 /// - `host.auth`: `redirectURI` (default `http://127.0.0.1:53682/`), `code` (default `test-code`), and
 ///   `authorize: "never"` to leave the browser step unanswered. The authorize answer echoes the request's `state`.
 /// - `host.prompt`: the values a credential form answers with.
+/// - `host.tokens` (host-supplied access tokens, `service.token.*`): `signIn` and `get` are each one scripted answer
+///   that repeats, or `"never"` (the request is left unanswered). An answer is `{"status": ..., ...}` as the wire
+///   reply's result (`expiresInSeconds` is turned into `expiresAt` relative to the scenario's manual clock, which the
+///   host follows through `test.advanceClock`), or `{"error": {"kind": ...}}` as a wire error reply. An unscripted
+///   request is answered `{"status":"unavailable"}`. `service.token.cancelSignIn` is always answered with `{}`.
 /// - `steps`, run in order:
 ///   - `{"send": {...}}` a command envelope (`v` defaults to 1); `{"sendRaw": "..."}` any text;
 ///   - `{"expect": {"events": [...]}}` each listed object must subset-match, in order, a subsequence of the messages
 ///     received since the previous `events` expectation (all messages count: events, requests, `ready`, `state`);
 ///   - `{"expect": {"state": {...}}}` the latest `state` payload must subset-match;
 ///   - `{"expect": {"noMoreMessagesFor": seconds}}` nothing at all arrives for that long;
+///   - `{"expect": {"absent": [...]}}` no message received so far matches any of the listed patterns;
+///   - `{"expect": {"diagnosticsExclude": ["text", ...]}}` none of the texts appears in an `event.diagnostic` message
+///     received since the previous `diagnosticsExclude` expectation (a secret must never reach a diagnostic);
+///   - `{"setTokens": {...}}` replaces the `signIn` and/or `get` answers of `host.tokens`;
 ///   - `{"restart": true}` destroy, then create again on the same data directory (and the same host);
 ///   - `{"destroy": true}`; `{"replyToPending": true}` answers every request the host has left unanswered.
 ///
@@ -68,9 +77,10 @@ final class ScenarioRunner {
         } catch {
             return Result(name: name, failures: ["cannot write the scenario files: \(error)"])
         }
-        let host = ScriptedHost(script: scenario["host"] ?? .object([:]))
         var config: [String: JSONValue] = [:]
         if case .object(let given)? = scenario["config"] { config = given }
+        let clockStart = (config["testClockStart"].flatMap { if case .string(let text) = $0 { WireDates.date(text) } else { nil } }) ?? Date()
+        let host = ScriptedHost(script: scenario["host"] ?? .object([:]), clockStart: clockStart)
         config["dataDirectory"] = .string(directory.path)
         let configJSON = Self.text(.object(config))
 
@@ -85,6 +95,7 @@ final class ScenarioRunner {
         guard create() else { return Result(name: name, failures: failures) }
 
         var cursor = 0
+        var diagnosticsCursor = 0
         guard case .array(let steps)? = scenario["steps"] else {
             return Result(name: name, failures: ["the scenario has no steps"])
         }
@@ -100,6 +111,8 @@ final class ScenarioRunner {
             } else if step["restart"] == .bool(true) {
                 await host.destroy()
                 guard create() else { break }
+            } else if let tokens = step["setTokens"] {
+                host.setTokens(tokens)
             } else if step["destroy"] == .bool(true) {
                 await host.destroy()
             } else if step["replyToPending"] == .bool(true) {
@@ -120,6 +133,22 @@ final class ScenarioRunner {
                         failures.append("\(label): expected state \(Self.text(state)); latest state "
                                         + (host.latestState.map(Self.text) ?? "none")
                                         + "; received since the last events expectation: " + host.summary(from: cursor))
+                        break
+                    }
+                }
+                if case .array(let patterns)? = expectation["absent"] {
+                    let found = host.messages.filter { message in patterns.contains { Self.matches($0, message) } }
+                    if !found.isEmpty {
+                        failures.append("\(label): a message that should be absent was received: \(Self.text(found[0]))")
+                        break
+                    }
+                }
+                if case .array(let excluded)? = expectation["diagnosticsExclude"] {
+                    let texts = excluded.compactMap { value -> String? in if case .string(let text) = value { text } else { nil } }
+                    let diagnostics = host.messages[diagnosticsCursor...].filter { $0["type"] == .string("event.diagnostic") }
+                    diagnosticsCursor = host.messageCount
+                    if let leak = diagnostics.map(Self.text).first(where: { line in texts.contains { line.contains($0) } }) {
+                        failures.append("\(label): a diagnostic contains an excluded text: \(leak)")
                         break
                     }
                 }
@@ -221,9 +250,16 @@ final class ScriptedHost: @unchecked Sendable {
     private var credentials: [String: (secrets: [String: String], revision: String)] = [:]
     private var unanswered: [UInt64] = []
     private var redirects = 0
+    /// The scripted `host.tokens` answers (replaced by `setTokens`) and the engine's manual clock as far as the host
+    /// can follow it: the config's start plus every `test.advanceClock` it has sent to the current engine.
+    private var tokens: [String: JSONValue] = [:]
+    private let clockStart: Date
+    private var clockOffset: TimeInterval = 0
 
-    init(script: JSONValue) {
+    init(script: JSONValue, clockStart: Date = Date()) {
         self.script = script
+        self.clockStart = clockStart
+        if case .object(let given)? = script["tokens"] { tokens = given }
         if case .object(let seed)? = script["credentials"]?["seed"] {
             for (id, secrets) in seed {
                 guard case .object(let values) = secrets else { continue }
@@ -244,7 +280,13 @@ final class ScriptedHost: @unchecked Sendable {
         lock.withLock {
             self.handle = handle
             lastHandle = handle
+            clockOffset = 0   // a new engine starts its manual clock again
         }
+    }
+
+    func setTokens(_ answers: JSONValue) {
+        guard case .object(let given) = answers else { return }
+        lock.withLock { for (key, value) in given { tokens[key] = value } }
     }
 
     var messages: [JSONValue] { lock.withLock { received } }
@@ -264,6 +306,10 @@ final class ScriptedHost: @unchecked Sendable {
 
     func send(_ json: String) {
         guard let handle = lock.withLock({ handle }) else { return }
+        if let command = try? JSONDecoder().decode(JSONValue.self, from: Data(json.utf8)),
+           command["type"] == .string("test.advanceClock"), case .number(let seconds)? = command["payload"]?["seconds"] {
+            lock.withLock { clockOffset += seconds }
+        }
         tt_engine_send(handle.raw, json)
     }
 
@@ -380,9 +426,27 @@ final class ScriptedHost: @unchecked Sendable {
             return Self.result(.object([:]))
         case "service.text.availability":
             return Self.result(.object(["kind": .string("unavailable"), "reason": .string("scripted host")]))
+        case "service.token.get": return token(lock.withLock { tokens["get"] })
+        case "service.token.signIn": return token(lock.withLock { tokens["signIn"] })
+        case "service.token.cancelSignIn": return Self.result(.object([:]))
         default:
             return Self.error("notFound", "the scripted host has no \(type)")
         }
+    }
+
+    /// A scripted token answer as a wire reply; nil leaves the request unanswered (`"never"`).
+    private func token(_ scripted: JSONValue?) -> JSONValue? {
+        guard let scripted else { return Self.result(.object(["status": .string("unavailable")])) }
+        if scripted == .string("never") { return nil }
+        guard case .object(var answer) = scripted else { return Self.result(.object(["status": .string("unavailable")])) }
+        if let failure = answer["error"] {
+            return .object(["v": .number(1), "error": failure])
+        }
+        if case .number(let seconds)? = answer.removeValue(forKey: "expiresInSeconds") {
+            let now = lock.withLock { clockStart.addingTimeInterval(clockOffset) }
+            answer["expiresAt"] = .string(WireDates.string(now.addingTimeInterval(seconds)))
+        }
+        return Self.result(.object(answer))
     }
 
     private func http(_ payload: JSONValue) -> JSONValue? {

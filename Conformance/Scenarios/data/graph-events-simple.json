@@ -1,0 +1,22 @@
+{
+  "value": [
+    {
+      "id": "evt-design-review",
+      "iCalUId": "evt-design-review@example.com",
+      "subject": "Design review",
+      "type": "singleInstance",
+      "isAllDay": false,
+      "isCancelled": false,
+      "showAs": "busy",
+      "start": { "dateTime": "2026-10-16T19:30:00.0000000", "timeZone": "UTC" },
+      "end": { "dateTime": "2026-10-16T20:00:00.0000000", "timeZone": "UTC" },
+      "isOnlineMeeting": false,
+      "attendees": [
+        { "type": "required", "status": { "response": "accepted" }, "emailAddress": { "name": "Me", "address": "me@example.com" } },
+        { "type": "required", "status": { "response": "accepted" }, "emailAddress": { "name": "Colleague", "address": "colleague@example.com" } }
+      ],
+      "organizer": { "emailAddress": { "name": "Colleague", "address": "colleague@example.com" } },
+      "responseStatus": { "response": "accepted" }
+    }
+  ]
+}

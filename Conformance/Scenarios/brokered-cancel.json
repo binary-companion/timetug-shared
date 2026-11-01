@@ -1,0 +1,22 @@
+{
+  "name": "brokered-cancel",
+  "config": {
+    "v": 1, "platform": "windows", "testing": true, "testClockStart": "2026-10-16T13:00:00.000Z", "timeZone": "America/Chicago",
+    "externalTokens": true,
+    "connectors": { "microsoft": { "clientID": "test-client" } }
+  },
+  "host": {
+    "tokens": { "signIn": "never" }
+  },
+  "steps": [
+    { "send": { "type": "start" } },
+    { "expect": { "events": [ { "type": "ready" } ] } },
+    { "send": { "type": "account.add", "payload": { "kindID": "microsoft-brokered" } } },
+    { "expect": { "events": [ { "type": "service.token.signIn" } ] } },
+    { "expect": { "state": { "accountStatus": { "isWorking": true } } } },
+    { "send": { "type": "account.cancel" } },
+    { "expect": { "events": [ { "type": "service.token.cancelSignIn" } ] } },
+    { "expect": { "state": { "accounts": [], "accountStatus": { "isWorking": false, "errorMessage": null } } } },
+    { "expect": { "absent": [ { "type": "event.diagnostic", "payload": { "level": "error" } } ] } }
+  ]
+}

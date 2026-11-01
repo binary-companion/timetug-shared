@@ -21,7 +21,8 @@ import TimeTugEngineProtocol
         guard ScenarioRunner.baselineDirectory == nil else { return }
         let names = try ScenarioRunner.scenarioURLs().map { $0.deletingPathExtension().lastPathComponent }.sorted()
         #expect(names == [
-            "add-account-oauth", "destroy-while-signin-pending", "http-timeout", "invalid-command",
+            "add-account-brokered", "add-account-oauth", "brokered-cancel", "brokered-needs-reconnect",
+            "destroy-while-signin-pending", "http-timeout", "invalid-command",
             "late-takeover-after-wake", "settings-persist-across-restart", "snooze-refire", "start-ready",
             "takeover-after-clock", "time-zone-change",
         ])
