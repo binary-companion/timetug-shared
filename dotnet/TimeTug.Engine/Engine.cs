@@ -1,5 +1,6 @@
 using System;
 using System.Buffers;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -104,6 +105,9 @@ internal sealed class NativeEngine : IEngine
         new UnboundedChannelOptions { SingleWriter = true });
     private readonly CancellationTokenSource _lifetime = new();
     private readonly object _gate = new();
+    /// <summary>The sign-ins waiting for a person, by sign-in id: <c>service.token.cancelSignIn</c> cancels the token the
+    /// host's <see cref="IExternalTokenHost.SignInAsync"/> was given.</summary>
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> _signIns = new(StringComparer.Ordinal);
     private GCHandle _self;
     private nint _handle;
     private int _disposed;
@@ -133,6 +137,7 @@ internal sealed class NativeEngine : IEngine
             Connectors = options.OAuthClients.ToDictionary(
                 pair => pair.Key, pair => new WireConnectorClient(pair.Value.ClientID, pair.Value.ClientSecret)),
             TextGeneration = options.Host.TextGenerator is not null,
+            ExternalTokens = options.Host is IExternalTokenHost,
             TimeZone = options.TimeZone,
             Testing = options.Testing,
             TestClockStart = options.TestClockStart,
@@ -348,29 +353,37 @@ internal sealed class NativeEngine : IEngine
 
     private async Task ServeAsync(string type, ulong requestId, JsonNode? payload)
     {
-        string reply;
+        var reply = await ReplyAsync(type, payload).ConfigureAwait(false);
+        // A reply after disposal is dropped (the native side would ignore it too).
+        if (Volatile.Read(ref _disposed) == 0) NativeMethods.Reply(_handle, requestId, reply);
+    }
+
+    /// <summary>The reply text for one service request: the host's answer, or the error its failure maps to. For the
+    /// <c>service.token.*</c> requests the text of an exception is never passed on, because it could carry account
+    /// data (an address, a token); the kind is all the engine needs.</summary>
+    internal async Task<string> ReplyAsync(string type, JsonNode? payload)
+    {
+        var discreet = type.StartsWith("service.token.", StringComparison.Ordinal);
         try
         {
-            reply = await AnswerAsync(type, payload, _lifetime.Token).ConfigureAwait(false);
+            return await AnswerAsync(type, payload, _lifetime.Token).ConfigureAwait(false);
         }
         catch (EngineServiceException exception)
         {
-            reply = Error(exception.Kind, exception.Message);
+            return Error(exception.Kind, discreet ? KindText(exception.Kind) : exception.Message);
         }
         catch (OperationCanceledException)
         {
-            reply = Error(ServiceErrorKind.Cancelled, "cancelled");
+            return Error(ServiceErrorKind.Cancelled, "cancelled");
         }
         catch (System.Net.Http.HttpRequestException exception)
         {
-            reply = Error(ServiceErrorKind.Network, exception.Message);
+            return Error(ServiceErrorKind.Network, discreet ? "network" : exception.Message);
         }
         catch (Exception exception)
         {
-            reply = Error(ServiceErrorKind.Failed, $"{exception.GetType().Name}: {exception.Message}");
+            return Error(ServiceErrorKind.Failed, discreet ? "failed" : $"{exception.GetType().Name}: {exception.Message}");
         }
-        // A reply after disposal is dropped (the native side would ignore it too).
-        if (Volatile.Read(ref _disposed) == 0) NativeMethods.Reply(_handle, requestId, reply);
     }
 
     private async ValueTask<string> AnswerAsync(string type, JsonNode? payload, CancellationToken token)
@@ -465,11 +478,55 @@ internal sealed class NativeEngine : IEngine
                 var text = await TextGenerator().GenerateAsync(request.Instructions, request.Prompt, token).ConfigureAwait(false);
                 return Result(new TextGenerateReply(text), WireJson.Default.TextGenerateReply);
             }
+            case "service.token.get":
+            {
+                var request = Read(payload, WireJson.Default.TokenGetRequest);
+                var result = await TokenHost().GetTokenAsync(
+                    new ExternalTokenRequest(request.ConnectionID, request.AccountID, request.Email, request.Scopes, request.ForceRefresh),
+                    token).ConfigureAwait(false);
+                return Result(new TokenGetReply(result.Status, result.AccessToken, result.ExpiresAt, result.Reason),
+                              WireJson.Default.TokenGetReply);
+            }
+            case "service.token.signIn":
+            {
+                var request = Read(payload, WireJson.Default.TokenSignInRequest);
+                var host = TokenHost();
+                using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+                _signIns[request.SignInID] = cancellation;
+                try
+                {
+                    var result = await host.SignInAsync(
+                        new ExternalSignInRequest(request.SignInID, request.Scopes, request.AccountID, request.Email),
+                        cancellation.Token).ConfigureAwait(false);
+                    return Result(new TokenSignInReply(result.Status, result.AccountID, result.AccessToken, result.ExpiresAt, result.Reason),
+                                  WireJson.Default.TokenSignInReply);
+                }
+                finally
+                {
+                    _signIns.TryRemove(request.SignInID, out _);
+                }
+            }
+            case "service.token.cancelSignIn":
+            {
+                var request = Read(payload, WireJson.Default.TokenCancelSignInRequest);
+                var host = TokenHost();
+                if (_signIns.TryGetValue(request.SignInID, out var waiting))
+                {
+                    try { waiting.Cancel(); }
+                    catch (Exception) { /* the sign-in finished meanwhile, or a host callback threw: best effort */ }
+                }
+                try { host.CancelSignIn(request.SignInID); }
+                catch (Exception) { /* best effort: the host's dialog may be gone already */ }
+                return Empty;
+            }
             default:
                 Report($"unknown service request {type}");
                 throw new EngineServiceException(ServiceErrorKind.NotFound, $"the host has no {type}");
         }
     }
+
+    private IExternalTokenHost TokenHost() =>
+        _host as IExternalTokenHost ?? throw new EngineServiceException(ServiceErrorKind.NotFound, "the host supplies no external tokens");
 
     private ITextGenerator TextGenerator() =>
         _host.TextGenerator ?? throw new EngineServiceException(ServiceErrorKind.NotFound, "the host has no text generator");

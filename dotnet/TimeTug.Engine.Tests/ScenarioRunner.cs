@@ -12,7 +12,8 @@ namespace TimeTug.Engine.Tests;
 /// <c>files</c>, <c>host.http</c> / <c>credentials.seed</c> / <c>auth</c> / <c>prompt</c>, and the steps
 /// <c>send</c>, <c>sendRaw</c>, <c>expect</c> (<c>events</c>: an ordered subsequence of every message since the
 /// previous <c>events</c> expectation; <c>state</c>: the latest state; <c>noMoreMessagesFor</c>), <c>restart</c>,
-/// <c>destroy</c> and <c>replyToPending</c>.
+/// <c>destroy</c> and <c>replyToPending</c>; and, for host-supplied tokens, <c>host.tokens</c>, the <c>setTokens</c>
+/// step and the expectations <c>absent</c> and <c>diagnosticsExclude</c> (all documented in the Swift runner).
 ///
 /// A <c>send</c> whose envelope the wrapper can express (a known command, a string id or none, v 1, and a payload
 /// that its record writes back unchanged) goes through <see cref="IEngine.SendAsync"/>; anything else goes in as raw
@@ -49,7 +50,11 @@ internal sealed class ScenarioRunner
         {
             return new Result(_name, [$"cannot write the scenario files: {exception.Message}"], 0, 0);
         }
-        var host = new ScriptedHost(_scenario["host"] as JsonObject ?? new JsonObject());
+        var hostScript = _scenario["host"] as JsonObject ?? new JsonObject();
+        // The wrapper sets the config flag from the host's type, so a scenario that asks for external tokens gets a
+        // host that implements the interface.
+        var wantsTokens = IsTrue(_scenario["config"]?["externalTokens"]);
+        var host = wantsTokens ? new ScriptedTokenHost(hostScript) : new ScriptedHost(hostScript);
         EngineOptions options;
         try
         {
@@ -80,6 +85,7 @@ internal sealed class ScenarioRunner
         if (_scenario["steps"] is not JsonArray steps) return new Result(_name, ["the scenario has no steps"], 0, 0);
 
         var cursor = 0;
+        var diagnosticsCursor = 0;
         for (var index = 0; index < steps.Count; index++)
         {
             var step = steps[index]!;
@@ -88,6 +94,10 @@ internal sealed class ScenarioRunner
             {
                 var envelope = command.DeepClone().AsObject();
                 if (!envelope.ContainsKey("v")) envelope["v"] = 1;
+                if (Json.String(envelope["type"]) == "test.advanceClock" && envelope["payload"]?["seconds"] is JsonValue seconds)
+                {
+                    host.AdvanceClock(Json.Number(seconds));
+                }
                 if (await SendTypedAsync(engine, envelope)) typed++;
                 else
                 {
@@ -99,6 +109,10 @@ internal sealed class ScenarioRunner
             {
                 Send(engine, text);
                 raw++;
+            }
+            else if (step["setTokens"] is JsonObject tokens)
+            {
+                host.SetTokens(tokens);
             }
             else if (IsTrue(step["restart"]))
             {
@@ -136,6 +150,28 @@ internal sealed class ScenarioRunner
                     {
                         failures.Add($"{label}: expected state {Json.Text(state)}; latest state {Json.Text(host.LatestState)}; "
                                      + $"received since the last events expectation: {host.Summary(cursor)}");
+                        break;
+                    }
+                }
+                if (expectation["absent"] is JsonArray absent)
+                {
+                    var found = host.Messages.FirstOrDefault(message => absent.Any(pattern => Json.Matches(pattern, message)));
+                    if (found is not null)
+                    {
+                        failures.Add($"{label}: a message that should be absent was received: {Json.Text(found)}");
+                        break;
+                    }
+                }
+                if (expectation["diagnosticsExclude"] is JsonArray excluded)
+                {
+                    var texts = excluded.Select(Json.String).OfType<string>().ToList();
+                    var diagnostics = host.Messages.Skip(diagnosticsCursor)
+                        .Where(message => Json.String(message["type"]) == "event.diagnostic").Select(Json.Text).ToList();
+                    diagnosticsCursor = host.MessageCount;
+                    var leak = diagnostics.FirstOrDefault(line => texts.Any(text => line.Contains(text, StringComparison.Ordinal)));
+                    if (leak is not null)
+                    {
+                        failures.Add($"{label}: a diagnostic contains an excluded text: {leak}");
                         break;
                     }
                 }
@@ -217,8 +253,10 @@ internal sealed class ScenarioRunner
                 case "testing": testing = IsTrue(value); break;
                 case "testClockStart":
                     clockStart = value is null ? null : DateTimeOffset.Parse(Json.String(value)!, System.Globalization.CultureInfo.InvariantCulture);
+                    if (clockStart is { } start) host.ClockStart = start;
                     break;
                 case "textGeneration": host.TextGenerationEnabled = IsTrue(value); break;
+                case "externalTokens": break;   // decided by the host's type, see RunAsync
                 case "connectors":
                     foreach (var (family, client) in value!.AsObject())
                     {
@@ -273,7 +311,7 @@ internal sealed class ScenarioRunner
 /// (<c>noReply</c>, <c>authorize: "never"</c>) stay pending, ignoring cancellation like the Swift host, until
 /// <see cref="ReplyToPending"/>.
 /// </summary>
-internal sealed class ScriptedHost : IEngineHost, ICredentialStore, IHttpTransport, IAuthorizationInteraction, ITextGenerator
+internal class ScriptedHost : IEngineHost, ICredentialStore, IHttpTransport, IAuthorizationInteraction, ITextGenerator
 {
     private readonly JsonObject _script;
     private readonly object _lock = new();
@@ -285,10 +323,12 @@ internal sealed class ScriptedHost : IEngineHost, ICredentialStore, IHttpTranspo
     private NativeEngine? _engine;
     private nint _lastHandle;
     private int _redirects;
+    private double _clockOffset;
 
     public ScriptedHost(JsonObject script)
     {
         _script = script;
+        Tokens = script["tokens"] is JsonObject given ? (JsonObject)given.DeepClone() : new JsonObject();
         if (script["credentials"]?["seed"] is JsonObject seed)
         {
             foreach (var (id, secrets) in seed)
@@ -302,6 +342,34 @@ internal sealed class ScriptedHost : IEngineHost, ICredentialStore, IHttpTranspo
 
     public bool TextGenerationEnabled { get; set; }
 
+    /// <summary>The scripted <c>host.tokens</c> answers; <c>setTokens</c> replaces members.</summary>
+    protected JsonObject Tokens { get; }
+
+    /// <summary>The engine's manual clock as far as the host can follow it: the config's start plus every
+    /// <c>test.advanceClock</c> sent to the current engine.</summary>
+    public DateTimeOffset ClockStart { get; set; } = DateTimeOffset.UtcNow;
+
+    public DateTimeOffset ClockNow { get { lock (_lock) return ClockStart.AddSeconds(_clockOffset); } }
+
+    public void AdvanceClock(double seconds)
+    {
+        lock (_lock) _clockOffset += seconds;
+    }
+
+    public void SetTokens(JsonObject answers)
+    {
+        lock (_lock)
+        {
+            foreach (var (key, value) in answers) Tokens[key] = value?.DeepClone();
+        }
+    }
+
+    /// <summary>The current scripted answer of <paramref name="key"/> (<c>get</c> or <c>signIn</c>).</summary>
+    protected JsonNode? TokenAnswer(string key)
+    {
+        lock (_lock) return Tokens[key]?.DeepClone();
+    }
+
     public IReadOnlyList<JsonNode> Messages { get { lock (_lock) return _received.ToList(); } }
 
     public int MessageCount { get { lock (_lock) return _received.Count; } }
@@ -314,6 +382,7 @@ internal sealed class ScriptedHost : IEngineHost, ICredentialStore, IHttpTranspo
         {
             _engine = engine;
             _lastHandle = engine.Handle;
+            _clockOffset = 0;   // a new engine starts its manual clock again
         }
     }
 
@@ -380,7 +449,7 @@ internal sealed class ScriptedHost : IEngineHost, ICredentialStore, IHttpTranspo
         foreach (var id in ids) NativeMethods.Reply(handle, id, """{"v":1,"result":{}}""");
     }
 
-    private Task<T> Pending<T>(T answer)
+    protected Task<T> Pending<T>(T answer)
     {
         var source = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
         lock (_lock) _pending.Add(() => source.TrySetResult(answer));
@@ -531,4 +600,54 @@ internal sealed class ScriptedHost : IEngineHost, ICredentialStore, IHttpTranspo
 
     public ValueTask<string> GenerateAsync(string instructions, string prompt, CancellationToken cancellationToken) =>
         throw new EngineServiceException(ServiceErrorKind.NotFound, "the scripted host has no service.text.generate");
+}
+
+/// <summary>The scripted host for a scenario with <c>"externalTokens": true</c>: it also implements
+/// <see cref="IExternalTokenHost"/> from <c>host.tokens</c>. The Swift host answers the same scripts on the wire.</summary>
+internal sealed class ScriptedTokenHost(JsonObject script) : ScriptedHost(script), IExternalTokenHost
+{
+    public ValueTask<ExternalTokenResult> GetTokenAsync(ExternalTokenRequest request, CancellationToken cancellationToken)
+    {
+        var answer = TokenAnswer("get");
+        if (IsNever(answer)) return new ValueTask<ExternalTokenResult>(Pending(ExternalTokenResult.Unavailable()));
+        FailIfError(answer);
+        if (answer is not JsonObject scripted) return ValueTask.FromResult(ExternalTokenResult.Unavailable());
+        return ValueTask.FromResult(new ExternalTokenResult(
+            Json.String(scripted["status"]) ?? "unavailable", Json.String(scripted["accessToken"]), Expiry(scripted),
+            Json.String(scripted["reason"])));
+    }
+
+    public ValueTask<ExternalSignInResult> SignInAsync(ExternalSignInRequest request, CancellationToken cancellationToken)
+    {
+        var answer = TokenAnswer("signIn");
+        if (IsNever(answer)) return new ValueTask<ExternalSignInResult>(Pending(ExternalSignInResult.Unavailable()));
+        FailIfError(answer);
+        if (answer is not JsonObject scripted) return ValueTask.FromResult(ExternalSignInResult.Unavailable());
+        return ValueTask.FromResult(new ExternalSignInResult(
+            Json.String(scripted["status"]) ?? "unavailable", Json.String(scripted["accountID"]), Json.String(scripted["accessToken"]),
+            Expiry(scripted), Json.String(scripted["reason"])));
+    }
+
+    public void CancelSignIn(string signInID) { }
+
+    private static bool IsNever(JsonNode? answer) => Json.String(answer) == "never";
+
+    /// <summary>A scripted <c>{"error": {"kind": ...}}</c> becomes the failure the wrapper turns into that wire error.</summary>
+    private static void FailIfError(JsonNode? answer)
+    {
+        if (answer is not JsonObject scripted || scripted["error"] is not JsonObject error) return;
+        var kind = Json.String(error["kind"]) switch
+        {
+            "network" => ServiceErrorKind.Network,
+            "cancelled" => ServiceErrorKind.Cancelled,
+            "notFound" => ServiceErrorKind.NotFound,
+            "denied" => ServiceErrorKind.Denied,
+            _ => ServiceErrorKind.Failed,
+        };
+        throw new EngineServiceException(kind, Json.String(error["message"]) ?? "scripted error");
+    }
+
+    /// <summary>`expiresInSeconds` relative to the manual clock the host follows.</summary>
+    private DateTimeOffset? Expiry(JsonObject scripted) =>
+        scripted["expiresInSeconds"] is JsonValue seconds ? ClockNow.AddSeconds(Json.Number(seconds)) : null;
 }

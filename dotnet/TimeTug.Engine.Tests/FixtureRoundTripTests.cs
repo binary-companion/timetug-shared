@@ -100,6 +100,10 @@ public class FixtureRoundTripTests
     [InlineData("edge-reply-signin-last.json", "SignInLastValuesReply")]
     [InlineData("edge-reply-text-availability.json", "TextAvailability")]
     [InlineData("edge-reply-text-generate.json", "TextGenerateReply")]
+    [InlineData("edge-reply-token-ok.json", "TokenGetReply")]
+    [InlineData("edge-reply-token-interaction-required.json", "TokenGetReply")]
+    [InlineData("edge-reply-token-unavailable.json", "TokenGetReply")]
+    [InlineData("edge-reply-token-blocked.json", "TokenSignInReply")]
     public void ReplyResultsRoundTrip(string file, string record)
     {
         var original = Conformance.Load(Path.Combine(Conformance.FixtureDirectory, file));
@@ -115,6 +119,8 @@ public class FixtureRoundTripTests
             "SignInLastValuesReply" => Again(original, WireJson.Default.SignInLastValuesReply),
             "TextAvailability" => Again(original, WireJson.Default.TextAvailability),
             "TextGenerateReply" => Again(original, WireJson.Default.TextGenerateReply),
+            "TokenGetReply" => Again(original, WireJson.Default.TokenGetReply),
+            "TokenSignInReply" => Again(original, WireJson.Default.TokenSignInReply),
             _ => throw new ArgumentException(record),
         };
         Assert.True(Json.Equal(original, JsonNode.Parse(written)), $"{file}: wrote {written}");

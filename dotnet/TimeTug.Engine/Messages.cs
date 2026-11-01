@@ -223,6 +223,11 @@ public sealed record EngineCapabilities
 {
     public bool SystemCalendar { get; init; }
     public bool TextGeneration { get; init; }
+
+    /// <summary>True when the engine asks the host for access tokens (<see cref="IExternalTokenHost"/>). Absent on the
+    /// wire when false, so the message of a host that did not opt in is the one of earlier releases.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ExternalTokens { get; init; }
 }
 
 /// <summary>Payload of <c>event.takeoverDue</c>.</summary>
