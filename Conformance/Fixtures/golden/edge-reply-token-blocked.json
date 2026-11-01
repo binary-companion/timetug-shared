@@ -1,0 +1,7 @@
+{
+  "result": {
+    "reason": "adminConsentRequired",
+    "status": "blocked"
+  },
+  "v": 1
+}

@@ -30,6 +30,9 @@ public struct WireConfig: Codable, Equatable, Sendable {
     /// OAuth client ids by kind family (`google`, `microsoft`).
     public var connectors: [String: ConnectorClient]
     public var textGeneration: Bool
+    /// True when the host answers the `service.token.*` requests (it supplies access tokens from the operating
+    /// system's own account service). Absent in the JSON means false; without it the engine offers no brokered kind.
+    public var externalTokens: Bool
     /// An IANA zone id; nil means the process zone.
     public var timeZone: String?
     public var testing: Bool
@@ -46,13 +49,27 @@ public struct WireConfig: Codable, Equatable, Sendable {
         self.platform = platform
         self.connectors = connectors
         self.textGeneration = textGeneration
+        self.externalTokens = false
         self.timeZone = timeZone
         self.testing = testing
         self.testClockStart = testClockStart
     }
 
+    /// The same, with the opt-in for host-supplied access tokens. `externalTokens` has no default so a call that
+    /// leaves it out still resolves to the initializer above.
+    public init(
+        v: Int = 1, dataDirectory: String, platform: String, connectors: [String: ConnectorClient] = [:],
+        textGeneration: Bool = false, externalTokens: Bool, timeZone: String? = nil, testing: Bool = false,
+        testClockStart: String? = nil
+    ) {
+        self.init(
+            v: v, dataDirectory: dataDirectory, platform: platform, connectors: connectors,
+            textGeneration: textGeneration, timeZone: timeZone, testing: testing, testClockStart: testClockStart)
+        self.externalTokens = externalTokens
+    }
+
     private enum CodingKeys: String, CodingKey {
-        case v, dataDirectory, platform, connectors, textGeneration, timeZone, testing, testClockStart
+        case v, dataDirectory, platform, connectors, textGeneration, externalTokens, timeZone, testing, testClockStart
     }
 
     public init(from decoder: Decoder) throws {
@@ -62,6 +79,7 @@ public struct WireConfig: Codable, Equatable, Sendable {
         platform = try c.decode(String.self, forKey: .platform)
         connectors = try c.decodeIfPresent([String: ConnectorClient].self, forKey: .connectors) ?? [:]
         textGeneration = try c.decodeIfPresent(Bool.self, forKey: .textGeneration) ?? false
+        externalTokens = try c.decodeIfPresent(Bool.self, forKey: .externalTokens) ?? false
         timeZone = try c.decodeIfPresent(String.self, forKey: .timeZone)
         testing = try c.decodeIfPresent(Bool.self, forKey: .testing) ?? false
         testClockStart = try c.decodeIfPresent(String.self, forKey: .testClockStart)

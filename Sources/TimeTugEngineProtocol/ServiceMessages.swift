@@ -11,6 +11,7 @@ public enum ServiceMessages {
         "service.auth.beginRedirect", "service.auth.authorize", "service.auth.closeRedirect",
         "service.auth.promptCredentials", "service.signIn.prepare", "service.signIn.lastNonSecretValues",
         "service.text.availability", "service.text.generate",
+        "service.token.get", "service.token.signIn", "service.token.cancelSignIn",
     ]
 }
 
@@ -207,4 +208,80 @@ public struct TextGenerateRequest: Codable, Equatable, Sendable {
 
 public struct TextGenerateReply: Codable, Equatable, Sendable {
     public var text: String
+}
+
+// MARK: - External tokens
+
+/// `service.token.get`: a silent access token for an account the host's own account service knows (Windows' Web
+/// Account Manager). The host never shows UI for this request.
+public struct TokenGetRequest: Codable, Equatable, Sendable {
+    public var connectionID: String
+    public var accountID: String
+    public var email: String?
+    public var scopes: [String]
+    public var forceRefresh: Bool
+    public init(connectionID: String, accountID: String, email: String?, scopes: [String], forceRefresh: Bool) {
+        self.connectionID = connectionID
+        self.accountID = accountID
+        self.email = email
+        self.scopes = scopes
+        self.forceRefresh = forceRefresh
+    }
+}
+
+/// Reply to `service.token.get`. `status`: `ok` (with `accessToken` and `expiresAt`, the UTC millisecond string),
+/// `interactionRequired` or `unavailable`. `reason` is a documented code, never free text. An unknown `status`
+/// decodes as is; the engine decides what it means.
+public struct TokenGetReply: Codable, Equatable, Sendable {
+    public var status: String
+    public var accessToken: String?
+    public var expiresAt: String?
+    public var reason: String?
+    public init(status: String, accessToken: String? = nil, expiresAt: String? = nil, reason: String? = nil) {
+        self.status = status
+        self.accessToken = accessToken
+        self.expiresAt = expiresAt
+        self.reason = reason
+    }
+}
+
+/// `service.token.signIn`: the host shows its own sign-in dialog. No timeout; ended by the answer or by
+/// `service.token.cancelSignIn` with the same `signInID`.
+public struct TokenSignInRequest: Codable, Equatable, Sendable {
+    public var signInID: String
+    public var scopes: [String]
+    public var accountID: String?
+    public var email: String?
+    public init(signInID: String, scopes: [String], accountID: String? = nil, email: String? = nil) {
+        self.signInID = signInID
+        self.scopes = scopes
+        self.accountID = accountID
+        self.email = email
+    }
+}
+
+/// Reply to `service.token.signIn`. `status`: `ok` (with `accountID`, `accessToken`, `expiresAt`), `blocked` or
+/// `unavailable`.
+public struct TokenSignInReply: Codable, Equatable, Sendable {
+    public var status: String
+    public var accountID: String?
+    public var accessToken: String?
+    public var expiresAt: String?
+    public var reason: String?
+    public init(
+        status: String, accountID: String? = nil, accessToken: String? = nil, expiresAt: String? = nil,
+        reason: String? = nil
+    ) {
+        self.status = status
+        self.accountID = accountID
+        self.accessToken = accessToken
+        self.expiresAt = expiresAt
+        self.reason = reason
+    }
+}
+
+/// `service.token.cancelSignIn`: the person cancelled in TimeTug; the host closes its dialog if it still can.
+public struct TokenCancelSignInRequest: Codable, Equatable, Sendable {
+    public var signInID: String
+    public init(signInID: String) { self.signInID = signInID }
 }
