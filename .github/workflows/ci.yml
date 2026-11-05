@@ -171,7 +171,7 @@ jobs:
       - name: Install Swift
         shell: pwsh
         run: ./scripts/ci/install-swift-windows.ps1
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 8.0.x
       - name: Build the engine library
@@ -196,7 +196,7 @@ jobs:
       - name: Install Swift
         shell: pwsh
         run: ./scripts/ci/install-swift-windows.ps1
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 8.0.x
       - name: Build the engine library
@@ -219,7 +219,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Select newest Xcode
         run: scripts/ci/select-xcode.sh
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 8.0.x
       - name: Build the engine library
@@ -265,7 +265,7 @@ jobs:
             mkdir -p build/native/linux
             cp "$(swift build -c release --show-bin-path)/libTimeTugEngineC.so" build/native/linux/
             cp -L /usr/lib/swift/linux/*.so build/native/linux/'
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 8.0.x
       - name: C# tests
@@ -407,7 +407,7 @@ jobs:
         id: nuget
         if: steps.gate.outputs.run == 'true'
         run: python3 scripts/ci/compat/compat.py nuget-baseline
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         if: steps.nuget.outputs.version != ''
         with:
           dotnet-version: 8.0.x
