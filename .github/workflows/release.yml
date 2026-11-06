@@ -220,7 +220,7 @@ jobs:
       - name: Assemble the native set and check its exports
         shell: pwsh
         run: ./dotnet/pack/assemble-native.ps1 -Rid $env:RID -Out "build/native/$env:RID"
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 8.0.x
       - name: C# tests against the native set
@@ -258,7 +258,7 @@ jobs:
         with:
           name: native-win-arm64
           path: build/native/win-arm64
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 8.0.x
       - name: C# tests on this architecture
@@ -319,7 +319,7 @@ jobs:
         with:
           name: TimeTug.Engine-${{ needs.nuget-version.outputs.version }}
           path: build/nupkg
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         if: steps.setup.outputs.configured == 'true'
         with:
           dotnet-version: 8.0.x
