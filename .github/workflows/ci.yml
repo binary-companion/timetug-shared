@@ -26,6 +26,12 @@
 #                  the logic; its tests run in the architecture job.
 #   compat-dotnet  the same rule for the managed wrapper: dotnet pack with package validation against the latest
 #                  TimeTug.Engine on nuget.org (skipped for semver:major, and when nothing is published).
+#   rust-macos, rust-linux, rust-windows-x64, rust-windows-arm64
+#                  the Rust workspace of the v2 branch (AGENTS.md, "On v2: Rust"): cargo test and a release build on each
+#                  platform, then a check that the C interface library has the file name the C# wrapper loads
+#                  (TimeTugEngineC.dll, libTimeTugEngineC.dylib, libTimeTugEngineC.so).
+#   rust-lint      rustfmt, clippy, cargo-deny, the crate architecture and tokio feature checks, and their tests.
+#   rust-targets   release builds for x86_64-apple-darwin, aarch64-apple-ios and aarch64-apple-ios-sim.
 # The labeled and unlabeled triggers re-run CI when a label changes, so adding or removing semver:major re-decides compat.
 # Every swift test runs with --force-resolved-versions, so a Package.resolved that no longer matches
 # Package.swift fails here instead of being silently re-resolved.
@@ -421,3 +427,146 @@ jobs:
         run: |
           dotnet pack dotnet/TimeTug.Engine -c Release -o build/nupkg-compat \
             "-p:Version=$VERSION" "-p:TimeTugPackageValidationBaseline=$VERSION"
+
+  # The Rust port (v2 branch). Each job installs the toolchain pinned in
+  # rust-toolchain.toml. The test steps use bash so that a failing cargo command fails the step on Windows too.
+  rust-macos:
+    runs-on: macos-26
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Release build
+        run: cargo build --workspace --release --locked
+      - name: The C interface library has its documented name
+        run: test -f target/release/libTimeTugEngineC.dylib
+
+  rust-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Release build
+        run: cargo build --workspace --release --locked
+      - name: The C interface library has its documented name
+        run: test -f target/release/libTimeTugEngineC.so
+
+  rust-windows-x64:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Release build
+        run: cargo build --workspace --release --locked
+      - name: The C interface library has its documented name
+        run: test -f target/release/TimeTugEngineC.dll
+
+  rust-windows-arm64:
+    runs-on: windows-11-arm
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install rustup when the image has none
+        shell: pwsh
+        run: |
+          if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
+            Invoke-WebRequest -Uri https://static.rust-lang.org/rustup/dist/aarch64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
+            ./rustup-init.exe -y --default-toolchain none --profile minimal
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          }
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Release build
+        run: cargo build --workspace --release --locked
+      - name: The C interface library has its documented name
+        run: test -f target/release/TimeTugEngineC.dll
+
+  rust-lint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Format
+        run: cargo fmt --all --check
+      # Local overrides of the connector crates live in the git-ignored .cargo/config.local.toml
+      # (scripts/dev/use-local-connectors.sh); no tracked cargo config may patch them.
+      - name: No tracked cargo config patches the connector crates
+        run: |
+          if git grep -nE '^[[:space:]]*\[patch' -- '.cargo/config.toml' '.cargo/config' '.cargo/config.local.toml'; then
+            echo "::error::a tracked cargo config contains a [patch] section; use scripts/dev/use-local-connectors.sh"
+            exit 1
+          fi
+          if git ls-files --error-unmatch .cargo/config.local.toml > /dev/null 2>&1; then
+            echo "::error::.cargo/config.local.toml is tracked"
+            exit 1
+          fi
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      # Keep the version equal to the one in AGENTS.md ("On v2: Rust").
+      - name: Cache cargo-deny
+        id: cargo-deny-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: cargo-deny-0.20.2-${{ runner.os }}-${{ runner.arch }}-rust-1.99.1
+      - name: Install cargo-deny
+        if: steps.cargo-deny-cache.outputs.cache-hit != 'true'
+        run: cargo install --locked cargo-deny --version 0.20.2
+      - name: Licences, bans and advisories
+        run: cargo deny check
+      - name: Crate architecture and tokio features
+        run: |
+          python3 scripts/ci/check-crate-architecture.py
+          python3 scripts/ci/check-tokio-features.py
+      - name: Tests of the Rust checks and of the local-override script
+        run: |
+          python3 -m unittest discover -s scripts/ci/tests -p 'test_check_crate_architecture.py'
+          python3 -m unittest discover -s scripts/ci/tests -p 'test_check_tokio_features.py'
+          python3 -m unittest discover -s scripts/ci/tests -p 'test_use_local_connectors.py'
+
+  rust-targets:
+    runs-on: macos-26
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Build for the other Apple targets
+        run: |
+          for target in x86_64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim; do
+            cargo build --workspace --release --locked --target "$target"
+          done

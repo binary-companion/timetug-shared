@@ -6,3 +6,5 @@ build/
 dotnet/**/bin/
 dotnet/**/obj/
 dotnet/**/TestResults/
+/target
+/.cargo/config.local.toml

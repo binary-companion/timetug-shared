@@ -1,0 +1,43 @@
+[package]
+name = "timetug-engine-ffi"
+description = "Generated bindings for Swift and Kotlin (new; UniFFI arrives in phase 5)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["staticlib", "cdylib", "lib"]
+
+# Cargo cannot override single workspace lints, so these are the workspace lints (conventions section 2) with
+# unsafe_code allowed and every unsafe operation inside an unsafe fn still marked explicitly.
+[lints.rust]
+unsafe_code = "allow"
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+
+[dependencies]
+timetug-engine-protocol = { workspace = true }
+timetug-engine = { workspace = true }
+timetug-core = { workspace = true }
+calendar-core = { workspace = true }
+calendar-oauth = { workspace = true }
+calendar-ical = { workspace = true }
+calendar-google = { workspace = true }
+calendar-microsoft = { workspace = true }
+calendar-caldav = { workspace = true }
+calendar-ical-subscription = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
