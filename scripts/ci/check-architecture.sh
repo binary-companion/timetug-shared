@@ -33,6 +33,8 @@ only TimeTugEngineProtocol "Foundation CalendarCore TimeTugCore CalendarBridge T
 # The C interface adds the library's network connector kinds it registers; nothing platform-specific.
 only TimeTugEngineC "Foundation CalendarCore TimeTugCore CalendarBridge TimeTugEngine TimeTugEngineProtocol GoogleCalendar MicrosoftCalendar CalDAVCalendar ICalSubscription TimeTugEngineC Testing" Sources/TimeTugEngineC Tests/TimeTugEngineCTests
 only DedupBenchmark "Foundation CalendarCore TimeTugCore" Sources/DedupBenchmark
+# The vector exporter reads the engine, the wire layer and Core to write the golden vectors; it is never shipped.
+only VectorExporter "Foundation CalendarCore TimeTugCore TimeTugEngine TimeTugEngineProtocol" Sources/VectorExporter
 
 # Only the C interface exports C symbols.
 while IFS= read -r hit; do
