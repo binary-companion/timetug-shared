@@ -73,10 +73,10 @@ func sameJSON(_ a: Any, _ b: Any) -> Bool {
     case (is NSNull, is NSNull):
         return true
     case (let x as NSNumber, let y as NSNumber):
-        if CFGetTypeID(x) == CFBooleanGetTypeID() || CFGetTypeID(y) == CFBooleanGetTypeID() { return x == y }
         let (dx, dy) = (x.doubleValue, y.doubleValue)
         if dx == dy { return true }
-        if x.objCType.pointee != 100 && x.objCType.pointee != 102 && y.objCType.pointee != 100 && y.objCType.pointee != 102 { return x.int64Value == y.int64Value }
+        // Whole numbers (instants, counts) must match exactly; only fractions get the tolerance.
+        if dx.rounded() == dx, dy.rounded() == dy, abs(dx) < 9e15, abs(dy) < 9e15 { return false }
         return abs(dx - dy) <= 1e-12 * max(abs(dx), abs(dy))
     default:
         return false
