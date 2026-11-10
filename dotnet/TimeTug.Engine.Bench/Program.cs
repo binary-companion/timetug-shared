@@ -101,7 +101,7 @@ internal static class Program
                 Rid: RuntimeInformation.RuntimeIdentifier,
                 ReadyMs: Math.Round(readyMs, 1),
                 WorkingSetBytes: process.WorkingSet64,
-                PrivateBytes: process.PrivateMemorySize64,
+                PrivateBytes: PrivateBytes(process),
                 CpuMsIdle: Math.Round((cpuEnd - cpuStart).TotalMilliseconds, 1),
                 IdleSeconds: idleSeconds,
                 NativeModuleBytes: NativeModuleBytes(process));
@@ -112,6 +112,22 @@ internal static class Program
     }
 
     /// <summary>
+    /// Private memory: <c>PrivateMemorySize64</c> on Windows and Linux. On macOS that property is not available, so the
+    /// process's physical footprint (<c>ri_phys_footprint</c> of <c>proc_pid_rusage</c>, the figure Activity Monitor
+    /// calls Memory) is used.
+    /// </summary>
+    private static long PrivateBytes(Process process)
+    {
+        if (!OperatingSystem.IsMacOS()) return process.PrivateMemorySize64;
+        var buffer = new byte[512];
+        if (proc_pid_rusage(Environment.ProcessId, 0, buffer) != 0) return -1;
+        return (long)BitConverter.ToUInt64(buffer, 72); // rusage_info_v0: ri_phys_footprint
+    }
+
+    [DllImport("libproc")]
+    private static extern int proc_pid_rusage(int pid, int flavor, byte[] buffer);
+
+    /// <summary>
     /// The sum of the sizes of the native modules loaded from the application directory (.dll, .dylib, .so; managed
     /// assemblies excluded). Where the platform cannot list a process's modules (macOS), the native files of the
     /// application directory are summed instead: the engine library and what ships beside it.
@@ -119,17 +135,24 @@ internal static class Program
     private static long NativeModuleBytes(Process process)
     {
         var appDirectory = Path.GetFullPath(AppContext.BaseDirectory);
-        IEnumerable<string> paths;
+        var paths = new List<string>();
         try
         {
-            paths = process.Modules.Cast<ProcessModule>().Select(module => module.FileName).ToList();
-            Console.Error.WriteLine("nativeModuleBytes: loaded modules");
+            paths.AddRange(process.Modules.Cast<ProcessModule>().Select(module => module.FileName));
         }
         catch (Exception exception) when (exception is PlatformNotSupportedException or InvalidOperationException
                                               or System.ComponentModel.Win32Exception or NotSupportedException)
         {
+            // Handled below: no modules listed.
+        }
+        if (paths.Count == 0)
+        {
             Console.Error.WriteLine("nativeModuleBytes: native files of the application directory (modules not listable)");
-            paths = Directory.EnumerateFiles(appDirectory, "*", SearchOption.AllDirectories);
+            paths.AddRange(Directory.EnumerateFiles(appDirectory, "*", SearchOption.AllDirectories));
+        }
+        else
+        {
+            Console.Error.WriteLine("nativeModuleBytes: loaded modules");
         }
 
         long total = 0;
