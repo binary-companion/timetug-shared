@@ -4,6 +4,8 @@
 name: Engine benchmark
 
 on:
+  push: # TEMPORARY: removed before the final push
+    branches: [rust-phase0-bench]
   workflow_dispatch:
     inputs:
       platform:
@@ -27,7 +29,7 @@ jobs:
     steps:
       - id: matrix
         env:
-          PLATFORM: ${{ inputs.platform }}
+          PLATFORM: ${{ inputs.platform || 'all' }} # TEMPORARY default
         run: |
           python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import json, os
@@ -75,12 +77,12 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          IDLE_SECONDS: ${{ inputs.idle-seconds }}
+          IDLE_SECONDS: ${{ inputs.idle-seconds || '20' }} # TEMPORARY default
         run: ./scripts/benchmarks/run-engine-bench.ps1 -IdleSeconds ([int]$env:IDLE_SECONDS) -Out build/bench/engine-bench.json
       - name: Measure (macOS)
         if: runner.os == 'macOS'
         env:
-          IDLE_SECONDS: ${{ inputs.idle-seconds }}
+          IDLE_SECONDS: ${{ inputs.idle-seconds || '20' }} # TEMPORARY default
         run: scripts/benchmarks/run-engine-bench.sh --idle-seconds "$IDLE_SECONDS" --out build/bench/engine-bench.json
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
