@@ -33,7 +33,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, v2]
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
@@ -232,7 +232,8 @@ jobs:
           python3 scripts/ci/count-swift-tests.py dotnet-test.log --dotnet-floor-file scripts/ci/dotnet-test-floor.txt
 
   dotnet-linux:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest became 26.04, which has no libxml2.so.2 (a dependency of the Swift runtime copied out of the swift:6.0 container), so the engine library fails to load.
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     env:
