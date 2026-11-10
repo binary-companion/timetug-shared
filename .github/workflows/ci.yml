@@ -15,7 +15,8 @@
 #                  then run the tests with the Swift runtime removed from the PATH (scripts/ci/run-dotnet-tests.ps1),
 #                  with a floor on the test count (scripts/ci/dotnet-test-floor.txt).
 #   dotnet-macos, dotnet-linux
-#                  the same C# tests against libTimeTugEngineC.dylib and .so (extra coverage).
+#                  the same C# tests against libTimeTugEngineC.dylib and .so (extra coverage); dotnet-macos also builds the
+#                  benchmark harness (dotnet/TimeTug.Engine.Bench, run by hand through bench.yml).
 #   architecture   portability rules, repository contracts and the tests of the release script, the bump script and workflows.
 #   compat         backward compatibility with the latest release (AGENTS.md, "Backward compatibility"), pull requests only:
 #                  the baseline's fixtures and scenarios changed only by additions and its persisted-format fixtures
@@ -232,6 +233,8 @@ jobs:
           dotnet-version: 8.0.x
       - name: Build the engine library
         run: swift build -c release --product TimeTugEngineC
+      - name: Build the benchmark harness
+        run: dotnet build dotnet/TimeTug.Engine.Bench -c Release
       - name: C# tests
         run: |
           set -euo pipefail
