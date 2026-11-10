@@ -1,0 +1,22 @@
+[package]
+name = "timetug-engine-protocol"
+description = "JSON protocol v1 of the engine (port of TimeTugEngineProtocol)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+timetug-engine = { workspace = true }
+timetug-core = { workspace = true }
+timetug-bridge = { workspace = true }
+calendar-core = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+jiff = { workspace = true }
+thiserror = { workspace = true }

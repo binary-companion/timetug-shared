@@ -1,0 +1,11 @@
+# Machine-local overrides: scripts/dev/use-local-connectors.sh writes the git-ignored .cargo/config.local.toml, which
+# holds a [patch] section pointing the connector crates at a local checkout. This tracked file must never contain a
+# [patch] section (the rust-lint job checks it). `include` must come before the first table.
+include = [{ path = "config.local.toml", optional = true }]
+
+# Windows builds link the C runtime statically, so the engine is one DLL with no redistributable (design section 6.4).
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
+
+[target.aarch64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
