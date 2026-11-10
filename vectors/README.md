@@ -45,6 +45,16 @@ Every file is one JSON document:
 | `wire/dates.json` | 413 | `WireDates.string`, `WireDates.date` |
 | `inference/prompts.json` | 150 | `PromptBuilder.prompt`, `JudgmentInput.cacheKey`, the answer parsing of `TextGeneratorAdjudicator.judge` |
 
+## When to re-check the vectors
+
+`.github/workflows/vectors-drift.yml` re-runs the export every Monday (and on `workflow_dispatch`) and opens an issue when it differs. Also re-check by hand when any of these changes:
+
+- [ ] Xcode, the macOS runner image or the Swift toolchain (run `scripts/dev/export-vectors.sh`, then inspect `git diff vectors/`).
+- [ ] Once the Rust crates exist: the `jiff` version (its zone database must still give the answers in the vectors).
+- [ ] A new Swift zone rule or zone-dependent behaviour: add a vector for it.
+
+Investigate every diff in `zones/*`, `ical/timezones`, `core/url-accept` and `text/*`; never accept one blindly. Pin the cases to past dates or fix the cause, as described elsewhere in this file.
+
 ## Not covered
 
 - The ledger's size cap is covered by one case (`takeover/ledger.json`, `cap-2100-events-fired-then-pruned`); the retention window by `hand-prune-retention`. The cap on lessons and verdict entries (`LessonBook.maxLessons`, `VerdictCache.maxEntries`) is covered by the Swift tests only.
