@@ -32,6 +32,8 @@
 #                  (TimeTugEngineC.dll, libTimeTugEngineC.dylib, libTimeTugEngineC.so).
 #   rust-lint      rustfmt, clippy, cargo-deny, the crate architecture and tokio feature checks, and their tests.
 #   rust-targets   release builds for x86_64-apple-darwin, aarch64-apple-ios and aarch64-apple-ios-sim.
+#   vectors-current  re-runs the VectorExporter (scripts/dev/export-vectors.sh) and fails if vectors/ differs from the committed
+#                  files: the golden vectors the Rust tests replay stay what the Swift code produces, for as long as it exists.
 # The labeled and unlabeled triggers re-run CI when a label changes, so adding or removing semver:major re-decides compat.
 # Every swift test runs with --force-resolved-versions, so a Package.resolved that no longer matches
 # Package.swift fails here instead of being silently re-resolved.
@@ -574,3 +576,20 @@ jobs:
           for target in x86_64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim; do
             cargo build --workspace --release --locked --target "$target"
           done
+
+  vectors-current:
+    runs-on: macos-26
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Select newest Xcode
+        run: scripts/ci/select-xcode.sh
+      - name: Export the vectors
+        run: scripts/dev/export-vectors.sh
+      - name: Vectors are current
+        run: |
+          git status --short vectors/
+          git diff --exit-code vectors/
+          test -z "$(git ls-files --others --exclude-standard vectors/)"

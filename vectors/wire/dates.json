@@ -1,0 +1,4349 @@
+{
+  "area" : "wire\/dates",
+  "baseline" : "1.8.1",
+  "cases" : [
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 0
+      },
+      "name" : "string-hand-1"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:01.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1
+      },
+      "name" : "string-hand-2"
+    },
+    {
+      "expected" : {
+        "text" : "1969-12-31T23:59:59.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1
+      },
+      "name" : "string-hand-3"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.001Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 0.001
+      },
+      "name" : "string-hand-4"
+    },
+    {
+      "expected" : {
+        "text" : "1969-12-31T23:59:59.999Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -0.001
+      },
+      "name" : "string-hand-5"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 0.00040000000000000002
+      },
+      "name" : "string-hand-6"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 0.00050000000000000001
+      },
+      "name" : "string-hand-7"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.001Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 0.00059999999999999995
+      },
+      "name" : "string-hand-8"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -0.00050000000000000001
+      },
+      "name" : "string-hand-9"
+    },
+    {
+      "expected" : {
+        "text" : "1969-12-31T23:59:59.999Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -0.00059999999999999995
+      },
+      "name" : "string-hand-10"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:01.500Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1.5
+      },
+      "name" : "string-hand-11"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:01.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1.0004999999999999
+      },
+      "name" : "string-hand-12"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:01.002Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1.0015000000000001
+      },
+      "name" : "string-hand-13"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:02.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 2.0005000000000002
+      },
+      "name" : "string-hand-14"
+    },
+    {
+      "expected" : {
+        "text" : "2025-10-09T08:53:20.123Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1760000000.1229999
+      },
+      "name" : "string-hand-15"
+    },
+    {
+      "expected" : {
+        "text" : "2025-10-09T08:53:20.124Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1760000000.1235001
+      },
+      "name" : "string-hand-16"
+    },
+    {
+      "expected" : {
+        "text" : "2025-10-09T08:53:20.123Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1760000000.1224999
+      },
+      "name" : "string-hand-17"
+    },
+    {
+      "expected" : {
+        "text" : "2025-10-09T08:53:21.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1760000000.9995
+      },
+      "name" : "string-hand-18"
+    },
+    {
+      "expected" : {
+        "text" : "2000-02-29T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 951782400
+      },
+      "name" : "string-hand-19"
+    },
+    {
+      "expected" : {
+        "text" : "2000-02-29T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 951782399.99960005
+      },
+      "name" : "string-hand-20"
+    },
+    {
+      "expected" : {
+        "text" : "2024-02-29T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1709164800
+      },
+      "name" : "string-hand-21"
+    },
+    {
+      "expected" : {
+        "text" : "2024-03-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1709251199.9999001
+      },
+      "name" : "string-hand-22"
+    },
+    {
+      "expected" : {
+        "text" : "2100-03-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 4107542400
+      },
+      "name" : "string-hand-23"
+    },
+    {
+      "expected" : {
+        "text" : "0001-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -62135596800
+      },
+      "name" : "string-hand-24"
+    },
+    {
+      "expected" : {
+        "text" : "0000-12-31T23:59:59.500Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -62135596800.5
+      },
+      "name" : "string-hand-25"
+    },
+    {
+      "expected" : {
+        "text" : "0000-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -62167219200
+      },
+      "name" : "string-hand-26"
+    },
+    {
+      "expected" : {
+        "text" : "00-1-12-31T23:59:59.999Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -62167219200.000999
+      },
+      "name" : "string-hand-27"
+    },
+    {
+      "expected" : {
+        "text" : "9999-12-31T23:59:59.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 253402300799
+      },
+      "name" : "string-hand-28"
+    },
+    {
+      "expected" : {
+        "text" : "10000-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 253402300799.9996
+      },
+      "name" : "string-hand-29"
+    },
+    {
+      "expected" : {
+        "text" : "10000-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 253402300800
+      },
+      "name" : "string-hand-30"
+    },
+    {
+      "expected" : {
+        "text" : "10000-01-01T00:00:00.400Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 253402300800.39999
+      },
+      "name" : "string-hand-31"
+    },
+    {
+      "expected" : {
+        "text" : "1969-12-31T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -86400
+      },
+      "name" : "string-hand-32"
+    },
+    {
+      "expected" : {
+        "text" : "1969-12-31T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -86399.999500000005
+      },
+      "name" : "string-hand-33"
+    },
+    {
+      "expected" : {
+        "text" : "2001-09-09T01:46:40.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1000000000
+      },
+      "name" : "string-hand-34"
+    },
+    {
+      "expected" : {
+        "text" : "2038-01-19T03:14:07.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 2147483647
+      },
+      "name" : "string-hand-35"
+    },
+    {
+      "expected" : {
+        "text" : "2038-01-19T03:14:08.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 2147483648
+      },
+      "name" : "string-hand-36"
+    },
+    {
+      "expected" : {
+        "text" : "1901-12-13T20:45:52.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2147483648
+      },
+      "name" : "string-hand-37"
+    },
+    {
+      "expected" : {
+        "text" : "1901-12-13T20:45:51.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2147483649
+      },
+      "name" : "string-hand-38"
+    },
+    {
+      "expected" : {
+        "text" : "2000-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 946684800
+      },
+      "name" : "string-hand-39"
+    },
+    {
+      "expected" : {
+        "text" : "2001-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 978307200
+      },
+      "name" : "string-hand-40"
+    },
+    {
+      "expected" : {
+        "text" : "2009-02-13T23:31:30.988Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1234567890.987654
+      },
+      "name" : "string-hand-41"
+    },
+    {
+      "expected" : {
+        "text" : "2023-11-14T22:13:20.001Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1700000000.0005
+      },
+      "name" : "string-hand-42"
+    },
+    {
+      "expected" : {
+        "text" : "2023-11-14T22:13:20.001Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1700000000.0005002
+      },
+      "name" : "string-hand-43"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.100Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 0.10000000000000001
+      },
+      "name" : "string-hand-44"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.200Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 0.20000000000000001
+      },
+      "name" : "string-hand-45"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.300Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 0.29999999999999999
+      },
+      "name" : "string-hand-46"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.700Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 0.69999999999999996
+      },
+      "name" : "string-hand-47"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 1.0000000000000001e-09
+      },
+      "name" : "string-hand-48"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-01T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1.0000000000000001e-09
+      },
+      "name" : "string-hand-49"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-02T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 86399.999500000005
+      },
+      "name" : "string-hand-50"
+    },
+    {
+      "expected" : {
+        "text" : "1970-01-02T00:00:00.000Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : 86400
+      },
+      "name" : "string-hand-51"
+    },
+    {
+      "expected" : {
+        "text" : "1901-07-02T04:27:48.578Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2161711931.4224
+      },
+      "name" : "string-generated-001"
+    },
+    {
+      "expected" : {
+        "text" : "1909-08-12T07:05:37.320Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1905699262.6795101
+      },
+      "name" : "string-generated-002"
+    },
+    {
+      "expected" : {
+        "text" : "1903-04-18T16:26:21.240Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2105076818.7595999
+      },
+      "name" : "string-generated-003"
+    },
+    {
+      "expected" : {
+        "text" : "1875-08-07T07:57:25.451Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2979043354.5489998
+      },
+      "name" : "string-generated-004"
+    },
+    {
+      "expected" : {
+        "text" : "1890-11-19T20:12:22.012Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2496628057.9879999
+      },
+      "name" : "string-generated-005"
+    },
+    {
+      "expected" : {
+        "text" : "1906-02-22T05:52:41.358Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2015172438.6415999
+      },
+      "name" : "string-generated-006"
+    },
+    {
+      "expected" : {
+        "text" : "1907-09-25T06:23:39.813Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1965058580.1865001
+      },
+      "name" : "string-generated-007"
+    },
+    {
+      "expected" : {
+        "text" : "1942-08-21T20:23:32.794Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -863494587.20551002
+      },
+      "name" : "string-generated-008"
+    },
+    {
+      "expected" : {
+        "text" : "1877-05-21T19:08:33.295Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2922583886.7045102
+      },
+      "name" : "string-generated-009"
+    },
+    {
+      "expected" : {
+        "text" : "1894-12-13T01:52:33.463Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2368390046.5370998
+      },
+      "name" : "string-generated-010"
+    },
+    {
+      "expected" : {
+        "text" : "1888-12-18T05:45:29.735Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2557246470.2649002
+      },
+      "name" : "string-generated-011"
+    },
+    {
+      "expected" : {
+        "text" : "1880-11-15T12:05:41.309Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2812535658.6914001
+      },
+      "name" : "string-generated-012"
+    },
+    {
+      "expected" : {
+        "text" : "1877-05-03T23:46:18.238Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2924122421.7614999
+      },
+      "name" : "string-generated-013"
+    },
+    {
+      "expected" : {
+        "text" : "1923-01-25T09:42:58.441Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1481120221.559
+      },
+      "name" : "string-generated-014"
+    },
+    {
+      "expected" : {
+        "text" : "1910-01-22T03:20:51.799Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1891629548.2005
+      },
+      "name" : "string-generated-015"
+    },
+    {
+      "expected" : {
+        "text" : "1925-03-11T19:01:56.831Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1414040283.1686001
+      },
+      "name" : "string-generated-016"
+    },
+    {
+      "expected" : {
+        "text" : "1933-11-22T12:03:34.636Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1139486185.3640001
+      },
+      "name" : "string-generated-017"
+    },
+    {
+      "expected" : {
+        "text" : "1937-06-20T18:23:58.438Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1026624961.5624
+      },
+      "name" : "string-generated-018"
+    },
+    {
+      "expected" : {
+        "text" : "1933-11-03T12:25:28.403Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1141126471.5965099
+      },
+      "name" : "string-generated-019"
+    },
+    {
+      "expected" : {
+        "text" : "1930-12-07T18:06:00.910Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1232862839.0904901
+      },
+      "name" : "string-generated-020"
+    },
+    {
+      "expected" : {
+        "text" : "1927-09-09T05:51:33.735Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1335290906.2645099
+      },
+      "name" : "string-generated-021"
+    },
+    {
+      "expected" : {
+        "text" : "1919-03-18T16:52:11.700Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1602832068.3004
+      },
+      "name" : "string-generated-022"
+    },
+    {
+      "expected" : {
+        "text" : "1903-11-18T01:13:06.140Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2086642013.8594999
+      },
+      "name" : "string-generated-023"
+    },
+    {
+      "expected" : {
+        "text" : "1937-02-05T13:09:24.998Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1038307835.002
+      },
+      "name" : "string-generated-024"
+    },
+    {
+      "expected" : {
+        "text" : "1923-02-01T22:25:04.779Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1480469695.2211001
+      },
+      "name" : "string-generated-025"
+    },
+    {
+      "expected" : {
+        "text" : "1877-05-19T02:00:13.217Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2922818386.783
+      },
+      "name" : "string-generated-026"
+    },
+    {
+      "expected" : {
+        "text" : "1885-05-07T10:10:15.819Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2671364984.1814899
+      },
+      "name" : "string-generated-027"
+    },
+    {
+      "expected" : {
+        "text" : "1877-07-16T10:09:48.366Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2917777811.6336002
+      },
+      "name" : "string-generated-028"
+    },
+    {
+      "expected" : {
+        "text" : "1894-02-14T23:47:22.021Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2394403957.9786
+      },
+      "name" : "string-generated-029"
+    },
+    {
+      "expected" : {
+        "text" : "1903-09-21T17:39:01.677Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2091594058.3225999
+      },
+      "name" : "string-generated-030"
+    },
+    {
+      "expected" : {
+        "text" : "1895-09-19T15:26:53.113Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2344149186.8871002
+      },
+      "name" : "string-generated-031"
+    },
+    {
+      "expected" : {
+        "text" : "1875-11-07T03:46:10.299Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2971109629.70051
+      },
+      "name" : "string-generated-032"
+    },
+    {
+      "expected" : {
+        "text" : "1932-11-23T22:29:18.117Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1170898241.8834
+      },
+      "name" : "string-generated-033"
+    },
+    {
+      "expected" : {
+        "text" : "1895-08-04T20:53:48.721Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2348103971.2785001
+      },
+      "name" : "string-generated-034"
+    },
+    {
+      "expected" : {
+        "text" : "1939-11-29T13:01:36.993Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -949575503.00699997
+      },
+      "name" : "string-generated-035"
+    },
+    {
+      "expected" : {
+        "text" : "1891-08-31T20:02:13.597Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2472004666.4029999
+      },
+      "name" : "string-generated-036"
+    },
+    {
+      "expected" : {
+        "text" : "1890-05-17T12:40:39.967Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2512725560.0328999
+      },
+      "name" : "string-generated-037"
+    },
+    {
+      "expected" : {
+        "text" : "1893-07-14T06:32:37.116Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2413042042.88449
+      },
+      "name" : "string-generated-038"
+    },
+    {
+      "expected" : {
+        "text" : "1941-08-31T01:30:37.399Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -894234562.60099995
+      },
+      "name" : "string-generated-039"
+    },
+    {
+      "expected" : {
+        "text" : "1904-01-17T21:42:30.918Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2081384249.08249
+      },
+      "name" : "string-generated-040"
+    },
+    {
+      "expected" : {
+        "text" : "1934-05-02T07:21:24.011Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1125592715.98949
+      },
+      "name" : "string-generated-041"
+    },
+    {
+      "expected" : {
+        "text" : "1938-06-23T00:35:02.973Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -994893897.0266
+      },
+      "name" : "string-generated-042"
+    },
+    {
+      "expected" : {
+        "text" : "1876-01-23T08:20:43.498Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2964440356.50249
+      },
+      "name" : "string-generated-043"
+    },
+    {
+      "expected" : {
+        "text" : "1893-01-03T13:19:42.163Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2429606417.8374901
+      },
+      "name" : "string-generated-044"
+    },
+    {
+      "expected" : {
+        "text" : "1890-09-07T06:04:46.167Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2502986113.8330002
+      },
+      "name" : "string-generated-045"
+    },
+    {
+      "expected" : {
+        "text" : "1938-12-30T13:22:11.008Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -978431868.99240005
+      },
+      "name" : "string-generated-046"
+    },
+    {
+      "expected" : {
+        "text" : "1885-10-07T07:09:26.941Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2658156633.0584998
+      },
+      "name" : "string-generated-047"
+    },
+    {
+      "expected" : {
+        "text" : "1925-10-01T13:27:31.496Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1396434748.5044899
+      },
+      "name" : "string-generated-048"
+    },
+    {
+      "expected" : {
+        "text" : "1938-01-22T15:03:15.544Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1007974604.4561
+      },
+      "name" : "string-generated-049"
+    },
+    {
+      "expected" : {
+        "text" : "1939-09-15T08:52:24.519Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -956070455.48140001
+      },
+      "name" : "string-generated-050"
+    },
+    {
+      "expected" : {
+        "text" : "1880-01-31T10:58:10.666Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2837509309.3334999
+      },
+      "name" : "string-generated-051"
+    },
+    {
+      "expected" : {
+        "text" : "1936-05-27T19:14:44.061Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1060231515.9385999
+      },
+      "name" : "string-generated-052"
+    },
+    {
+      "expected" : {
+        "text" : "1924-07-08T16:49:53.836Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1435302606.1635101
+      },
+      "name" : "string-generated-053"
+    },
+    {
+      "expected" : {
+        "text" : "1938-10-28T21:43:40.144Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -983844979.85640001
+      },
+      "name" : "string-generated-054"
+    },
+    {
+      "expected" : {
+        "text" : "1922-10-19T05:16:09.894Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1489603430.1059
+      },
+      "name" : "string-generated-055"
+    },
+    {
+      "expected" : {
+        "text" : "1877-07-04T06:34:40.414Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2918827519.5854998
+      },
+      "name" : "string-generated-056"
+    },
+    {
+      "expected" : {
+        "text" : "1937-09-11T02:58:15.647Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1019509304.3535
+      },
+      "name" : "string-generated-057"
+    },
+    {
+      "expected" : {
+        "text" : "1892-07-16T09:04:38.142Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2444396121.8579998
+      },
+      "name" : "string-generated-058"
+    },
+    {
+      "expected" : {
+        "text" : "1888-08-25T18:41:51.619Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2567135888.3811002
+      },
+      "name" : "string-generated-059"
+    },
+    {
+      "expected" : {
+        "text" : "1900-10-07T02:55:05.798Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2184872694.20151
+      },
+      "name" : "string-generated-060"
+    },
+    {
+      "expected" : {
+        "text" : "1941-03-02T21:08:48.274Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -909888671.72609997
+      },
+      "name" : "string-generated-061"
+    },
+    {
+      "expected" : {
+        "text" : "1930-05-09T03:51:01.981Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1251230938.0190001
+      },
+      "name" : "string-generated-062"
+    },
+    {
+      "expected" : {
+        "text" : "1902-11-22T08:37:35.130Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2117805744.8695099
+      },
+      "name" : "string-generated-063"
+    },
+    {
+      "expected" : {
+        "text" : "1915-11-14T03:51:55.930Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1708286884.06951
+      },
+      "name" : "string-generated-064"
+    },
+    {
+      "expected" : {
+        "text" : "1916-07-07T09:51:18.399Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1687874921.60149
+      },
+      "name" : "string-generated-065"
+    },
+    {
+      "expected" : {
+        "text" : "1924-01-17T05:15:01.501Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1450291498.49949
+      },
+      "name" : "string-generated-066"
+    },
+    {
+      "expected" : {
+        "text" : "1942-05-25T00:08:00.376Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -871170719.62449002
+      },
+      "name" : "string-generated-067"
+    },
+    {
+      "expected" : {
+        "text" : "1942-08-04T03:51:03.470Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -865022936.52999997
+      },
+      "name" : "string-generated-068"
+    },
+    {
+      "expected" : {
+        "text" : "1915-05-21T12:34:32.364Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1723548327.6355
+      },
+      "name" : "string-generated-069"
+    },
+    {
+      "expected" : {
+        "text" : "1938-05-17T23:17:56.532Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -998008923.46759999
+      },
+      "name" : "string-generated-070"
+    },
+    {
+      "expected" : {
+        "text" : "1933-07-22T11:03:30.363Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1150116989.6364999
+      },
+      "name" : "string-generated-071"
+    },
+    {
+      "expected" : {
+        "text" : "1930-11-14T00:41:50.387Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1234912689.6131001
+      },
+      "name" : "string-generated-072"
+    },
+    {
+      "expected" : {
+        "text" : "1875-02-04T18:23:39.238Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2994903380.7620001
+      },
+      "name" : "string-generated-073"
+    },
+    {
+      "expected" : {
+        "text" : "1894-03-02T04:25:07.082Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2393091292.91751
+      },
+      "name" : "string-generated-074"
+    },
+    {
+      "expected" : {
+        "text" : "1924-11-02T17:18:05.551Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1425192114.4493999
+      },
+      "name" : "string-generated-075"
+    },
+    {
+      "expected" : {
+        "text" : "1938-01-14T19:22:33.827Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1008650246.173
+      },
+      "name" : "string-generated-076"
+    },
+    {
+      "expected" : {
+        "text" : "1922-11-02T17:46:50.911Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1488348789.0885
+      },
+      "name" : "string-generated-077"
+    },
+    {
+      "expected" : {
+        "text" : "1900-03-07T16:37:37.172Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2203312942.8281002
+      },
+      "name" : "string-generated-078"
+    },
+    {
+      "expected" : {
+        "text" : "1919-09-23T05:24:00.983Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1586543759.0171001
+      },
+      "name" : "string-generated-079"
+    },
+    {
+      "expected" : {
+        "text" : "1906-02-26T21:08:02.429Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2014771917.5710001
+      },
+      "name" : "string-generated-080"
+    },
+    {
+      "expected" : {
+        "text" : "1900-12-21T10:17:58.726Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2178366121.2736001
+      },
+      "name" : "string-generated-081"
+    },
+    {
+      "expected" : {
+        "text" : "1906-06-05T09:23:38.810Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2006260581.1900001
+      },
+      "name" : "string-generated-082"
+    },
+    {
+      "expected" : {
+        "text" : "1925-07-09T09:41:43.127Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1403705896.8724999
+      },
+      "name" : "string-generated-083"
+    },
+    {
+      "expected" : {
+        "text" : "1883-06-23T16:18:51.885Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2730440468.1149998
+      },
+      "name" : "string-generated-084"
+    },
+    {
+      "expected" : {
+        "text" : "1931-01-06T13:15:16.763Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1230288283.2369001
+      },
+      "name" : "string-generated-085"
+    },
+    {
+      "expected" : {
+        "text" : "1891-08-23T11:44:16.420Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2472725743.5795999
+      },
+      "name" : "string-generated-086"
+    },
+    {
+      "expected" : {
+        "text" : "1929-03-02T15:12:05.934Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1288601274.066
+      },
+      "name" : "string-generated-087"
+    },
+    {
+      "expected" : {
+        "text" : "1880-08-17T19:39:52.578Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2820284407.4215999
+      },
+      "name" : "string-generated-088"
+    },
+    {
+      "expected" : {
+        "text" : "1931-03-09T19:04:19.322Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1224910540.67751
+      },
+      "name" : "string-generated-089"
+    },
+    {
+      "expected" : {
+        "text" : "1919-04-02T20:43:11.621Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1601522208.3785
+      },
+      "name" : "string-generated-090"
+    },
+    {
+      "expected" : {
+        "text" : "1928-11-03T06:56:52.065Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1298912587.9349999
+      },
+      "name" : "string-generated-091"
+    },
+    {
+      "expected" : {
+        "text" : "1935-05-04T00:57:06.756Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1093906973.2441001
+      },
+      "name" : "string-generated-092"
+    },
+    {
+      "expected" : {
+        "text" : "1927-02-13T19:08:15.423Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1353214304.5774901
+      },
+      "name" : "string-generated-093"
+    },
+    {
+      "expected" : {
+        "text" : "1880-09-21T22:41:02.634Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2817249537.3664899
+      },
+      "name" : "string-generated-094"
+    },
+    {
+      "expected" : {
+        "text" : "1937-12-21T12:20:39.553Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1010749160.447
+      },
+      "name" : "string-generated-095"
+    },
+    {
+      "expected" : {
+        "text" : "1898-06-12T00:47:57.478Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2258061122.52249
+      },
+      "name" : "string-generated-096"
+    },
+    {
+      "expected" : {
+        "text" : "1891-12-15T22:40:11.158Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2462836788.8414998
+      },
+      "name" : "string-generated-097"
+    },
+    {
+      "expected" : {
+        "text" : "1889-01-05T10:27:33.731Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2555674346.2684999
+      },
+      "name" : "string-generated-098"
+    },
+    {
+      "expected" : {
+        "text" : "1935-03-19T21:47:31.229Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1097806348.7714
+      },
+      "name" : "string-generated-099"
+    },
+    {
+      "expected" : {
+        "text" : "1878-12-28T10:24:02.137Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2871984957.8629999
+      },
+      "name" : "string-generated-100"
+    },
+    {
+      "expected" : {
+        "text" : "1881-06-29T09:17:09.388Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2793019370.6118999
+      },
+      "name" : "string-generated-101"
+    },
+    {
+      "expected" : {
+        "text" : "1932-07-16T23:54:08.943Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1182125151.0569999
+      },
+      "name" : "string-generated-102"
+    },
+    {
+      "expected" : {
+        "text" : "1937-02-12T02:41:27.805Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1037740712.1946
+      },
+      "name" : "string-generated-103"
+    },
+    {
+      "expected" : {
+        "text" : "1899-02-11T20:47:41.032Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2236907538.9679999
+      },
+      "name" : "string-generated-104"
+    },
+    {
+      "expected" : {
+        "text" : "1933-12-19T21:14:14.992Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1137120345.0081
+      },
+      "name" : "string-generated-105"
+    },
+    {
+      "expected" : {
+        "text" : "1920-01-14T08:33:11.809Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1576769208.1905
+      },
+      "name" : "string-generated-106"
+    },
+    {
+      "expected" : {
+        "text" : "1917-06-08T05:05:45.590Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1658861654.4101
+      },
+      "name" : "string-generated-107"
+    },
+    {
+      "expected" : {
+        "text" : "1920-05-31T21:43:15.119Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1564798604.8810999
+      },
+      "name" : "string-generated-108"
+    },
+    {
+      "expected" : {
+        "text" : "1938-01-25T16:34:38.712Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1007709921.288
+      },
+      "name" : "string-generated-109"
+    },
+    {
+      "expected" : {
+        "text" : "1923-11-18T17:38:06.918Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1455430913.0824001
+      },
+      "name" : "string-generated-110"
+    },
+    {
+      "expected" : {
+        "text" : "1902-11-18T03:15:23.852Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2118170676.1475
+      },
+      "name" : "string-generated-111"
+    },
+    {
+      "expected" : {
+        "text" : "1923-07-10T09:43:05.676Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1466777814.3244901
+      },
+      "name" : "string-generated-112"
+    },
+    {
+      "expected" : {
+        "text" : "1898-11-30T23:14:36.816Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2243205923.184
+      },
+      "name" : "string-generated-113"
+    },
+    {
+      "expected" : {
+        "text" : "1889-04-10T02:07:05.904Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2547496374.0964899
+      },
+      "name" : "string-generated-114"
+    },
+    {
+      "expected" : {
+        "text" : "1940-02-07T20:52:53.100Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -943499226.90040004
+      },
+      "name" : "string-generated-115"
+    },
+    {
+      "expected" : {
+        "text" : "1899-10-05T21:28:00.538Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2216514719.4615002
+      },
+      "name" : "string-generated-116"
+    },
+    {
+      "expected" : {
+        "text" : "1913-02-21T16:31:23.804Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1794295716.1965001
+      },
+      "name" : "string-generated-117"
+    },
+    {
+      "expected" : {
+        "text" : "1880-04-04T14:31:43.103Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2831966896.8973999
+      },
+      "name" : "string-generated-118"
+    },
+    {
+      "expected" : {
+        "text" : "1875-11-22T06:17:29.218Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2969804550.7816
+      },
+      "name" : "string-generated-119"
+    },
+    {
+      "expected" : {
+        "text" : "1913-01-15T18:34:35.623Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1797485124.3770001
+      },
+      "name" : "string-generated-120"
+    },
+    {
+      "expected" : {
+        "text" : "1879-02-02T23:52:13.975Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2868826066.0254898
+      },
+      "name" : "string-generated-121"
+    },
+    {
+      "expected" : {
+        "text" : "1885-09-09T14:05:18.545Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2660550881.4545102
+      },
+      "name" : "string-generated-122"
+    },
+    {
+      "expected" : {
+        "text" : "1899-12-04T18:59:51.862Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2211339608.1375098
+      },
+      "name" : "string-generated-123"
+    },
+    {
+      "expected" : {
+        "text" : "1889-12-05T16:23:31.848Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2526795388.1515098
+      },
+      "name" : "string-generated-124"
+    },
+    {
+      "expected" : {
+        "text" : "1931-03-07T18:16:48.285Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1225086191.7145
+      },
+      "name" : "string-generated-125"
+    },
+    {
+      "expected" : {
+        "text" : "1927-01-20T12:01:36.300Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1355313503.7004001
+      },
+      "name" : "string-generated-126"
+    },
+    {
+      "expected" : {
+        "text" : "1885-02-24T11:08:26.652Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2677582293.348
+      },
+      "name" : "string-generated-127"
+    },
+    {
+      "expected" : {
+        "text" : "1908-12-03T16:44:31.317Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1927437328.6825099
+      },
+      "name" : "string-generated-128"
+    },
+    {
+      "expected" : {
+        "text" : "1899-05-07T21:09:43.642Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2229562216.35849
+      },
+      "name" : "string-generated-129"
+    },
+    {
+      "expected" : {
+        "text" : "1887-05-23T22:55:27.371Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2606864672.62851
+      },
+      "name" : "string-generated-130"
+    },
+    {
+      "expected" : {
+        "text" : "1899-01-30T15:09:11.939Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2237964648.0614901
+      },
+      "name" : "string-generated-131"
+    },
+    {
+      "expected" : {
+        "text" : "1889-02-27T08:29:29.188Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2551102230.8119998
+      },
+      "name" : "string-generated-132"
+    },
+    {
+      "expected" : {
+        "text" : "1874-12-21T23:08:40.606Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2998774279.3940001
+      },
+      "name" : "string-generated-133"
+    },
+    {
+      "expected" : {
+        "text" : "1897-09-08T23:40:30.212Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2281911569.7876
+      },
+      "name" : "string-generated-134"
+    },
+    {
+      "expected" : {
+        "text" : "1940-02-07T06:29:39.878Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -943551020.12249005
+      },
+      "name" : "string-generated-135"
+    },
+    {
+      "expected" : {
+        "text" : "1901-01-15T11:34:42.940Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2176201517.0595002
+      },
+      "name" : "string-generated-136"
+    },
+    {
+      "expected" : {
+        "text" : "1902-05-09T10:09:46.533Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2134821013.467
+      },
+      "name" : "string-generated-137"
+    },
+    {
+      "expected" : {
+        "text" : "1941-09-15T19:14:35.269Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -892874724.73051
+      },
+      "name" : "string-generated-138"
+    },
+    {
+      "expected" : {
+        "text" : "1913-09-27T07:24:39.510Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1775493320.49
+      },
+      "name" : "string-generated-139"
+    },
+    {
+      "expected" : {
+        "text" : "1883-12-16T04:25:24.059Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2715276875.9405999
+      },
+      "name" : "string-generated-140"
+    },
+    {
+      "expected" : {
+        "text" : "1929-04-20T06:47:57.206Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1284397922.7939
+      },
+      "name" : "string-generated-141"
+    },
+    {
+      "expected" : {
+        "text" : "1939-12-25T09:41:40.162Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -947341099.83800006
+      },
+      "name" : "string-generated-142"
+    },
+    {
+      "expected" : {
+        "text" : "1890-06-30T09:10:37.623Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2508936562.3765101
+      },
+      "name" : "string-generated-143"
+    },
+    {
+      "expected" : {
+        "text" : "1917-12-23T07:47:08.956Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1641744771.0444
+      },
+      "name" : "string-generated-144"
+    },
+    {
+      "expected" : {
+        "text" : "1920-06-14T19:28:27.042Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1563597092.95751
+      },
+      "name" : "string-generated-145"
+    },
+    {
+      "expected" : {
+        "text" : "1894-01-11T09:43:30.647Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2397392189.3530002
+      },
+      "name" : "string-generated-146"
+    },
+    {
+      "expected" : {
+        "text" : "1875-10-29T19:09:13.317Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2971831846.6825099
+      },
+      "name" : "string-generated-147"
+    },
+    {
+      "expected" : {
+        "text" : "1928-04-30T10:06:26.839Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -1315058013.1605
+      },
+      "name" : "string-generated-148"
+    },
+    {
+      "expected" : {
+        "text" : "1886-07-07T04:44:24.943Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2634578135.0566001
+      },
+      "name" : "string-generated-149"
+    },
+    {
+      "expected" : {
+        "text" : "1902-07-27T22:26:55.006Z"
+      },
+      "input" : {
+        "fn" : "string",
+        "seconds" : -2127951184.9935999
+      },
+      "name" : "string-generated-150"
+    },
+    {
+      "expected" : {
+        "millis" : 1760000000123,
+        "seconds" : 1760000000.1229999
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.123Z"
+      },
+      "name" : "date-hand-1"
+    },
+    {
+      "expected" : {
+        "millis" : 1760000000000,
+        "seconds" : 1760000000
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20Z"
+      },
+      "name" : "date-hand-2"
+    },
+    {
+      "expected" : {
+        "millis" : 1760000000100,
+        "seconds" : 1760000000.0999999
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.1Z"
+      },
+      "name" : "date-hand-3"
+    },
+    {
+      "expected" : {
+        "millis" : 1760000000120,
+        "seconds" : 1760000000.1199999
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.12Z"
+      },
+      "name" : "date-hand-4"
+    },
+    {
+      "expected" : {
+        "millis" : 1760000000123,
+        "seconds" : 1760000000.1234
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.1234Z"
+      },
+      "name" : "date-hand-5"
+    },
+    {
+      "expected" : {
+        "millis" : 1760000000123,
+        "seconds" : 1760000000.1234567
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.123456789Z"
+      },
+      "name" : "date-hand-6"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.1234567890Z"
+      },
+      "name" : "date-hand-7"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.Z"
+      },
+      "name" : "date-hand-8"
+    },
+    {
+      "expected" : {
+        "millis" : 1760000000000,
+        "seconds" : 1760000000
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.000Z"
+      },
+      "name" : "date-hand-9"
+    },
+    {
+      "expected" : {
+        "millis" : 0,
+        "seconds" : 0
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1970-01-01T00:00:00Z"
+      },
+      "name" : "date-hand-10"
+    },
+    {
+      "expected" : {
+        "millis" : 0,
+        "seconds" : 0
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1970-01-01T00:00:00.000Z"
+      },
+      "name" : "date-hand-11"
+    },
+    {
+      "expected" : {
+        "millis" : -1,
+        "seconds" : -0.0010000467300415039
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1969-12-31T23:59:59.999Z"
+      },
+      "name" : "date-hand-12"
+    },
+    {
+      "expected" : {
+        "millis" : 951825600000,
+        "seconds" : 951825600
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2000-02-29T12:00:00Z"
+      },
+      "name" : "date-hand-13"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1900-02-29T00:00:00Z"
+      },
+      "name" : "date-hand-14"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2100-02-29T00:00:00Z"
+      },
+      "name" : "date-hand-15"
+    },
+    {
+      "expected" : {
+        "millis" : 1709251199999,
+        "seconds" : 1709251199.9990001
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2024-02-29T23:59:59.999Z"
+      },
+      "name" : "date-hand-16"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-02-29T00:00:00Z"
+      },
+      "name" : "date-hand-17"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-02-30T00:00:00Z"
+      },
+      "name" : "date-hand-18"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-04-31T00:00:00Z"
+      },
+      "name" : "date-hand-19"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-13-01T00:00:00Z"
+      },
+      "name" : "date-hand-20"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-00-10T00:00:00Z"
+      },
+      "name" : "date-hand-21"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-01-00T00:00:00Z"
+      },
+      "name" : "date-hand-22"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-01-32T00:00:00Z"
+      },
+      "name" : "date-hand-23"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-01-31T24:00:00Z"
+      },
+      "name" : "date-hand-24"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-01-31T23:60:00Z"
+      },
+      "name" : "date-hand-25"
+    },
+    {
+      "expected" : {
+        "millis" : 1738368000000,
+        "seconds" : 1738368000
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-01-31T23:59:60Z"
+      },
+      "name" : "date-hand-26"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-01-31T23:59:61Z"
+      },
+      "name" : "date-hand-27"
+    },
+    {
+      "expected" : {
+        "millis" : -62135596800000,
+        "seconds" : -62135596800
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "0001-01-01T00:00:00Z"
+      },
+      "name" : "date-hand-28"
+    },
+    {
+      "expected" : {
+        "millis" : -62167219200000,
+        "seconds" : -62167219200
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "0000-01-01T00:00:00Z"
+      },
+      "name" : "date-hand-29"
+    },
+    {
+      "expected" : {
+        "millis" : 253402300799999,
+        "seconds" : 253402300799.99899
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "9999-12-31T23:59:59.999Z"
+      },
+      "name" : "date-hand-30"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09t08:53:20Z"
+      },
+      "name" : "date-hand-31"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20z"
+      },
+      "name" : "date-hand-32"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09 08:53:20Z"
+      },
+      "name" : "date-hand-33"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20+00:00"
+      },
+      "name" : "date-hand-34"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20-05:00"
+      },
+      "name" : "date-hand-35"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20"
+      },
+      "name" : "date-hand-36"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53Z"
+      },
+      "name" : "date-hand-37"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09"
+      },
+      "name" : "date-hand-38"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : ""
+      },
+      "name" : "date-hand-39"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "Z"
+      },
+      "name" : "date-hand-40"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : " 2025-10-09T08:53:20Z"
+      },
+      "name" : "date-hand-41"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20Z "
+      },
+      "name" : "date-hand-42"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20Z\n"
+      },
+      "name" : "date-hand-43"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025\/10\/09T08:53:20Z"
+      },
+      "name" : "date-hand-44"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08.53.20Z"
+      },
+      "name" : "date-hand-45"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "25-10-09T08:53:20Z"
+      },
+      "name" : "date-hand-46"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-1-9T08:53:20Z"
+      },
+      "name" : "date-hand-47"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20,123Z"
+      },
+      "name" : "date-hand-48"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.12a3Z"
+      },
+      "name" : "date-hand-49"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:2\u0000Z"
+      },
+      "name" : "date-hand-50"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "٥025-10-09T08:53:20Z"
+      },
+      "name" : "date-hand-51"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.١Z"
+      },
+      "name" : "date-hand-52"
+    },
+    {
+      "expected" : {
+        "millis" : 1760000000500,
+        "seconds" : 1760000000.5
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.5Z"
+      },
+      "name" : "date-hand-53"
+    },
+    {
+      "expected" : {
+        "millis" : 1760000001000,
+        "seconds" : 1760000000.9999001
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.9999Z"
+      },
+      "name" : "date-hand-54"
+    },
+    {
+      "expected" : {
+        "millis" : 1760000000001,
+        "seconds" : 1760000000.0005
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.0005Z"
+      },
+      "name" : "date-hand-55"
+    },
+    {
+      "expected" : {
+        "millis" : 1760000000000,
+        "seconds" : 1760000000.0004001
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.0004Z"
+      },
+      "name" : "date-hand-56"
+    },
+    {
+      "expected" : {
+        "millis" : 1767225600500,
+        "seconds" : 1767225600.5
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-12-31T23:59:60.5Z"
+      },
+      "name" : "date-hand-57"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "+2025-10-09T08:53:20Z"
+      },
+      "name" : "date-hand-58"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "-001-10-09T08:53:20Z"
+      },
+      "name" : "date-hand-59"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20.Z0"
+      },
+      "name" : "date-hand-60"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-10-09T08:53:20ZZ"
+      },
+      "name" : "date-hand-61"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "20251009T085320Z"
+      },
+      "name" : "date-hand-62"
+    },
+    {
+      "expected" : {
+        "millis" : -137668977499,
+        "seconds" : -137668977.49900007
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1965-08-21T14:37:02.501Z"
+      },
+      "name" : "date-generated-001"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1964-12-15T08:21:55.766+00:00"
+      },
+      "name" : "date-generated-002"
+    },
+    {
+      "expected" : {
+        "millis" : 1745965723287,
+        "seconds" : 1745965723.2869999
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-04-29T22:28:43.287Z"
+      },
+      "name" : "date-generated-003"
+    },
+    {
+      "expected" : {
+        "millis" : -937460599000,
+        "seconds" : -937460599
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1940-04-17T18:16:41Z"
+      },
+      "name" : "date-generated-004"
+    },
+    {
+      "expected" : {
+        "millis" : -1024402285972,
+        "seconds" : -1024402285.97247
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1937-07-16T11:48:34.02753Z"
+      },
+      "name" : "date-generated-005"
+    },
+    {
+      "expected" : {
+        "millis" : -234646255000,
+        "seconds" : -234646255
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1962-07-26T04:29:05Z"
+      },
+      "name" : "date-generated-006"
+    },
+    {
+      "expected" : {
+        "millis" : -1178830325417,
+        "seconds" : -1178830325.4168787
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1932-08-24T03:07:54.583121Z"
+      },
+      "name" : "date-generated-007"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1962-06-03-04:23:54.083Z"
+      },
+      "name" : "date-generated-008"
+    },
+    {
+      "expected" : {
+        "millis" : -1241721954774,
+        "seconds" : -1241721954.7740002
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1930-08-27T05:14:05.226Z"
+      },
+      "name" : "date-generated-009"
+    },
+    {
+      "expected" : {
+        "millis" : 1746019516247,
+        "seconds" : 1746019516.247
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-04-30T13:25:16.247Z"
+      },
+      "name" : "date-generated-010"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1952-01-26T07:27:41.511+00:00"
+      },
+      "name" : "date-generated-011"
+    },
+    {
+      "expected" : {
+        "millis" : -776727820276,
+        "seconds" : -776727820.27575684
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1945-05-22T02:16:19.724243Z"
+      },
+      "name" : "date-generated-012"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1918-11-09T01:52:32.12ZZ"
+      },
+      "name" : "date-generated-013"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1913-10-03T19.44:05.179Z"
+      },
+      "name" : "date-generated-014"
+    },
+    {
+      "expected" : {
+        "millis" : 32604903000,
+        "seconds" : 32604903
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1971-01-13T08:55:03Z"
+      },
+      "name" : "date-generated-015"
+    },
+    {
+      "expected" : {
+        "millis" : -1686788900000,
+        "seconds" : -1686788900
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1916-07-19T23:31:40Z"
+      },
+      "name" : "date-generated-016"
+    },
+    {
+      "expected" : {
+        "millis" : -1464609273237,
+        "seconds" : -1464609273.237
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1923-08-04T12:05:26.763Z"
+      },
+      "name" : "date-generated-017"
+    },
+    {
+      "expected" : {
+        "millis" : -1453694471347,
+        "seconds" : -1453694471.3470001
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1923-12-08T19:58:48.653Z"
+      },
+      "name" : "date-generated-018"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1912-01-06T20:51:33.862+00:00"
+      },
+      "name" : "date-generated-019"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1968-12-11T12:55:21.825+00:00"
+      },
+      "name" : "date-generated-020"
+    },
+    {
+      "expected" : {
+        "millis" : -357258200745,
+        "seconds" : -357258200.74466801
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1958-09-06T01:36:39.255332Z"
+      },
+      "name" : "date-generated-021"
+    },
+    {
+      "expected" : {
+        "millis" : -466087504000,
+        "seconds" : -466087504
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1955-03-26T11:14:56Z"
+      },
+      "name" : "date-generated-022"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1966T10-07T00:32:05.305Z"
+      },
+      "name" : "date-generated-023"
+    },
+    {
+      "expected" : {
+        "millis" : -1048781292000,
+        "seconds" : -1048781292
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1936-10-07T07:51:48Z"
+      },
+      "name" : "date-generated-024"
+    },
+    {
+      "expected" : {
+        "millis" : -380030005702,
+        "seconds" : -380030005.70224094
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1957-12-16T12:06:34.297759Z"
+      },
+      "name" : "date-generated-025"
+    },
+    {
+      "expected" : {
+        "millis" : 1767078801794,
+        "seconds" : 1767078801.7939999
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-12-30T07:13:21.794Z"
+      },
+      "name" : "date-generated-026"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1919-07-19T03:58:59.912+00:00"
+      },
+      "name" : "date-generated-027"
+    },
+    {
+      "expected" : {
+        "millis" : -293263720029,
+        "seconds" : -293263720.02860904
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1960-09-15T17:51:19.971391Z"
+      },
+      "name" : "date-generated-028"
+    },
+    {
+      "expected" : {
+        "millis" : -1088831312444,
+        "seconds" : -1088831312.4436908
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1935-07-01T18:51:27.556309264Z"
+      },
+      "name" : "date-generated-029"
+    },
+    {
+      "expected" : {
+        "millis" : -40714431805,
+        "seconds" : -40714431.804999948
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1968-09-16T18:26:08.195Z"
+      },
+      "name" : "date-generated-030"
+    },
+    {
+      "expected" : {
+        "millis" : 73252709000,
+        "seconds" : 73252709
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1972-04-27T19:58:29Z"
+      },
+      "name" : "date-generated-031"
+    },
+    {
+      "expected" : {
+        "millis" : -1655877910460,
+        "seconds" : -1655877910.4595842
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1917-07-12T17:54:49.540416Z"
+      },
+      "name" : "date-generated-032"
+    },
+    {
+      "expected" : {
+        "millis" : -398233570217,
+        "seconds" : -398233570.21700001
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1957-05-19T19:33:49.783Z"
+      },
+      "name" : "date-generated-033"
+    },
+    {
+      "expected" : {
+        "millis" : -109602784000,
+        "seconds" : -109602784
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1966-07-12T10:46:56Z"
+      },
+      "name" : "date-generated-034"
+    },
+    {
+      "expected" : {
+        "millis" : -563651275135,
+        "seconds" : -563651275.13499999
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1952-02-21T06:12:04.865Z"
+      },
+      "name" : "date-generated-035"
+    },
+    {
+      "expected" : {
+        "millis" : -349062804193,
+        "seconds" : -349062804.19300008
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1958-12-09T22:06:35.807Z"
+      },
+      "name" : "date-generated-036"
+    },
+    {
+      "expected" : {
+        "millis" : -519551709344,
+        "seconds" : -519551709.34399986
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1953-07-15T16:04:50.656Z"
+      },
+      "name" : "date-generated-037"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1963-06-30T01:11:36.891"
+      },
+      "name" : "date-generated-038"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1913-11-10T00:14:11.169+00:00"
+      },
+      "name" : "date-generated-039"
+    },
+    {
+      "expected" : {
+        "millis" : -350626158018,
+        "seconds" : -350626158.01800013
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1958-11-21T19:50:41.982Z"
+      },
+      "name" : "date-generated-040"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1956-09-29.16:45:46.434Z"
+      },
+      "name" : "date-generated-041"
+    },
+    {
+      "expected" : {
+        "millis" : -1771010026000,
+        "seconds" : -1771010026
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1913-11-18T04:46:14Z"
+      },
+      "name" : "date-generated-042"
+    },
+    {
+      "expected" : {
+        "millis" : -445811245548,
+        "seconds" : -445811245.54832697
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1955-11-16T03:32:34.451673Z"
+      },
+      "name" : "date-generated-043"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1963-01-24T02:20:41.518+00:00"
+      },
+      "name" : "date-generated-044"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1910-06-03T06:10:12.713"
+      },
+      "name" : "date-generated-045"
+    },
+    {
+      "expected" : {
+        "millis" : -1165912788569,
+        "seconds" : -1165912788.569
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1933-01-20T15:20:11.431Z"
+      },
+      "name" : "date-generated-046"
+    },
+    {
+      "expected" : {
+        "millis" : -1242593375000,
+        "seconds" : -1242593375
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1930-08-17T03:10:25Z"
+      },
+      "name" : "date-generated-047"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1934-03-10T 2:26:34.228Z"
+      },
+      "name" : "date-generated-048"
+    },
+    {
+      "expected" : {
+        "millis" : -1922846591851,
+        "seconds" : -1922846591.8509998
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1909-01-25T19:56:48.149Z"
+      },
+      "name" : "date-generated-049"
+    },
+    {
+      "expected" : {
+        "millis" : -1793918288000,
+        "seconds" : -1793918288
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1913-02-26T01:21:52Z"
+      },
+      "name" : "date-generated-050"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1962-10-14T21-03:54.348Z"
+      },
+      "name" : "date-generated-051"
+    },
+    {
+      "expected" : {
+        "millis" : -1322333387477,
+        "seconds" : -1322333387.4770002
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1928-02-06T05:10:12.523Z"
+      },
+      "name" : "date-generated-052"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1960-10-03T23:02:53.293"
+      },
+      "name" : "date-generated-053"
+    },
+    {
+      "expected" : {
+        "millis" : -1344783878934,
+        "seconds" : -1344783878.934
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1927-05-22T08:55:21.066Z"
+      },
+      "name" : "date-generated-054"
+    },
+    {
+      "expected" : {
+        "millis" : -1493343997999,
+        "seconds" : -1493343997.9990001
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1922-09-05T22:13:22.001Z"
+      },
+      "name" : "date-generated-055"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1924-01-07T08:13:16.270+00:00"
+      },
+      "name" : "date-generated-056"
+    },
+    {
+      "expected" : {
+        "millis" : -420771819832,
+        "seconds" : -420771819.83200002
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1956-08-31T22:56:20.168Z"
+      },
+      "name" : "date-generated-057"
+    },
+    {
+      "expected" : {
+        "millis" : -339594711000,
+        "seconds" : -339594711
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1959-03-29T12:08:09Z"
+      },
+      "name" : "date-generated-058"
+    },
+    {
+      "expected" : {
+        "millis" : 134584216089,
+        "seconds" : 134584216.08942294
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1974-04-07T16:30:16.089423Z"
+      },
+      "name" : "date-generated-059"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1929-01-11T10:08:32.359"
+      },
+      "name" : "date-generated-060"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-08-33T20:39:07.940Z"
+      },
+      "name" : "date-generated-061"
+    },
+    {
+      "expected" : {
+        "millis" : -768656509000,
+        "seconds" : -768656509
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1945-08-23T12:18:11Z"
+      },
+      "name" : "date-generated-062"
+    },
+    {
+      "expected" : {
+        "millis" : 88646122170,
+        "seconds" : 88646122.169999957
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1972-10-22T23:55:22.170Z"
+      },
+      "name" : "date-generated-063"
+    },
+    {
+      "expected" : {
+        "millis" : -1594162383000,
+        "seconds" : -1594162383
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1919-06-27T01:06:57Z"
+      },
+      "name" : "date-generated-064"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1928-02-05T06:23:51.2-0Z"
+      },
+      "name" : "date-generated-065"
+    },
+    {
+      "expected" : {
+        "millis" : -955149846000,
+        "seconds" : -955149846
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1939-09-26T00:35:54Z"
+      },
+      "name" : "date-generated-066"
+    },
+    {
+      "expected" : {
+        "millis" : -488751138263,
+        "seconds" : -488751138.26331687
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1954-07-07T03:47:41.736683094Z"
+      },
+      "name" : "date-generated-067"
+    },
+    {
+      "expected" : {
+        "millis" : -174326937000,
+        "seconds" : -174326937
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1964-06-23T07:51:03Z"
+      },
+      "name" : "date-generated-068"
+    },
+    {
+      "expected" : {
+        "millis" : -933096302000,
+        "seconds" : -933096302
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1940-06-07T06:34:58Z"
+      },
+      "name" : "date-generated-069"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1971-06-04T19:44:07.144+00:00"
+      },
+      "name" : "date-generated-070"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1930-08-30T08:21:05.9.4Z"
+      },
+      "name" : "date-generated-071"
+    },
+    {
+      "expected" : {
+        "millis" : -1730367342158,
+        "seconds" : -1730367342.158
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1915-03-03T14:24:17.842Z"
+      },
+      "name" : "date-generated-072"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1911-07-02T05:39:52.632+00:00"
+      },
+      "name" : "date-generated-073"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1925-11-23T11:18:46.633+00:00"
+      },
+      "name" : "date-generated-074"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1942-02-17T01.55:28.128Z"
+      },
+      "name" : "date-generated-075"
+    },
+    {
+      "expected" : {
+        "millis" : -1391254387491,
+        "seconds" : -1391254387.4910002
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1925-11-30T12:26:52.509Z"
+      },
+      "name" : "date-generated-076"
+    },
+    {
+      "expected" : {
+        "millis" : -872014402000,
+        "seconds" : -872014402
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1942-05-15T05:46:38Z"
+      },
+      "name" : "date-generated-077"
+    },
+    {
+      "expected" : {
+        "millis" : -971557795000,
+        "seconds" : -971557795
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1939-03-20T02:50:05Z"
+      },
+      "name" : "date-generated-078"
+    },
+    {
+      "expected" : {
+        "millis" : 37479617000,
+        "seconds" : 37479617
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1971-03-10T19:00:17Z"
+      },
+      "name" : "date-generated-079"
+    },
+    {
+      "expected" : {
+        "millis" : -294155762165,
+        "seconds" : -294155762.16524458
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1960-09-05T10:03:57.834755317Z"
+      },
+      "name" : "date-generated-080"
+    },
+    {
+      "expected" : {
+        "millis" : -1649845784083,
+        "seconds" : -1649845784.0830002
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1917-09-20T13:30:15.917Z"
+      },
+      "name" : "date-generated-081"
+    },
+    {
+      "expected" : {
+        "millis" : -1810122074930,
+        "seconds" : -1810122074.9300003
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1912-08-22T12:18:45.070Z"
+      },
+      "name" : "date-generated-082"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1932-03-08T04:02:13.404+00:00"
+      },
+      "name" : "date-generated-083"
+    },
+    {
+      "expected" : {
+        "millis" : 21978451141,
+        "seconds" : 21978451.141000032
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1970-09-12T09:07:31.141Z"
+      },
+      "name" : "date-generated-084"
+    },
+    {
+      "expected" : {
+        "millis" : -931329628000,
+        "seconds" : -931329628
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1940-06-27T17:19:32Z"
+      },
+      "name" : "date-generated-085"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1948-09-02T10:4 :47.514Z"
+      },
+      "name" : "date-generated-086"
+    },
+    {
+      "expected" : {
+        "millis" : -1026715547053,
+        "seconds" : -1026715547.053
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1937-06-19T17:14:12.947Z"
+      },
+      "name" : "date-generated-087"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1916-09-18T12:51:06.932"
+      },
+      "name" : "date-generated-088"
+    },
+    {
+      "expected" : {
+        "millis" : -683199722180,
+        "seconds" : -683199722.17999983
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1948-05-08T14:17:57.820Z"
+      },
+      "name" : "date-generated-089"
+    },
+    {
+      "expected" : {
+        "millis" : -694176367883,
+        "seconds" : -694176367.8829999
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1948-01-02T13:13:52.117Z"
+      },
+      "name" : "date-generated-090"
+    },
+    {
+      "expected" : {
+        "millis" : -923288550207,
+        "seconds" : -923288550.20733595
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1940-09-28T18:57:29.792664Z"
+      },
+      "name" : "date-generated-091"
+    },
+    {
+      "expected" : {
+        "millis" : -295210200735,
+        "seconds" : -295210200.73500013
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1960-08-24T05:09:59.265Z"
+      },
+      "name" : "date-generated-092"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1942-03-12TZ6:29:15.388Z"
+      },
+      "name" : "date-generated-093"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1942-01-25T13:05:39.86xZ"
+      },
+      "name" : "date-generated-094"
+    },
+    {
+      "expected" : {
+        "millis" : -14308300541,
+        "seconds" : -14308300.54069674
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1969-07-19T09:28:19.459303205Z"
+      },
+      "name" : "date-generated-095"
+    },
+    {
+      "expected" : {
+        "millis" : 1764294059856,
+        "seconds" : 1764294059.8559999
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-11-28T01:40:59.856Z"
+      },
+      "name" : "date-generated-096"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1948-12-06T14:14:05.272+00:00"
+      },
+      "name" : "date-generated-097"
+    },
+    {
+      "expected" : {
+        "millis" : -137537999124,
+        "seconds" : -137537999.12430906
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1965-08-23T03:00:00.875691Z"
+      },
+      "name" : "date-generated-098"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-11-32T21:53:18.948Z"
+      },
+      "name" : "date-generated-099"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1961-09-07T03:52:04.399"
+      },
+      "name" : "date-generated-100"
+    },
+    {
+      "expected" : {
+        "millis" : 1738106830168,
+        "seconds" : 1738106830.168
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-01-28T23:27:10.168Z"
+      },
+      "name" : "date-generated-101"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-07-34T13:22:54.516Z"
+      },
+      "name" : "date-generated-102"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1944-02-23T21:26:55.631"
+      },
+      "name" : "date-generated-103"
+    },
+    {
+      "expected" : {
+        "millis" : -705984675524,
+        "seconds" : -705984675.52400017
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1947-08-18T21:08:44.476Z"
+      },
+      "name" : "date-generated-104"
+    },
+    {
+      "expected" : {
+        "millis" : 1748480423877,
+        "seconds" : 1748480423.8770001
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-05-29T01:00:23.877Z"
+      },
+      "name" : "date-generated-105"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1945-03-15T07:01:19.940+00:00"
+      },
+      "name" : "date-generated-106"
+    },
+    {
+      "expected" : {
+        "millis" : -1913926917729,
+        "seconds" : -1913926917.7290907
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1909-05-09T01:38:02.270909Z"
+      },
+      "name" : "date-generated-107"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1965-10-11T21:10:43.990"
+      },
+      "name" : "date-generated-108"
+    },
+    {
+      "expected" : {
+        "millis" : -1811979465000,
+        "seconds" : -1811979465
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1912-08-01T00:22:15Z"
+      },
+      "name" : "date-generated-109"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1961-01-30T09:01:51.501+00:00"
+      },
+      "name" : "date-generated-110"
+    },
+    {
+      "expected" : {
+        "millis" : 12844708569,
+        "seconds" : 12844708.568782449
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1970-05-29T15:58:28.568782417Z"
+      },
+      "name" : "date-generated-111"
+    },
+    {
+      "expected" : {
+        "millis" : -367030171868,
+        "seconds" : -367030171.86780643
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1958-05-15T23:10:28.132193519Z"
+      },
+      "name" : "date-generated-112"
+    },
+    {
+      "expected" : {
+        "millis" : -2857949000,
+        "seconds" : -2857949
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1969-11-28T22:07:31Z"
+      },
+      "name" : "date-generated-113"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1923-01-30T20:32:10.236"
+      },
+      "name" : "date-generated-114"
+    },
+    {
+      "expected" : {
+        "millis" : -356451714850,
+        "seconds" : -356451714.85041928
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1958-09-15T09:38:05.149580670Z"
+      },
+      "name" : "date-generated-115"
+    },
+    {
+      "expected" : {
+        "millis" : -1934697687224,
+        "seconds" : -1934697687.224
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1908-09-10T15:58:32.776Z"
+      },
+      "name" : "date-generated-116"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1908-04-28T00:08:27.279"
+      },
+      "name" : "date-generated-117"
+    },
+    {
+      "expected" : {
+        "millis" : -143821805000,
+        "seconds" : -143821805
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1965-06-11T09:29:55Z"
+      },
+      "name" : "date-generated-118"
+    },
+    {
+      "expected" : {
+        "millis" : 1767118820458,
+        "seconds" : 1767118820.4579999
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-12-30T18:20:20.458Z"
+      },
+      "name" : "date-generated-119"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1939-05-07T08:57:51.067+00:00"
+      },
+      "name" : "date-generated-120"
+    },
+    {
+      "expected" : {
+        "millis" : -68622113000,
+        "seconds" : -68622113
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1967-10-29T18:18:07Z"
+      },
+      "name" : "date-generated-121"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1951-12-05T18:36:24.253+00:00"
+      },
+      "name" : "date-generated-122"
+    },
+    {
+      "expected" : {
+        "millis" : 1756356106264,
+        "seconds" : 1756356106.2639999
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-08-28T04:41:46.264Z"
+      },
+      "name" : "date-generated-123"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "2025-08-32T16:31:17.149Z"
+      },
+      "name" : "date-generated-124"
+    },
+    {
+      "expected" : {
+        "millis" : -1607551799682,
+        "seconds" : -1607551799.6820002
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1919-01-23T01:50:00.318Z"
+      },
+      "name" : "date-generated-125"
+    },
+    {
+      "expected" : {
+        "millis" : -1769818979750,
+        "seconds" : -1769818979.7502384
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1913-12-01T23:37:00.249761229Z"
+      },
+      "name" : "date-generated-126"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1923-01-11T13:37:25.168"
+      },
+      "name" : "date-generated-127"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1965-01-21T20:31:23.715+00:00"
+      },
+      "name" : "date-generated-128"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1937-05-09T22:31:54.173+00:00"
+      },
+      "name" : "date-generated-129"
+    },
+    {
+      "expected" : {
+        "millis" : -1053002493000,
+        "seconds" : -1053002493
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1936-08-19T11:18:27Z"
+      },
+      "name" : "date-generated-130"
+    },
+    {
+      "expected" : {
+        "millis" : -1411145808096,
+        "seconds" : -1411145808.0959997
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1925-04-14T07:03:11.904Z"
+      },
+      "name" : "date-generated-131"
+    },
+    {
+      "expected" : {
+        "millis" : -701620539053,
+        "seconds" : -701620539.05299997
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1947-10-08T09:24:20.947Z"
+      },
+      "name" : "date-generated-132"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1908-10-10T21:41-04.017Z"
+      },
+      "name" : "date-generated-133"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1942-01-12T01:28:37.750"
+      },
+      "name" : "date-generated-134"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1944-01-22T19:54:05.347+00:00"
+      },
+      "name" : "date-generated-135"
+    },
+    {
+      "expected" : {
+        "millis" : -1261022688000,
+        "seconds" : -1261022688
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1930-01-15T19:55:12Z"
+      },
+      "name" : "date-generated-136"
+    },
+    {
+      "expected" : {
+        "millis" : 31884387759,
+        "seconds" : 31884387.758999944
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1971-01-05T00:46:27.759Z"
+      },
+      "name" : "date-generated-137"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1922-02-19T19:07:05.543"
+      },
+      "name" : "date-generated-138"
+    },
+    {
+      "expected" : {
+        "millis" : -527502094959,
+        "seconds" : -527502094.95907402
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1953-04-14T15:38:25.040926Z"
+      },
+      "name" : "date-generated-139"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1943-09-11T13:49:19.242+00:00"
+      },
+      "name" : "date-generated-140"
+    },
+    {
+      "expected" : {
+        "millis" : -1704540573452,
+        "seconds" : -1704540573.4519997
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1915-12-27T12:30:26.548Z"
+      },
+      "name" : "date-generated-141"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1956-09-22T04:31:14.926"
+      },
+      "name" : "date-generated-142"
+    },
+    {
+      "expected" : {
+        "millis" : -1345561010075,
+        "seconds" : -1345561010.0747919
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1927-05-13T09:03:09.925208Z"
+      },
+      "name" : "date-generated-143"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1961-01-13T14:55:45.193+00:00"
+      },
+      "name" : "date-generated-144"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1957-10-19 05:39:22.174Z"
+      },
+      "name" : "date-generated-145"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1913-09-16T21:14:46.670+00:00"
+      },
+      "name" : "date-generated-146"
+    },
+    {
+      "expected" : {
+        "millis" : -64018110000,
+        "seconds" : -64018110
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1967-12-22T01:11:30Z"
+      },
+      "name" : "date-generated-147"
+    },
+    {
+      "expected" : {
+        "millis" : -1208158654000,
+        "seconds" : -1208158654
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1931-09-19T16:22:26Z"
+      },
+      "name" : "date-generated-148"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1914-09-22T01:47:24.165+00:00"
+      },
+      "name" : "date-generated-149"
+    },
+    {
+      "expected" : {
+        "millis" : null,
+        "seconds" : null
+      },
+      "input" : {
+        "fn" : "date",
+        "text" : "1934-12-28T06:01:55.639"
+      },
+      "name" : "date-generated-150"
+    }
+  ],
+  "schema" : 1
+}

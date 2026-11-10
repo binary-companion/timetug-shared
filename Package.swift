@@ -36,6 +36,11 @@ let package = Package(
         .executableTarget(name: "DedupBenchmark", dependencies: [
             "TimeTugCore", .product(name: "CalendarCore", package: "calendar-connectors"),
         ]),
+        // Exports the golden vectors of vectors/ from the Swift code (scripts/dev/export-vectors.sh). Imports internals with
+        // @testable, so it is built with -enable-testing. Not a library product.
+        .executableTarget(name: "VectorExporter", dependencies: [
+            "TimeTugCore", "TimeTugEngine", "TimeTugEngineProtocol", .product(name: "CalendarCore", package: "calendar-connectors"),
+        ], swiftSettings: [.swiftLanguageMode(.v5)]),
         .testTarget(name: "TimeTugCoreTests", dependencies: [
             "TimeTugCore", .product(name: "CalendarCore", package: "calendar-connectors"),
         ]),
