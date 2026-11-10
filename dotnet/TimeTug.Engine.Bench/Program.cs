@@ -175,13 +175,9 @@ internal static class Program
             AssemblyName.GetAssemblyName(path);
             return true;
         }
-        catch (BadImageFormatException)
+        catch (Exception exception) when (exception is BadImageFormatException or FileLoadException)
         {
-            return false;
-        }
-        catch (FileLoadException)
-        {
-            return true;
+            return false; // a native image (the runtime reports it as one of these two)
         }
     }
 
