@@ -138,6 +138,8 @@ internal static class Program
         var paths = new List<string>();
         try
         {
+            // macOS lists no usable modules for a managed process.
+            if (OperatingSystem.IsMacOS()) throw new PlatformNotSupportedException();
             paths.AddRange(process.Modules.Cast<ProcessModule>().Select(module => module.FileName));
         }
         catch (Exception exception) when (exception is PlatformNotSupportedException or InvalidOperationException
@@ -155,6 +157,7 @@ internal static class Program
             Console.Error.WriteLine("nativeModuleBytes: loaded modules");
         }
 
+        Console.Error.WriteLine($"  {paths.Count} candidate files under {appDirectory}");
         long total = 0;
         foreach (var path in paths.Distinct(StringComparer.OrdinalIgnoreCase))
         {
@@ -163,6 +166,7 @@ internal static class Program
             var full = Path.GetFullPath(path);
             if (!full.StartsWith(appDirectory, StringComparison.OrdinalIgnoreCase)) continue;
             if (!File.Exists(full) || IsManaged(full)) continue;
+            Console.Error.WriteLine($"  native module {full}");
             total += new FileInfo(full).Length;
         }
         return total;
