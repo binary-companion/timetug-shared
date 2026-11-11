@@ -97,3 +97,24 @@ fn the_request_fingerprint_is_the_policy_version_and_sixteen_hex_digits() {
     assert!(key.starts_with("j2-"), "{key}");
     assert!(key[3..].len() <= 16 && key[3..].chars().all(|c| c.is_ascii_hexdigit()));
 }
+
+#[test]
+fn the_cache_key_writes_milliseconds_like_foundations_double_arithmetic() {
+    use crate::dedup::adjudication::json_millis;
+    // Written by `JSONEncoder` with `.millisecondsSince1970` from `Date(timeIntervalSince1970: Double(ms) / 1000)`
+    // (a Swift 6 script run on the development Mac; the same ms are the cases of the review finding that
+    // exact nanoseconds divided as a whole give 1789736400502.0002).
+    for ms in [
+        1_789_736_400_502_i64,
+        1_789_736_400_000,
+        1_789_736_400_001,
+        1_789_725_600_123,
+        1_789_736_400_999,
+    ] {
+        let t = jiff::Timestamp::from_millisecond(ms).unwrap();
+        assert_eq!(json_millis(t), ms.to_string(), "{ms}");
+    }
+    // Date(timeIntervalSince1970: 1789736400.5004) encodes as 1789736400500.4001.
+    let t = jiff::Timestamp::new(1_789_736_400, 500_400_000).unwrap();
+    assert_eq!(json_millis(t), "1789736400500.4001");
+}

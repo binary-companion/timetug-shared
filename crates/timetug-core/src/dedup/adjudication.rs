@@ -176,9 +176,14 @@ fn json_string(value: &str) -> String {
     out
 }
 
-/// `.millisecondsSince1970`: `timeIntervalSince1970 * 1000` as a JSON number, an integer when it is one.
-fn json_millis(t: Timestamp) -> String {
-    let millis = t.as_nanosecond() as f64 / 1e6;
+/// `.millisecondsSince1970` as Foundation computes it: `Date` stores a `Double` of seconds since 2001, and the encoder
+/// writes `timeIntervalSince1970 * 1000` as the shortest `Double` text, an integer when it is one. The arithmetic is
+/// done in `f64` in the same order (exact `i128` nanoseconds divided as a whole lose digits beyond 2^53 and would turn
+/// `...502` ms into `...502.0002`).
+pub(crate) fn json_millis(t: Timestamp) -> String {
+    let seconds = t.as_second() as f64 + f64::from(t.subsec_nanosecond()) / 1e9;
+    let reference = seconds - 978_307_200.0;
+    let millis = (reference + 978_307_200.0) * 1000.0;
     if millis.fract() == 0.0 && millis.abs() < 9.0e15 {
         format!("{}", millis as i64)
     } else {
