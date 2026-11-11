@@ -1,0 +1,91 @@
+# Resource baselines of the Swift engine (docs/rust-port/baselines.md): time to ready, working set, private bytes, idle CPU
+# and native module size, measured by dotnet/TimeTug.Engine.Bench against the Swift engine library, three runs per platform
+# on fresh runners. Run by hand; each run uploads its JSON as an artifact (bench-<platform>-<run>). Not part of CI.
+name: Engine benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Which runners to measure on
+        type: choice
+        options: [all, windows-x64, windows-arm64, macos-arm64]
+        default: all
+      idle-seconds:
+        description: Seconds the started engine idles before memory and CPU are read
+        type: string
+        default: '600'
+
+permissions: {}
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    permissions: {}
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - id: matrix
+        env:
+          PLATFORM: ${{ inputs.platform }}
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os
+          all_targets = [
+              {"platform": "windows-x64", "os": "windows-latest"},
+              {"platform": "windows-arm64", "os": "windows-11-arm"},
+              {"platform": "macos-arm64", "os": "macos-26"},
+          ]
+          chosen = os.environ["PLATFORM"]
+          include = [dict(t, run=r) for t in all_targets if chosen in ("all", t["platform"]) for r in (1, 2, 3)]
+          print("matrix=" + json.dumps({"include": include}))
+          PY
+
+  bench:
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install Swift
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/ci/install-swift-windows.ps1
+      - name: Select newest Xcode
+        if: runner.os == 'macOS'
+        run: scripts/ci/select-xcode.sh
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          dotnet-version: 8.0.x
+      - name: Describe the machine
+        shell: pwsh
+        run: |
+          [pscustomobject]@{
+            runner = $env:RUNNER_NAME; image = $env:ImageOS; imageVersion = $env:ImageVersion
+            os = [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
+            arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+            logicalCpus = [Environment]::ProcessorCount
+          } | ConvertTo-Json | Tee-Object -FilePath machine.json
+      - name: Measure (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          IDLE_SECONDS: ${{ inputs.idle-seconds }}
+        run: ./scripts/benchmarks/run-engine-bench.ps1 -IdleSeconds ([int]$env:IDLE_SECONDS) -Out build/bench/engine-bench.json
+      - name: Measure (macOS)
+        if: runner.os == 'macOS'
+        env:
+          IDLE_SECONDS: ${{ inputs.idle-seconds }}
+        run: scripts/benchmarks/run-engine-bench.sh --idle-seconds "$IDLE_SECONDS" --out build/bench/engine-bench.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: bench-${{ matrix.platform }}-${{ matrix.run }}
+          path: |
+            build/bench/engine-bench.json
+            machine.json
+          if-no-files-found: error
