@@ -17,17 +17,18 @@ timetug-bridge = { path = "crates/timetug-bridge" }
 timetug-engine = { path = "crates/timetug-engine" }
 timetug-engine-protocol = { path = "crates/timetug-engine-protocol" }
 
-# The connector library, by git revision: the commit on calendar-connectors v2 that merged its Cargo workspace (phase 0,
-# task 4). Phase 3 switches `rev` to a prerelease tag, phase 4 to `tag = "2.0.0"`. To build against a local checkout
-# instead, run scripts/dev/use-local-connectors.sh <path> (it writes a git-ignored cargo config; never commit a [patch]).
-calendar-core = { git = "https://github.com/binary-companion/calendar-connectors", rev = "5ce43666af6a29e175addcd23e88774e3e8ccd47" }
-calendar-oauth = { git = "https://github.com/binary-companion/calendar-connectors", rev = "5ce43666af6a29e175addcd23e88774e3e8ccd47" }
-calendar-ical = { git = "https://github.com/binary-companion/calendar-connectors", rev = "5ce43666af6a29e175addcd23e88774e3e8ccd47" }
-calendar-google = { git = "https://github.com/binary-companion/calendar-connectors", rev = "5ce43666af6a29e175addcd23e88774e3e8ccd47" }
-calendar-microsoft = { git = "https://github.com/binary-companion/calendar-connectors", rev = "5ce43666af6a29e175addcd23e88774e3e8ccd47" }
-calendar-caldav = { git = "https://github.com/binary-companion/calendar-connectors", rev = "5ce43666af6a29e175addcd23e88774e3e8ccd47" }
-calendar-ical-subscription = { git = "https://github.com/binary-companion/calendar-connectors", rev = "5ce43666af6a29e175addcd23e88774e3e8ccd47" }
-calendar-test-support = { git = "https://github.com/binary-companion/calendar-connectors", rev = "5ce43666af6a29e175addcd23e88774e3e8ccd47" }
+# The connector library, by git revision: the commit on calendar-connectors v2 that closed phase 1 (the ported
+# connector crates; it replaced the phase 0 commit that only held the empty workspace). Phase 3 switches `rev` to a
+# prerelease tag, phase 4 to `tag = "2.0.0"`. To build against a local checkout instead,
+# run scripts/dev/use-local-connectors.sh <path> (it writes a git-ignored cargo config; never commit a [patch]).
+calendar-core = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
+calendar-oauth = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
+calendar-ical = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
+calendar-google = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
+calendar-microsoft = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
+calendar-caldav = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
+calendar-ical-subscription = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
+calendar-test-support = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
 
 serde = { version = "=1.0.229", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }
