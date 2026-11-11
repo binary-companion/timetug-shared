@@ -120,7 +120,6 @@ pub(super) fn make_event_with(spec: EventSpec) -> TimeTugCalendarEvent {
 }
 
 /// Settings with the default test calendar ("fake/cal") opted in for takeovers.
-#[allow(dead_code)] // used by the takeover tests of Task 2
 pub(super) fn opted_in(configure: impl FnOnce(&mut TakeoverSettings)) -> TakeoverSettings {
     let mut settings = TakeoverSettings::default();
     settings
@@ -131,7 +130,6 @@ pub(super) fn opted_in(configure: impl FnOnce(&mut TakeoverSettings)) -> Takeove
 }
 
 /// A "now" at which test ledger entries are recorded (before the default test events).
-#[allow(dead_code)] // used by the takeover tests of Task 2
 pub(super) fn recorded_at() -> Timestamp {
     date("2026-09-18T09:00:00Z")
 }
