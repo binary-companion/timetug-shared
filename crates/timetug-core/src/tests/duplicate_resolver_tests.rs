@@ -1,8 +1,7 @@
 //! Port of `TimeTugCoreTests/DuplicateResolverTests.swift`.
 //!
-//! Four Swift tests also assert through `TakeoverPolicy`, `Scheduler` and `TakeoverLedger`, which Task 2 ports in a
-//! separate pull request. Those assertions are left out here and marked `Task 2:` in place; the resolver assertions
-//! of the same tests are all ported.
+//! Five Swift tests also assert through `TakeoverPolicy`, `Scheduler` and `TakeoverLedger` (ported by Task 2); those
+//! assertions are in place beside the resolver assertions.
 
 use std::collections::BTreeSet;
 
@@ -10,7 +9,7 @@ use calendar_core::model::ResponseStatus;
 use calendar_core::time::add_seconds;
 
 use super::dedup_support::{ev, identities};
-use super::support::date;
+use super::support::{date, opted_in, recorded_at};
 use crate::dedup::adjudication::{AdjudicationVerdict, EngineInfo, VerdictAnswer, VerdictCache};
 use crate::dedup::lesson_book::{LessonBook, LessonDecision};
 use crate::dedup::resolver::{DuplicateResolution, DuplicateResolver};
@@ -18,6 +17,9 @@ use crate::dedup::rules::{DuplicateRules, MergeReason, PairDecision, SeparateRea
 use crate::model::calendar_info::CalendarInfo;
 use crate::model::event::TimeTugCalendarEvent;
 use crate::model::merge_types::{MergeProvenance, MergedMember};
+use crate::takeover::ledger::TakeoverLedger;
+use crate::takeover::policy::TakeoverPolicy;
+use crate::takeover::scheduler::Scheduler;
 
 fn t0() -> jiff::Timestamp {
     date("2026-09-18T09:00:00Z")
@@ -359,12 +361,12 @@ fn merged_event_keeps_the_largest_attendee_count_so_takeover_still_qualifies() {
         .notes("Agenda")
         .conf(ZOOM)
         .build();
-    // Task 2: TakeoverPolicy::qualifies(&work, opted_in()) is true before the merge.
+    assert!(TakeoverPolicy::qualifies(&work, &opted_in(|_| {})));
     let merged = resolve(&[work, personal]).events;
     assert_eq!(merged.len(), 1);
     assert_eq!(merged[0].calendar_key(), "fake/personal"); // the richer copy is the primary
     assert_eq!(merged[0].other_attendee_count, 5);
-    // Task 2: TakeoverPolicy::qualifies(&merged[0], opted_in()) is true after it.
+    assert!(TakeoverPolicy::qualifies(&merged[0], &opted_in(|_| {})));
 }
 
 #[test]
@@ -385,12 +387,12 @@ fn merged_event_is_not_declined_when_any_copy_is_not_declined() {
         .notes("Agenda")
         .conf(ZOOM)
         .build();
-    // Task 2: TakeoverPolicy::qualifies(&work, opted_in()) is true before the merge.
+    assert!(TakeoverPolicy::qualifies(&work, &opted_in(|_| {})));
     let merged = resolve(&[work, personal]).events;
     assert_eq!(merged.len(), 1);
     assert_eq!(merged[0].calendar_key(), "fake/personal");
     assert_eq!(merged[0].response_status, Some(ResponseStatus::Accepted));
-    // Task 2: TakeoverPolicy::qualifies(&merged[0], opted_in()) is true after it.
+    assert!(TakeoverPolicy::qualifies(&merged[0], &opted_in(|_| {})));
 }
 
 #[test]
@@ -742,7 +744,10 @@ fn merge_keeps_a_link_found_only_in_the_non_primary_copys_notes() {
         merged.conference_url().and_then(|u| u.host()).as_deref(),
         Some("teams.microsoft.com")
     );
-    // Task 2: TakeoverPolicy::qualifies(&merged, opted_in(require_conference_link)) is true.
+    assert!(TakeoverPolicy::qualifies(
+        &merged,
+        &opted_in(|s| s.require_conference_link = true)
+    ));
 }
 
 #[test]
@@ -1152,8 +1157,20 @@ fn conference_appointment_tugs_at_its_start_while_the_list_shows_the_placeholder
         placeholder.content_key(),
         appointment.content_key()
     ])));
-    // Task 2: Scheduler::next(merged, lead time 120, empty ledger, now 12:00) fires at 12:58:00 (the tug start, never
-    // the display start), and a ledger that marked `appointment` as fired reports the merged card as fired.
+
+    // The takeover follows the tug start, never the display start.
+    let next = Scheduler::next(
+        &merged,
+        &opted_in(|s| s.lead_time = 120.0),
+        &TakeoverLedger::new(),
+        date("2026-09-18T12:00:00Z"),
+    );
+    assert_eq!(next.map(|n| n.fire_at), Some(date("2026-09-18T12:58:00Z")));
+
+    // A fired member counts for the merged card.
+    let mut ledger = TakeoverLedger::new();
+    ledger.mark_fired(&appointment, recorded_at());
+    assert!(ledger.has_fired(event));
 }
 
 #[test]
@@ -1173,8 +1190,13 @@ fn merged_no_link_event_fires_at_the_longer_copy_start() {
         .uid("u")
         .build();
     let merged = resolve(&[short, long]).events;
-    // The merged event starts at the longer copy's start, 12:45; Task 2 adds the Scheduler assertion (fire 12:43).
-    assert_eq!(merged[0].start(), date("2026-09-18T12:45:00Z"));
+    let next = Scheduler::next(
+        &merged,
+        &opted_in(|s| s.lead_time = 120.0),
+        &TakeoverLedger::new(),
+        date("2026-09-18T12:00:00Z"),
+    );
+    assert_eq!(next.map(|n| n.fire_at), Some(date("2026-09-18T12:43:00Z")));
 }
 
 #[test]

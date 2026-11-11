@@ -1,5 +1,5 @@
-//! Port of `TimeTugCoreTests/Support.swift`: the helpers the Swift tests share. Helpers for the calendar store
-//! (`FakeSource`, `utcCalendar`, `calendar(in:)`) arrive with the tasks that use them.
+//! Port of `TimeTugCoreTests/Support.swift`: the helpers the Swift tests share. `utcCalendar` and `calendar(in:)` are
+//! [`zone`] here (the store takes a `Zone`); `FakeSource` lives with `CalendarStoreTests`, as in Swift.
 
 use calendar_core::all_day::{AllDay, CalendarDate};
 use calendar_core::conference_detector::ConferenceDetector;
@@ -7,9 +7,10 @@ use calendar_core::model::{
     Attendee, CalendarEvent, ConferenceInfo, ConferenceOrigin, ConferenceProvider, ResponseStatus,
     UidScope,
 };
-use calendar_core::time::{Zone, add_seconds};
+use calendar_core::time::{Now, Zone, add_seconds};
 use calendar_core::url_string::UrlString;
 use jiff::Timestamp;
+use std::sync::Arc;
 
 use crate::model::event::TimeTugCalendarEvent;
 use crate::model::takeover_settings::TakeoverSettings;
@@ -150,4 +151,10 @@ pub(super) fn make_all_day(
 
 pub(super) fn day(y: i64, m: i64, d: i64) -> CalendarDate {
     CalendarDate::new(y, m, d)
+}
+
+/// The `passClock` the store tests give the store: a clock that never moves (Core cannot read the real one; Swift's
+/// default is `Date.init`).
+pub(super) fn fixed_clock() -> Now {
+    Arc::new(recorded_at)
 }
