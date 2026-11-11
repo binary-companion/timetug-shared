@@ -318,6 +318,7 @@ fn snapshot_json_rejects_what_swift_rejects() {
     // A date that is not ISO 8601, a number (family A style) for a date, a missing isAllDay, a missing events list.
     for text in [
         r#"{"generatedAt":"2026-09-18 12:00:00","events":[]}"#,
+        r#"{"generatedAt":"2026-09-18 12:00:00Z","events":[]}"#,
         r#"{"generatedAt":811000000,"events":[]}"#,
         r#"{"generatedAt":"2026-09-18T12:00:00Z"}"#,
         r#"{"generatedAt":"2026-09-18T12:00:00Z","events":[{"id":"a","title":"a","start":"2026-09-18T12:00:00Z","end":"2026-09-18T13:00:00Z"}]}"#,

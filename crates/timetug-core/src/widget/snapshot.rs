@@ -29,6 +29,10 @@ mod iso8601 {
 
     pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Timestamp, D::Error> {
         let text = String::deserialize(deserializer)?;
+        // ISO 8601 as `ISO8601DateFormatter` reads it: the date and time are joined by `T` (jiff also accepts a space).
+        if text.as_bytes().get(10) != Some(&b'T') {
+            return Err(D::Error::custom("not an ISO 8601 date-time"));
+        }
         text.parse::<Timestamp>().map_err(D::Error::custom)
     }
 }
