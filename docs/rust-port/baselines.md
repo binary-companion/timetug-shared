@@ -3,7 +3,7 @@
 What the Rust engine must meet or beat (design section 6.4, phase 3 gate). Measured on the Swift engine library of
 `timetug-shared` `v2` at commit `d7b4aa3` (Swift sources identical to the `1.8.1` baseline tag apart from the
 `VectorExporter` target and the Rust workspace, neither of which is in the engine library). Every number below was
-measured; rows that were not are marked TODO with the reason.
+measured; the one row that was not (the Parallels VM) is marked TODO with the reason.
 
 ## Acceptance rule
 
@@ -94,32 +94,50 @@ Image `macos26` 20261102.0473.1, macOS 26.7.2, Apple silicon, 3 logical CPUs, wo
 
 ### The development Mac
 
-TODO (not measured): `scripts/benchmarks/run-engine-bench.sh` on the development Mac (Apple M1 Max, 64 GB,
-macOS 27.0.1). The .NET SDK is not installed there, and installing it is a download that needs the owner's go-ahead.
-The script is ready; run it with `--idle-seconds 600` after `brew install dotnet@8` (or the Microsoft installer) and
-add the row. Until then the hosted `macos-26` numbers above are the macOS baseline.
+Apple M1 Max, 64 GB, 10 logical CPUs, macOS 27.0.1, Swift 6.4.2, .NET SDK 8.0.133 (Homebrew `dotnet@8`), measured
+2026-11-11 with `scripts/benchmarks/run-engine-bench.sh --idle-seconds 600`, three runs one after another, each with
+its own build and a fresh data directory. The owner's usual apps (Chrome, the Claude app, the menu bar tools) stayed
+open and no builds, tests or agents ran during a measurement, but the machine never settled below a 1-minute load
+average of 2 in the 30 minutes it was watched (it idled at about 3.5 to 6 from those apps); each run started after up
+to 3 minutes of waiting for the load to drop, with 1-minute / 5-minute load averages of 5.10 / 4.79 (run 1),
+4.44 / 5.48 (run 2) and 4.59 / 4.92 (run 3), about 78 to 80% CPU idle.
+
+| Run | readyMs | workingSetBytes | privateBytes (physical footprint) | cpuMsIdle per 600 s | nativeModuleBytes |
+|---|---|---|---|---|---|
+| 1 | 353.0 | 58,966,016 | 33,538,888 | 86.2 | 7,936,248 |
+| 2 | 483.2 | 58,687,488 | 33,522,504 | 82.2 | 7,936,248 |
+| 3 | 388.4 | 58,884,096 | 33,325,896 | 80.7 | 7,936,248 |
+| **Median** | **388.4** | **58,884,096** | **33,522,504** | **82.2** | **7,936,248** |
+
+The development Mac numbers are the macOS baseline for the dev hardware; the hosted `macos-26` numbers above are the
+baseline for the CI runner (a smaller machine and an older macOS, so its working set is lower and its native module
+is smaller). The Rust engine is compared on the same machine as the row it is checked against.
 
 ## Dedup benchmark (macOS)
 
 `scripts/benchmarks/run-dedup.sh` (`swift run -c release DedupBenchmark`), development Mac (Apple M1 Max, 64 GB,
-macOS 27.0.1, Swift 6.4.2), `calendar-connectors` 1.2.0, one run. The Mac was also running unrelated builds and
-agents at the time, so treat the timings as an upper bound with more noise than the 10% tolerance; the Rust port
-should re-run it on a quiet machine before the phase gate compares against it. Output lines:
+macOS 27.0.1, Swift 6.4.2), `calendar-connectors` 1.2.0, measured 2026-11-11: the release build first, then three
+runs one after another, the median of the three runs per row recorded. Nothing but the owner's usual open apps
+(Chrome, the Claude app, the menu bar tools) ran besides it; the 1-minute / 5-minute load averages when the runs
+started were 3.22 / 4.48 (run 1), 7.03 / 5.27 (run 2, a short spike just before it began) and 3.64 / 4.46 (run 3),
+at about 62 to 82% CPU idle, because the machine never settled below a load of 2 in 30 minutes of watching. An
+earlier single run on a machine busy with builds and agents gave 102,717.787 ms for dense 5000, so the busy-machine
+penalty was small; the three-run medians below are the baseline. Output lines (medians):
 
 ```
 shape,count,median_ms,output_events
-sparse,100,0.396,100
-sparse,500,1.978,500
-sparse,1000,3.301,1000
-sparse,5000,14.603,5000
-dense,100,35.741,100
-dense,500,916.227,500
-dense,1000,3673.189,1000
-dense,5000,102717.787,5000
-duplicates,100,46.657,25
-duplicates,500,494.486,125
-duplicates,1000,1075.687,250
-duplicates,5000,5820.517,1250
+sparse,100,0.255,100
+sparse,500,1.355,500
+sparse,1000,2.905,1000
+sparse,5000,14.880,5000
+dense,100,35.506,100
+dense,500,911.095,500
+dense,1000,3660.757,1000
+dense,5000,102016.760,5000
+duplicates,100,46.232,25
+duplicates,500,490.346,125
+duplicates,1000,1063.666,250
+duplicates,5000,5743.033,1250
 ```
 
 `output_events` is deterministic and must match exactly in the Rust port.
