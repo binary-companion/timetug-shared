@@ -8,6 +8,8 @@
 mod all_day_dates_tests;
 mod calendar_info_color_tests;
 mod calendar_info_tests;
+mod day_agenda_tests;
+mod day_agenda_vectors;
 mod dedup_key_vectors;
 mod model_tests;
 mod parsers_never_panic;
@@ -25,3 +27,7 @@ mod takeover_test_support;
 mod takeover_vector_support;
 mod takeover_vectors;
 mod timetug_calendar_event_tests;
+mod vector_support;
+mod widget_snapshot_tests;
+mod widget_snapshot_vectors;
+mod widget_timeline_tests;

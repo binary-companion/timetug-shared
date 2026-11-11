@@ -4,10 +4,12 @@
 //! Every function that needs the time takes `now: Timestamp` (enforced by `scripts/ci/check-no-clock.py`).
 #![forbid(unsafe_code)]
 
+pub mod agenda;
 pub mod model;
 pub mod sources;
 pub mod takeover;
 pub(crate) mod text;
+pub mod widget;
 
 pub use model::calendar_info::CalendarInfo;
 pub use model::event::TimeTugCalendarEvent;
