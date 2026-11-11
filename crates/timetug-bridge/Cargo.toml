@@ -17,3 +17,10 @@ calendar-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+async-trait = { workspace = true }
+# `rt` (spawn) and `sync` (channels) only; the clock rule forbids `tokio::time` outside tests.
+tokio = { workspace = true }
+
+[dev-dependencies]
+jiff = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }

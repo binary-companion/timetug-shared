@@ -2,19 +2,19 @@
 
 | Swift test | Rust test | Status |
 |---|---|---|
-| CalendarBridgeTests/ConnectedSourceTests.swift::cancellingTheConsumerEndsTheLibraryStream | - | pending |
-| CalendarBridgeTests/ConnectedSourceTests.swift::forwardsIdentityAndMapsCalendarsAndEvents | - | pending |
-| CalendarBridgeTests/ConnectedSourceTests.swift::libraryChangesKeepSourceAndCalendarScopeIncludingFailure | - | pending |
-| CalendarBridgeTests/ConnectedSourceTests.swift::noticesPassThroughAndDefaultToNone | - | pending |
-| CalendarBridgeTests/ConnectedSourceTests.swift::otherErrorsPropagateUntranslated | - | pending |
-| CalendarBridgeTests/ConnectedSourceTests.swift::translatesPermissionAndAuthErrors | - | pending |
-| CalendarBridgeTests/EventMapperTests.swift::allDayEventsPassThroughUnchanged | - | pending |
-| CalendarBridgeTests/EventMapperTests.swift::calendarInfoCarriesTheCalendarKind | - | pending |
-| CalendarBridgeTests/EventMapperTests.swift::cancelledEventsAreDropped | - | pending |
-| CalendarBridgeTests/EventMapperTests.swift::eventKitAndGoogleShapedEventsAgreeOnSharedKeysAndDedupAsExact | - | pending |
-| CalendarBridgeTests/EventMapperTests.swift::mapsCalendarDescriptors | - | pending |
-| CalendarBridgeTests/EventMapperTests.swift::titlesPassThroughUnchangedIncludingEmpty | - | pending |
-| CalendarBridgeTests/EventMapperTests.swift::wrapsTimedEventUnchanged | - | pending |
+| CalendarBridgeTests/ConnectedSourceTests.swift::cancellingTheConsumerEndsTheLibraryStream | crates/timetug-bridge/src/tests/connected_source_tests.rs::cancelling_the_consumer_ends_the_library_stream | ported |
+| CalendarBridgeTests/ConnectedSourceTests.swift::forwardsIdentityAndMapsCalendarsAndEvents | crates/timetug-bridge/src/tests/connected_source_tests.rs::forwards_identity_and_maps_calendars_and_events | ported |
+| CalendarBridgeTests/ConnectedSourceTests.swift::libraryChangesKeepSourceAndCalendarScopeIncludingFailure | crates/timetug-bridge/src/tests/connected_source_tests.rs::library_changes_keep_source_and_calendar_scope_including_failure | ported |
+| CalendarBridgeTests/ConnectedSourceTests.swift::noticesPassThroughAndDefaultToNone | crates/timetug-bridge/src/tests/connected_source_tests.rs::notices_pass_through_and_default_to_none | ported |
+| CalendarBridgeTests/ConnectedSourceTests.swift::otherErrorsPropagateUntranslated | crates/timetug-bridge/src/tests/connected_source_tests.rs::other_errors_propagate_untranslated | ported |
+| CalendarBridgeTests/ConnectedSourceTests.swift::translatesPermissionAndAuthErrors | crates/timetug-bridge/src/tests/connected_source_tests.rs::translates_permission_and_auth_errors | ported |
+| CalendarBridgeTests/EventMapperTests.swift::allDayEventsPassThroughUnchanged | crates/timetug-bridge/src/tests/event_mapper_tests.rs::all_day_events_pass_through_unchanged | ported |
+| CalendarBridgeTests/EventMapperTests.swift::calendarInfoCarriesTheCalendarKind | crates/timetug-bridge/src/tests/event_mapper_tests.rs::calendar_info_carries_the_calendar_kind | ported |
+| CalendarBridgeTests/EventMapperTests.swift::cancelledEventsAreDropped | crates/timetug-bridge/src/tests/event_mapper_tests.rs::cancelled_events_are_dropped | ported |
+| CalendarBridgeTests/EventMapperTests.swift::eventKitAndGoogleShapedEventsAgreeOnSharedKeysAndDedupAsExact | crates/timetug-bridge/src/tests/event_mapper_tests.rs::event_kit_and_google_shaped_events_agree_on_shared_keys_and_dedup_as_exact | ported |
+| CalendarBridgeTests/EventMapperTests.swift::mapsCalendarDescriptors | crates/timetug-bridge/src/tests/event_mapper_tests.rs::maps_calendar_descriptors | ported |
+| CalendarBridgeTests/EventMapperTests.swift::titlesPassThroughUnchangedIncludingEmpty | crates/timetug-bridge/src/tests/event_mapper_tests.rs::titles_pass_through_unchanged_including_empty | ported |
+| CalendarBridgeTests/EventMapperTests.swift::wrapsTimedEventUnchanged | crates/timetug-bridge/src/tests/event_mapper_tests.rs::wraps_timed_event_unchanged | ported |
 | TimeTugCoreTests/AdjudicationTests.swift::adjudicationEventDropsAttendeeNamesThatAreEmailAddresses | crates/timetug-core/src/tests/adjudication_tests.rs::adjudication_event_drops_attendee_names_that_are_email_addresses | ported |
 | TimeTugCoreTests/AdjudicationTests.swift::adjudicationEventTruncatesNotesAndDropsEmailsByConstruction | crates/timetug-core/src/tests/adjudication_tests.rs::adjudication_event_truncates_notes_and_drops_emails_by_construction | ported |
 | TimeTugCoreTests/AdjudicationTests.swift::cacheKeyIgnoresTextBeyondRenderedPromptBudget | crates/timetug-core/src/tests/adjudication_tests.rs::cache_key_ignores_text_beyond_rendered_prompt_budget | ported |
