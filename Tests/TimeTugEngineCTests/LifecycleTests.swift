@@ -136,12 +136,16 @@ import TimeTugEngineProtocol
     @Test func replyForUnknownRequestIDIsIgnored() async throws {
         let collector = MessageCollector()
         let handle = try await startedEngine(collector)
-        await settle(collector)
+        // Wait for the engine's own start-up work to finish (a long quiet window: a slow runner such as
+        // windows-arm64 can pause for longer than the default 0.15 s between two of its start-up messages), then
+        // send the stray replies and wait for quiet again. Anything delivered after the first quiet point would
+        // otherwise be mistaken for a reaction to the replies.
+        await settle(collector, quiet: 1.0)
         let before = collector.count
         tt_engine_reply(handle.raw, 424_242, #"{"v":1,"result":{}}"#)
         tt_engine_reply(handle.raw, 424_242, nil)
         tt_engine_reply(handle.raw, 0, "not json")
-        try await Task.sleep(nanoseconds: 50_000_000)
+        await settle(collector, quiet: 0.5)
         #expect(collector.count == before)
         await destroy(handle)
     }
