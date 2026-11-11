@@ -4,9 +4,11 @@
 //! Every function that needs the time takes `now: Timestamp` (enforced by `scripts/ci/check-no-clock.py`).
 #![forbid(unsafe_code)]
 
+pub mod dedup;
+mod fold_table;
 pub mod model;
 pub mod sources;
-pub(crate) mod text;
+pub mod text;
 
 pub use model::calendar_info::CalendarInfo;
 pub use model::event::TimeTugCalendarEvent;
