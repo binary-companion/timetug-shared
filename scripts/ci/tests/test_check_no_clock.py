@@ -103,6 +103,18 @@ class NoClockTests(unittest.TestCase):
         self.assertEqual(code, 1, output)
         self.assertIn('late.rs:4:', output)
 
+    def test_cfg_test_on_a_field_or_variant_does_not_hide_later_code(self):
+        field = 'pub struct S {\n    #[cfg(test)]\n    pub seen: std::collections::HashMap<u8, u8>,\n    pub n: u8,\n}\n\npub fn bad() { let _ = jiff::Timestamp::now(); }\n'
+        variant = 'pub enum E {\n    A,\n    #[cfg(test)]\n    B(u8, u8),\n}\n\npub fn bad() { let _ = std::time::SystemTime::UNIX_EPOCH; }\n'
+        last_field = 'pub struct S {\n    pub n: u8,\n    #[cfg(test)]\n    pub seen: u8\n}\n\npub fn bad() { let _ = std::env::var("X"); }\n'
+        for name, text, line in [('field', field, 7), ('variant', variant, 7), ('last_field', last_field, 7)]:
+            code, output = run({f'crates/timetug-core/src/{name}.rs': text})
+            self.assertEqual(code, 1, f'{name}: {output}')
+            self.assertIn(f'{name}.rs:{line}:', output)
+        # The test-only field itself may read the clock.
+        code, output = run({'crates/timetug-core/src/ok.rs': 'pub struct S {\n    #[cfg(test)]\n    pub at: std::time::SystemTime,\n    pub n: u8,\n}\n'})
+        self.assertEqual(code, 0, output)
+
     def test_missing_crate_directories_pass(self):
         code, output = run({})
         self.assertEqual(code, 0, output)

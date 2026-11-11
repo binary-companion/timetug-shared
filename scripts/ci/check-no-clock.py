@@ -10,7 +10,7 @@ contains one of:
   Timestamp::now  SystemTime  Instant::now  Zoned::now  tokio::time  std::env
 
 Comments and the contents of string and character literals are ignored. Tests are excluded: files under a `tests`
-directory, files named tests.rs, and items marked #[cfg(test)]. A missing crate directory is skipped (the bridge may not
+directory, files named tests.rs, and items marked #[cfg(test)] (modules, functions, uses, struct fields, enum variants). A missing crate directory is skipped (the bridge may not
 exist yet)."""
 import argparse
 import re
@@ -89,25 +89,38 @@ def blank(source):
 
 
 def drop_cfg_test_items(code):
-    """Replaces every item marked #[cfg(test)] (an inline module, function or use) with spaces."""
+    """Replaces every item marked #[cfg(test)] with spaces: an inline module, function or use (up to its closing brace or
+    semicolon), or a struct field, enum variant or match arm (up to its comma, or up to the brace that closes the
+    enclosing block, which is left alone)."""
     result = list(code)
     for match in re.finditer(r'#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]', code):
         j = match.end()
-        depth = 0
-        nesting = 0  # () and [], where a `;` does not end the item (`[u8; 4]`)
+        depth = 0  # {} opened by the item itself
+        nesting = 0  # () and [], where `;` and `,` do not end the item (`[u8; 4]`, `f(a, b)`)
+        angle = 0  # <>, where `,` does not end the item (`HashMap<A, B>`)
         while j < len(code):
-            if code[j] in '([':
+            c = code[j]
+            if c in '([':
                 nesting += 1
-            elif code[j] in ')]':
+            elif c in ')]':
                 nesting -= 1
-            elif code[j] == '{':
+            elif c == '<' and code[j - 1] not in '-=':
+                angle += 1
+            elif c == '>' and code[j - 1] not in '-=' and angle > 0:
+                angle -= 1
+            elif c == '{':
                 depth += 1
-            elif code[j] == '}':
+            elif c == '}':
+                if depth == 0:
+                    break  # the block around the item ends here; the brace is not part of the item
                 depth -= 1
                 if depth == 0:
                     j += 1
                     break
-            elif code[j] == ';' and depth == 0 and nesting == 0:
+            elif c == ';' and depth == 0 and nesting == 0:
+                j += 1
+                break
+            elif c == ',' and depth == 0 and nesting == 0 and angle == 0:
                 j += 1
                 break
             j += 1

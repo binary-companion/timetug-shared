@@ -41,3 +41,18 @@ fn dedup_key_vector() {
         failures.join("\n")
     );
 }
+
+#[test]
+fn id_and_content_key_truncate_toward_zero_before_1970() {
+    // Swift: `Int(Date(timeIntervalSince1970: -0.5).timeIntervalSince1970)` is 0, not -1.
+    let start = Timestamp::from_millisecond(-500).unwrap();
+    let end = Timestamp::from_millisecond(1_500).unwrap();
+    let event =
+        TimeTugCalendarEvent::new(CalendarEvent::new("e1", "cal", "Old", start, end), "src");
+    assert_eq!(event.id(), "src/e1/0");
+    assert_eq!(event.content_key(), "old|0|1");
+    let earlier = Timestamp::from_millisecond(-1_500).unwrap();
+    let event =
+        TimeTugCalendarEvent::new(CalendarEvent::new("e1", "cal", "Old", earlier, end), "src");
+    assert_eq!(event.id(), "src/e1/-1");
+}
