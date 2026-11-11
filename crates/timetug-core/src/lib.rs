@@ -5,10 +5,12 @@
 #![forbid(unsafe_code)]
 
 pub mod agenda;
+pub mod dedup;
+mod fold_table;
 pub mod model;
 pub mod sources;
 pub mod takeover;
-pub(crate) mod text;
+pub mod text;
 pub mod widget;
 
 pub use model::calendar_info::CalendarInfo;
