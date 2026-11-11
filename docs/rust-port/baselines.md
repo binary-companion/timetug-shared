@@ -3,7 +3,7 @@
 What the Rust engine must meet or beat (design section 6.4, phase 3 gate). Measured on the Swift engine library of
 `timetug-shared` `v2` at commit `d7b4aa3` (Swift sources identical to the `1.8.1` baseline tag apart from the
 `VectorExporter` target and the Rust workspace, neither of which is in the engine library). Every number below was
-measured; the one row that was not (the Parallels VM) is marked TODO with the reason.
+measured, including the Parallels VM row on the development Mac.
 
 ## Acceptance rule
 
@@ -74,10 +74,34 @@ workflow run 42923800836, three runs (run 3 is a re-run of the same job after it
 
 Package (Task 1): native payload uncompressed 73,146,368 bytes, compressed 27,643,266 bytes.
 
-TODO (not measured): the Parallels VM `Windows 11` on the development Mac. It was suspended when this task ran, and
-the `timetug-windows` repository's VM scripts are not checked out on this machine; per the plan's rule the VM was
-not resumed or reconfigured. The hosted ARM64 runner above is a native Windows ARM64 machine and stands in for it;
-add a VM row if a like-for-like reading on the development hardware is wanted.
+### Parallels VM on the development Mac
+
+Parallels VM `Windows 11` (Windows 11 Pro 10.0.26200, ARM64, 6 vCPUs) on the Apple M1 Max, 64 GB development Mac.
+Swift 6.4.0 (the toolchain `install-swift-windows.ps1` pins; the build reports `+assertions`, as on the hosted
+runner), .NET 8.0.428 runtime and SDK (the build itself picked SDK 10.0.404, the harness targets net8.0), Visual Studio
+2022 17.7 MSVC tools. Measured 2026-11-11 with `scripts/benchmarks/run-engine-bench.ps1 -IdleSeconds 600`, three
+runs one after another, each with its own (incremental) build and a fresh data directory.
+
+| Run | readyMs | workingSetBytes | privateBytes | cpuMsIdle per 600 s | nativeModuleBytes |
+|---|---|---|---|---|---|
+| 1 | 100.6 | 53,710,848 | 15,876,096 | 156.2 | 73,130,496 |
+| 2 | 105.6 | 53,665,792 | 15,802,368 | 265.6 | 73,130,496 |
+| 3 | 96.6 | 53,104,640 | 15,233,024 | 109.4 | 73,130,496 |
+| **Median** | **100.6** | **53,665,792** | **15,802,368** | **156.2** | **73,130,496** |
+
+Conditions: the Parallels setting "Pause idle" was switched off for the runs (with it on, Parallels pauses an idle VM
+about every 33 s, which breaks a 600 s idle measurement) and restored afterwards; no pause occurred during the runs.
+The EA Desktop app in the VM user session was spinning at about 300% CPU, so its processes were stopped before the
+runs. No user was signed in to the VM desktop (Windows Update had restarted it), so the harness ran as SYSTEM instead
+of as the logged-in user. The runs started with 1-minute / 5-minute / 15-minute host load averages of 7.44 / 14.47 /
+11.49 (run 1, still settling after the VM's Windows Update restart; 84.6% CPU idle), 2.75 / 5.54 / 7.96 (run 2; 83.7%
+idle) and 4.33 / 4.96 / 6.35 (run 3; 74.9% idle), and ended at 2.75, 4.33 and 3.69 (1 minute). The `cpuMsIdle`
+spread (109 to 266 ms) is wider than on the other hosts and run 2 is the high one; the median is reported as for the
+other rows. The VM numbers are higher in `workingSetBytes` than the hosted runner (53.7 MB against 9.6 MB) and lower in
+`readyMs` (100.6 against 571.0 ms); the VM was not otherwise comparable (6 vCPUs, virtualised, Windows 11 Pro).
+
+Package (Task 1) sizes are the hosted-runner figures above (the native payload here is 73,130,496 bytes against
+73,146,368 there, a different Swift build of the same sources).
 
 ## macOS arm64
 
