@@ -1,6 +1,6 @@
-//! Port of `TimeTugCoreTests/ManualMergeTests.swift`. `mergingTheReportedPairThroughTheStoreSticks` goes through
-//! `CalendarStore` (Task 4) and is ported there.
+//! Port of `TimeTugCoreTests/ManualMergeTests.swift`.
 
+use super::calendar_store_tests::{FakeSource, new_store};
 use super::dedup_support::{ev, make_all_day_in};
 use super::support::{date, day};
 use crate::dedup::lesson_book::{LessonBook, LessonDecision};
@@ -233,4 +233,37 @@ fn lessons_saved_before_occurrence_scoping_still_decode() {
         book.decision(&a, &b).map(|l| l.decision),
         Some(LessonDecision::Same)
     );
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn merging_the_reported_pair_through_the_store_sticks() {
+    let hold = ev("1")
+        .title("Hold")
+        .start("2026-09-18T10:00:00Z")
+        .minutes(60)
+        .cal("shared")
+        .others(0)
+        .build();
+    let call = ev("2")
+        .title("Consultation")
+        .start("2026-09-18T10:30:00Z")
+        .minutes(30)
+        .cal("shared")
+        .conf("https://acme.zoom.us/j/1")
+        .build();
+    let source = FakeSource::fake();
+    source.set_events(Ok(vec![hold, call.clone()]));
+    let store = new_store(sources![source], "UTC");
+    let now = date("2026-09-18T09:00:00Z");
+    let before = store.refresh(now, 60.0, None, None).await;
+    assert_eq!(before.events.len(), 2);
+    assert_eq!(
+        before.candidates.get(&before.events[0].id()).map(Vec::len),
+        Some(1)
+    );
+    let after = store.merge(&before.events[0], &before.events[1], now);
+    assert_eq!(after.events.len(), 1);
+    // The tug time follows the copy with the join link.
+    assert_eq!(after.events[0].start(), call.start());
+    assert_eq!(store.refresh(now, 60.0, None, None).await.events.len(), 1);
 }

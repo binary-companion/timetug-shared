@@ -9,6 +9,7 @@ pub mod dedup;
 mod fold_table;
 pub mod model;
 pub mod sources;
+pub mod store;
 pub mod takeover;
 pub mod text;
 pub mod widget;
@@ -18,6 +19,9 @@ pub use model::event::TimeTugCalendarEvent;
 pub use model::merge_types::{MergeProvenance, MergedMember};
 pub use model::takeover_settings::TakeoverSettings;
 pub use sources::{CalendarSource, SourceChange, SourceError, SourceStatus};
+pub use store::calendar_store::{
+    CalendarSnapshot, CalendarStore, DedupState, InferenceStatus, OnPublication,
+};
 
 #[cfg(test)]
 mod tests;

@@ -1,6 +1,7 @@
-//! Port of `CalendarInfoTests.swift`. `refreshPreservesCalendarAccountName` needs `CalendarStore` (Task 4) and stays
-//! `pending` in `docs/rust-port/test-parity.md` until then.
+//! Port of `CalendarInfoTests.swift`.
 
+use super::calendar_store_tests::{FakeSource, new_store};
+use super::support::date;
 use crate::model::calendar_info::CalendarInfo;
 
 #[test]
@@ -17,4 +18,23 @@ fn calendar_info_key_ignores_account_name() {
     assert_ne!(a, b);
     assert_eq!(a.key(), b.key());
     assert_eq!(a.key(), "s/c");
+}
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn refresh_preserves_calendar_account_name() {
+    let source = FakeSource::fake();
+    let mut info = CalendarInfo::new("fake", "c1", "Shared");
+    info.account_name = Some("iCloud".to_string());
+    source.set_calendars(vec![info]);
+    let store = new_store(sources![source], "UTC");
+    let snapshot = store
+        .refresh(date("2026-09-18T10:00:00Z"), 60.0, None, None)
+        .await;
+    assert_eq!(
+        snapshot
+            .calendars
+            .first()
+            .and_then(|c| c.account_name.as_deref()),
+        Some("iCloud")
+    );
 }

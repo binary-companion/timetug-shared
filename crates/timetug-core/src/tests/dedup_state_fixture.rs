@@ -1,7 +1,6 @@
 //! `Tests/TimeTugEngineTests/Fixtures/dedup-state.json`: the persisted lesson book and verdict cache (family A,
 //! reference-date numbers) and the cache-key encoding, which is the other date encoding (milliseconds since 1970).
 
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use super::dedup_support::ev;
@@ -9,16 +8,11 @@ use super::support::date;
 use crate::dedup::adjudication::{
     AdjudicationEvent, AdjudicationRequest, EngineInfo, PromptText, VerdictAnswer, VerdictCache,
 };
-use crate::dedup::lesson_book::{LessonBook, LessonDecision};
+use crate::dedup::lesson_book::LessonDecision;
+use crate::store::calendar_store::DedupState;
 
 const FIXTURE: &str =
     include_str!("../../../../Tests/TimeTugEngineTests/Fixtures/dedup-state.json");
-
-#[derive(Serialize, Deserialize)]
-struct DedupState {
-    lessons: LessonBook,
-    verdicts: VerdictCache,
-}
 
 #[test]
 fn the_committed_dedup_state_loads_with_reference_date_seconds() {
