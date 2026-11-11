@@ -139,7 +139,7 @@ is smaller). The Rust engine is compared on the same machine as the row it is ch
 
 ## Dedup benchmark (macOS)
 
-`scripts/benchmarks/run-dedup.sh` (`swift run -c release DedupBenchmark`), development Mac (Apple M1 Max, 64 GB,
+`scripts/benchmarks/run-dedup.sh` (`swift run -c release DedupBenchmark`; `--rust` runs the Rust port), development Mac (Apple M1 Max, 64 GB,
 macOS 27.0.1, Swift 6.4.2), `calendar-connectors` 1.2.0, measured 2026-11-11: the release build first, then three
 runs one after another, the median of the three runs per row recorded. Nothing but the owner's usual open apps
 (Chrome, the Claude app, the menu bar tools) ran besides it; the 1-minute / 5-minute load averages when the runs
@@ -165,3 +165,38 @@ duplicates,5000,5743.033,1250
 ```
 
 `output_events` is deterministic and must match exactly in the Rust port.
+
+### Rust port against Swift (phase 2, Task 7 gate)
+
+`scripts/benchmarks/run-dedup.sh --rust` (`cargo run --release -p dedup-benchmark`; the workspace release profile,
+`opt-level = "s"`, fat LTO) against `scripts/benchmarks/run-dedup.sh`, same Mac as above (Apple M1 Max, macOS 27.0.1,
+Swift 6.4.2, Rust 1.99.1), measured 2026-11-11 in one session: both release builds first, then six runs one after
+another and nothing else of the agent's running, alternating Swift and Rust (S1 R1 S2 R2 S3 R3). Each run waited up
+to 3 minutes for a 1-minute load average below 3 and was then measured anyway. Medians of the three runs per row.
+The Swift figures were re-measured in this session so the gate compares like with like; they are 0 to 5% lower
+than the earlier figures above (a calmer machine) and are the ones the gate uses.
+
+1-minute load average when each run started: S1 2.83, R1 2.98, S2 2.76, R2 5.44 (the load did not drop below 3 within
+3 minutes, so it was measured anyway), S3 2.87, R3 2.11.
+
+| Row | Swift median (ms) | Rust median (ms) | Rust / Swift | Gate (at most 1.10) | `output_events` |
+|---|---|---|---|---|---|
+| sparse 100 | 0.261 | 0.116 | 0.44 | pass | 100 |
+| sparse 500 | 1.411 | 0.608 | 0.43 | pass | 500 |
+| sparse 1000 | 2.757 | 1.268 | 0.46 | pass | 1000 |
+| sparse 5000 | 14.703 | 6.941 | 0.47 | pass | 5000 |
+| dense 100 | 33.832 | 18.474 | 0.55 | pass | 100 |
+| dense 500 | 872.693 | 485.971 | 0.56 | pass | 500 |
+| dense 1000 | 3505.369 | 1956.640 | 0.56 | pass | 1000 |
+| dense 5000 | 98,070.544 | 57,294.890 | 0.58 | pass | 5000 |
+| duplicates 100 | 44.255 | 22.668 | 0.51 | pass | 25 |
+| duplicates 500 | 473.066 | 238.346 | 0.50 | pass | 125 |
+| duplicates 1000 | 1030.131 | 512.012 | 0.50 | pass | 250 |
+| duplicates 5000 | 5577.906 | 2731.589 | 0.49 | pass | 1250 |
+
+Individual runs (ms), Swift then Rust: sparse 5000 14.250 to 15.073 and 6.531 to 7.456; dense 5000 94,701.829 to
+100,215.287 and 53,723.511 to 57,463.668. All twelve rows pass with a wide margin, so no hot-spot fix was needed.
+`output_events` is identical to the Swift rows in all three Rust runs.
+
+Run it: `scripts/benchmarks/run-dedup.sh --rust` (optionally `dense 1000`). A dense 5000 row takes about a minute in
+Rust and over a minute and a half in Swift per repetition set (six repetitions each), so a full run is several minutes.
