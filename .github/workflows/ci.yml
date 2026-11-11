@@ -31,7 +31,7 @@
 #                  the Rust workspace of the v2 branch (AGENTS.md, "On v2: Rust"): cargo test and a release build on each
 #                  platform, then a check that the C interface library has the file name the C# wrapper loads
 #                  (TimeTugEngineC.dll, libTimeTugEngineC.dylib, libTimeTugEngineC.so).
-#   rust-lint      rustfmt, clippy, cargo-deny, the crate architecture and tokio feature checks, and their tests.
+#   rust-lint      rustfmt, clippy, cargo-deny, the crate architecture, tokio feature and no-clock checks, and their tests.
 #   rust-targets   release builds for x86_64-apple-darwin, aarch64-apple-ios and aarch64-apple-ios-sim.
 #   vectors-current  re-runs the VectorExporter (scripts/dev/export-vectors.sh) and fails if vectors/ differs from the committed
 #                  files: the golden vectors the Rust tests replay stay what the Swift code produces, for as long as it exists.
@@ -555,12 +555,15 @@ jobs:
         run: |
           python3 scripts/ci/check-crate-architecture.py
           python3 scripts/ci/check-tokio-features.py
+      - name: The pure crates read no clock and no environment
+        run: python3 scripts/ci/check-no-clock.py
       - name: Swift-to-Rust test parity
         run: python3 scripts/ci/check-test-parity.py
       - name: Tests of the Rust checks and of the local-override script
         run: |
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_crate_architecture.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_tokio_features.py'
+          python3 -m unittest discover -s scripts/ci/tests -p 'test_check_no_clock.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_test_parity.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_swift_test_inventory.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_use_local_connectors.py'

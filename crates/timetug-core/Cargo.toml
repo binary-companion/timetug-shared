@@ -14,8 +14,13 @@ workspace = true
 [dependencies]
 calendar-core = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
 jiff = { workspace = true }
-uuid = { workspace = true }
-url = { workspace = true }
 thiserror = { workspace = true }
+async-trait = { workspace = true }
+# `sync` only: the store's change streams are channels. The clock rule (scripts/ci/check-no-clock.py) forbids
+# `tokio::time`; the workspace pin enables the features of conventions section 3, the code uses none but `sync`.
+tokio = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }

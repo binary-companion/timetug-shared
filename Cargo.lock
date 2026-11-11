@@ -31,21 +31,22 @@ dependencies = [
 [[package]]
 name = "calendar-caldav"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?rev=5ce43666af6a29e175addcd23e88774e3e8ccd47#5ce43666af6a29e175addcd23e88774e3e8ccd47"
+source = "git+https://github.com/binary-companion/calendar-connectors?rev=ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027#ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027"
 dependencies = [
  "async-trait",
  "base64",
  "calendar-core",
  "calendar-ical",
+ "jiff",
  "quick-xml",
- "thiserror",
- "url",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
 name = "calendar-core"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?rev=5ce43666af6a29e175addcd23e88774e3e8ccd47#5ce43666af6a29e175addcd23e88774e3e8ccd47"
+source = "git+https://github.com/binary-companion/calendar-connectors?rev=ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027#ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027"
 dependencies = [
  "async-trait",
  "getrandom",
@@ -61,74 +62,88 @@ dependencies = [
 [[package]]
 name = "calendar-google"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?rev=5ce43666af6a29e175addcd23e88774e3e8ccd47#5ce43666af6a29e175addcd23e88774e3e8ccd47"
+source = "git+https://github.com/binary-companion/calendar-connectors?rev=ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027#ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027"
 dependencies = [
  "async-trait",
  "calendar-core",
  "calendar-oauth",
+ "getrandom",
+ "jiff",
  "serde",
  "serde_json",
- "thiserror",
- "url",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
 name = "calendar-ical"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?rev=5ce43666af6a29e175addcd23e88774e3e8ccd47#5ce43666af6a29e175addcd23e88774e3e8ccd47"
+source = "git+https://github.com/binary-companion/calendar-connectors?rev=ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027#ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027"
 dependencies = [
  "calendar-core",
+ "jiff",
  "thiserror",
 ]
 
 [[package]]
 name = "calendar-ical-subscription"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?rev=5ce43666af6a29e175addcd23e88774e3e8ccd47#5ce43666af6a29e175addcd23e88774e3e8ccd47"
+source = "git+https://github.com/binary-companion/calendar-connectors?rev=ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027#ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027"
 dependencies = [
  "async-trait",
  "calendar-core",
  "calendar-ical",
- "thiserror",
+ "jiff",
+ "tokio",
  "url",
+ "uuid",
 ]
 
 [[package]]
 name = "calendar-microsoft"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?rev=5ce43666af6a29e175addcd23e88774e3e8ccd47#5ce43666af6a29e175addcd23e88774e3e8ccd47"
+source = "git+https://github.com/binary-companion/calendar-connectors?rev=ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027#ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027"
 dependencies = [
  "async-trait",
  "calendar-core",
  "calendar-oauth",
+ "getrandom",
+ "jiff",
  "serde",
  "serde_json",
- "thiserror",
- "url",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
 name = "calendar-oauth"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?rev=5ce43666af6a29e175addcd23e88774e3e8ccd47#5ce43666af6a29e175addcd23e88774e3e8ccd47"
+source = "git+https://github.com/binary-companion/calendar-connectors?rev=ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027#ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027"
 dependencies = [
  "async-trait",
  "base64",
  "calendar-core",
+ "getrandom",
+ "jiff",
  "serde",
  "serde_json",
  "sha2",
  "thiserror",
+ "tokio",
  "url",
+ "uuid",
 ]
 
 [[package]]
 name = "calendar-test-support"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?rev=5ce43666af6a29e175addcd23e88774e3e8ccd47#5ce43666af6a29e175addcd23e88774e3e8ccd47"
+source = "git+https://github.com/binary-companion/calendar-connectors?rev=ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027#ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027"
 dependencies = [
  "async-trait",
  "calendar-core",
+ "jiff",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -604,13 +619,13 @@ dependencies = [
 name = "timetug-core"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
  "calendar-core",
  "jiff",
  "serde",
  "serde_json",
  "thiserror",
- "url",
- "uuid",
+ "tokio",
 ]
 
 [[package]]
