@@ -6,6 +6,7 @@
 
 pub mod model;
 pub mod sources;
+pub mod takeover;
 pub(crate) mod text;
 
 pub use model::calendar_info::CalendarInfo;
