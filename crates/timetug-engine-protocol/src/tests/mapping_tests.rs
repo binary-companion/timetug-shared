@@ -470,3 +470,12 @@ fn malformed_error_member_is_a_failure_not_a_success() {
         other => panic!("expected error, got {other:?}"),
     }
 }
+
+#[test]
+fn the_extremes_of_a_timestamp_format_without_overflow() {
+    assert!(WireDates::string(Timestamp::MIN).ends_with("Z"));
+    let max = WireDates::string(Timestamp::MAX);
+    assert!(max.starts_with("9999-12-30T"), "{max}");
+    assert!(WireDates::date("9999-12-31T23:59:59.999Z").is_none());
+    assert!(WireDates::unix_nanoseconds("9999-12-31T23:59:59.999Z").is_some());
+}
