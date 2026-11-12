@@ -3,7 +3,7 @@
 //! `src/tests/data/legacy-data-dir/` holds vendored copies (never edited): `accounts.json` and `sync-state.json` are
 //! `Tests/PersistedFormats/1.2.0/connections.json` and `sync-state.json` of calendar-connectors, saved under the names
 //! the Swift engine uses on disk (`Engine.swift` and `AccountManager.swift`: `accounts.json`, `sync-state.json`); the
-//! other three are byte copies of `Tests/TimeTugEngineTests/Fixtures`.
+//! other three are byte copies of `fixtures/engine`.
 //!
 //! The engine itself (`Engine`, `AccountManager`) is ported in phase 3 tasks 2 and 4, so this test builds the state the
 //! engine would publish from the persistence layer the engine uses (`FileConnectionStore`, `FileSyncStateStore`,
@@ -68,8 +68,7 @@ fn bytes(dir: &Path, name: &str) -> Vec<u8> {
 
 #[test]
 fn the_three_engine_files_are_byte_copies_of_the_swift_fixtures() {
-    let fixtures =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../Tests/TimeTugEngineTests/Fixtures");
+    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/engine");
     for name in [
         "settings-legacy.json",
         "takeover-ledger.json",
@@ -78,7 +77,7 @@ fn the_three_engine_files_are_byte_copies_of_the_swift_fixtures() {
         assert_eq!(
             std::fs::read(vendored(name)).unwrap(),
             std::fs::read(fixtures.join(name)).unwrap(),
-            "{name} drifted from Tests/TimeTugEngineTests/Fixtures"
+            "{name} drifted from fixtures/engine"
         );
     }
 }

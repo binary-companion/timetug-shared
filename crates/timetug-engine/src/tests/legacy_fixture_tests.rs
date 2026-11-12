@@ -1,4 +1,4 @@
-//! `LegacyFixtureTests.swift`: the files the Mac app wrote (`Tests/TimeTugEngineTests/Fixtures`, found through
+//! `LegacyFixtureTests.swift`: the files the Mac app wrote (`fixtures/engine`, found through
 //! `CARGO_MANIFEST_DIR`) load through the persistence layer, are honoured, are never rewritten by a load, and corrupt
 //! copies load empty with a diagnostic (the tests above the `Engine` line); then an engine started over a data directory
 //! the Mac app wrote (Review Focus 1 and 2 of the Swift suite; Review Focus 4 of the Rust plan) reads the Mac files,

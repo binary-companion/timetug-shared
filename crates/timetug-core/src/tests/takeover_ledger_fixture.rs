@@ -1,4 +1,4 @@
-//! `Tests/TimeTugEngineTests/Fixtures/takeover-ledger.json`: a ledger file as the Swift engine wrote it (family A:
+//! `fixtures/engine/takeover-ledger.json`: a ledger file as the Swift engine wrote it (family A:
 //! dates are seconds since 2001-01-01). The store that reads the file is phase 3; the format is pinned here.
 //! The fixture is never edited.
 
@@ -9,8 +9,7 @@ use super::support::EventSpec;
 use super::support::make_event_with;
 use crate::takeover::ledger::{Entry, TakeoverLedger};
 
-const FIXTURE: &str =
-    include_str!("../../../../Tests/TimeTugEngineTests/Fixtures/takeover-ledger.json");
+const FIXTURE: &str = include_str!("../../../../fixtures/engine/takeover-ledger.json");
 
 /// The event whose keys are `s/<id>/1800000000` and `sample meeting <id>|1800000000|1800001800`.
 fn sample(id: &str) -> crate::model::event::TimeTugCalendarEvent {

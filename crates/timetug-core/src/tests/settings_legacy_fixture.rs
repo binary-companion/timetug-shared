@@ -1,11 +1,10 @@
 //! The hand-written legacy decoding of `TakeoverSettings` against the committed fixture
-//! `Tests/TimeTugEngineTests/Fixtures/settings-legacy.json` (`{"disabled":true,"skipSoloEvents":true,"leadTime":120}`),
+//! `fixtures/engine/settings-legacy.json` (`{"disabled":true,"skipSoloEvents":true,"leadTime":120}`),
 //! which phase 3's `LegacyFixtureTests` also reads. The fixture is never edited.
 
 use crate::model::takeover_settings::TakeoverSettings;
 
-const SETTINGS_LEGACY: &str =
-    include_str!("../../../../Tests/TimeTugEngineTests/Fixtures/settings-legacy.json");
+const SETTINGS_LEGACY: &str = include_str!("../../../../fixtures/engine/settings-legacy.json");
 
 #[test]
 fn the_legacy_fixture_carries_the_users_choices_forward() {
