@@ -634,6 +634,11 @@ impl Gate {
         *lock(&self.waiting)
     }
 
+    /// `is_waiting` for a synchronous polling condition (the engine harness's `wait_until`).
+    pub(crate) fn is_waiting_now(&self) -> bool {
+        *lock(&self.waiting)
+    }
+
     pub(crate) async fn wait(&self) {
         let mut receiver = self.opened.subscribe();
         if *receiver.borrow() {
