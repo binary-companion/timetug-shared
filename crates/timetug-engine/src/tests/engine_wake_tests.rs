@@ -73,7 +73,8 @@ async fn a_26_hour_sleep_fires_a_pending_takeover_late_exactly_once() {
     assert!(withdrawn(&h).is_empty());
 }
 
-/// A meeting that ended during the sleep is never presented and is not reported as withdrawn either (nothing was shown).
+/// A meeting that ended during the sleep is never presented and never recorded as fired. (Whether a `takeoverWithdrawn`
+/// is emitted depends on whether the overdue sleep or the refresh runs first, so the test does not assert it.)
 #[tokio::test(flavor = "current_thread", start_paused = true)]
 async fn a_26_hour_sleep_never_presents_a_meeting_that_ended_meanwhile() {
     let h = EngineHarness::new(vec![sample("short", 600.0)]).await;
