@@ -1,0 +1,30 @@
+{
+  "lessons" : {
+    "lessons" : [
+      {
+        "calendarKeyA" : "s\/x",
+        "calendarKeyB" : "s\/y",
+        "decision" : "same",
+        "lastUsed" : 821692800,
+        "signalsA" : "bare",
+        "signalsB" : "bare",
+        "titleA" : "sample a",
+        "titleB" : "sample b"
+      }
+    ]
+  },
+  "verdicts" : {
+    "entries" : {
+      "r" : {
+        "answer" : "same",
+        "decidedAt" : 821692800,
+        "end" : 821696400,
+        "engine" : {
+          "displayName" : "E",
+          "id" : "e",
+          "isOnDevice" : true
+        }
+      }
+    }
+  }
+}

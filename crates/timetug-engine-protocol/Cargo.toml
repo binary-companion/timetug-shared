@@ -14,9 +14,12 @@ workspace = true
 [dependencies]
 timetug-engine = { workspace = true }
 timetug-core = { workspace = true }
-timetug-bridge = { workspace = true }
 calendar-core = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 jiff = { workspace = true }
 thiserror = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+async-trait = { workspace = true }
