@@ -6,7 +6,8 @@
 .DESCRIPTION
   The native set (from dotnet/pack/assemble-native.ps1) is copied next to the test binary. Every PATH entry that
   holds the Swift runtime is removed first, so the tests prove the set is complete: a Swift runtime DLL missing from
-  it fails to load here instead of in an app. Exits non-zero when the build or a test fails or too few tests ran.
+  it fails to load here instead of in an app. (The Rust set is one DLL with a static C runtime and needs none of
+  that; the removal is harmless there and keeps the Swift jobs working until phase 3 task 10.) Exits non-zero when the build or a test fails or too few tests ran.
 #>
 [CmdletBinding()]
 param(
