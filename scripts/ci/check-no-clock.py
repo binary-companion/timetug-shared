@@ -1,23 +1,31 @@
 #!/usr/bin/env python3
-"""Fails when the pure crates read the clock or the environment.
+"""Fails when the crates that must be deterministic read the clock or the environment.
 Usage: check-no-clock.py [--root DIR]
 
 Phase 2 of the Rust engine program: timetug-core and timetug-bridge never read the clock; every function that needs the
-time takes `now: Timestamp`, and nothing reads the environment. Scans every .rs file under crates/timetug-core/src and
-crates/timetug-bridge/src of DIR (default: the repository root) and exits 1, naming file, line and token, when code
-contains one of:
+time takes `now: Timestamp`, and nothing reads the environment. Phase 3 adds timetug-engine to the scan with one
+exception: the engine's only wall clock is `SystemClock` in crates/timetug-engine/src/clock.rs, so that one file may
+use `tokio::time` (to sleep) and `Timestamp::now` (to read the time); everything else in the engine takes its time from
+`EngineClock`. Scans every .rs file under the crates below, in DIR (default: the repository root), and exits 1, naming
+file, line and token, when code contains one of:
 
   Timestamp::now  SystemTime  Instant::now  Zoned::now  tokio::time  std::env
 
 Comments and the contents of string and character literals are ignored. Tests are excluded: files under a `tests`
-directory, files named tests.rs, and items marked #[cfg(test)] (modules, functions, uses, struct fields, enum variants). A missing crate directory is skipped (the bridge may not
-exist yet)."""
+directory, files named tests.rs, and items marked #[cfg(test)] (modules, functions, uses, struct fields, enum variants). A missing crate directory is skipped (a
+crate may not exist yet)."""
 import argparse
 import re
 import sys
 from pathlib import Path
 
-CRATE_DIRS = ['crates/timetug-core/src', 'crates/timetug-bridge/src']
+# (crate source directory, {file relative to the repository root: the names that file may use}, what to use instead).
+CRATES = [
+    ('crates/timetug-core/src', {}, 'take `now: Timestamp` as an argument'),
+    ('crates/timetug-bridge/src', {}, 'take `now: Timestamp` as an argument'),
+    ('crates/timetug-engine/src', {'crates/timetug-engine/src/clock.rs': {'tokio::time', 'Timestamp::now'}},
+     'read the time and sleep through `EngineClock` (only `SystemClock` in clock.rs touches the wall clock and tokio::time)'),
+]
 
 # (name for the message, pattern). `::` may have spaces around it. The braced forms catch `use std::{env, ...}`.
 FORBIDDEN = [
@@ -147,15 +155,18 @@ def problems_in(path):
 
 def check(root):
     problems = []
-    for crate_dir in CRATE_DIRS:
+    for crate_dir, allowed, advice in CRATES:
         base = root / crate_dir
         if not base.is_dir():
             continue
         for path in sorted(base.rglob('*.rs')):
             if is_test_file(path, base):
                 continue
+            relative = path.relative_to(root).as_posix()
             for line, name in problems_in(path):
-                problems.append(f'{path.relative_to(root)}:{line}: `{name}` is forbidden in the pure crates; take `now: Timestamp` as an argument')
+                if name in allowed.get(relative, ()):
+                    continue
+                problems.append(f'{relative}:{line}: `{name}` is forbidden here; {advice}')
     return problems
 
 
