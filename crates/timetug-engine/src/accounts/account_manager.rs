@@ -376,17 +376,21 @@ impl AccountManager {
     }
 
     async fn add_account_in_task(&self, kind_id: &str) {
-        if self.lock().current.is_working {
-            return;
-        }
         let Some(kind) = self.host.registry.kind(kind_id) else {
+            if self.lock().current.is_working {
+                return;
+            }
             self.invalid_command(
                 "Unknown account type.",
                 &format!("addAccount: unknown account type {kind_id}"),
             );
             return;
         };
-        self.modify_status(|status| status.is_working = true);
+        // Swift checks `isWorking` and sets it in one actor turn; one lock hold does the same, so two tasks started
+        // by `begin_add_account` on a multi-threaded runtime cannot both pass the check.
+        if !self.try_begin_work() {
+            return;
+        }
         self.modify_status(|status| status.error_message = None);
         let _working = WorkingGuard(self);
         let mut authorized: Option<Connection> = None;
@@ -411,6 +415,17 @@ impl AccountManager {
                 self.modify_status(|status| status.error_message = Some(message));
             }
         }
+    }
+
+    /// `guard !current.isWorking` and `current.isWorking = true` as one step: false when a sign-in is already running.
+    fn try_begin_work(&self) -> bool {
+        let mut inner = self.lock();
+        if inner.current.is_working {
+            return false;
+        }
+        inner.current.is_working = true;
+        (self.on_status_change)(inner.current.clone());
+        true
     }
 
     /// The `do { ... }` block of `addAccount`. Returns `Ok(())` for the paths that `return` from inside it.

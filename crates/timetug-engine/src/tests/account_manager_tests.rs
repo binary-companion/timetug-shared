@@ -907,3 +907,19 @@ async fn every_status_change_is_reported_once_in_order() {
     assert_eq!(shape, vec![(true, 0), (true, 1), (false, 1)]);
     assert_eq!(seen.last(), Some(&h.manager.status()));
 }
+
+/// `guard !current.isWorking` is one step with `isWorking = true`: an add while another sign-in runs does nothing.
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn an_add_while_another_sign_in_runs_returns_at_once() {
+    let gate = Arc::new(Gate::new());
+    let kind = FakeConnectorKind::new();
+    kind.set_authorize_gate(gate.clone());
+    let h = AccountHarness::new(vec![kind.clone()]);
+    h.manager.begin_add_account("google");
+    wait_until(|| gate.is_waiting()).await;
+    h.manager.add_account("google").await;
+    assert_eq!(kind.attempts(), 1);
+    gate.open().await;
+    wait_until(|| async { !h.manager.status().is_working }).await;
+    assert_eq!(ids(&h.manager.status().accounts), strings(&["1"]));
+}
