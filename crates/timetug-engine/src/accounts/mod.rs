@@ -1,4 +1,7 @@
-//! `TimeTugEngine/Accounts`: task 2 of phase 3 adds the manager, the reconciler and the refresh coordinator. Task 1
-//! needs only the manager's `Status` (a field of `EngineState`).
+//! `TimeTugEngine/Accounts`: the account manager, the source reconciler and the source refresh coordinator, plus
+//! `cancellation`, which stands in for Swift's task cancellation.
 
 pub mod account_manager;
+pub mod cancellation;
+pub mod source_reconciler;
+pub mod source_refresh_coordinator;
