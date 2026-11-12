@@ -1,13 +1,25 @@
 <#
 .SYNOPSIS
-  Collects the native set of the TimeTug engine for one Windows architecture: TimeTugEngineC.dll from
-  `swift build --show-bin-path` plus exactly the Swift runtime DLLs it needs, into one flat directory.
+  Collects the native set of the TimeTug engine for one Windows architecture into one flat directory: with -Rust
+  the single TimeTugEngineC.dll that cargo built; otherwise TimeTugEngineC.dll from `swift build --show-bin-path`
+  plus exactly the Swift runtime DLLs it needs.
 
 .DESCRIPTION
   Used by the dotnet CI jobs (the set is copied next to the C# test binary) and by the publish-nuget job of
   release.yml (the set becomes runtimes/<rid>/native in the package). It does not build: run
-  `swift build -c release --product TimeTugEngineC` first.
+  `swift build -c release --product TimeTugEngineC` (or, with -Rust,
+  `cargo build --release --locked -p timetug-engine-c --target <triple>`) first.
 
+  With -Rust (the library is the Rust one; the Swift path below stays until phase 3 task 10 removes it):
+  1. Takes target/<triple>/release/TimeTugEngineC.dll (triples x86_64-pc-windows-msvc and aarch64-pc-windows-msvc,
+     under $env:CARGO_TARGET_DIR when set), checks that it is built for the requested architecture and exports the
+     four tt_engine_* functions, and copies it, alone, to -Out.
+  2. Checks `dumpbin /dependents` (static and delay-load): every dependency must match $AllowedDependencies, the
+     Windows system DLLs. VCRUNTIME*.dll and MSVCP*.dll are named in the error when present: they would mean the C
+     runtime is not linked statically (.cargo/config.toml). Anything else fails; the fix is to find the crate that
+     pulled the dependency in, not to extend the list without review.
+
+  Without -Rust:
   1. Checks that the DLL exists, is built for the requested architecture, and exports the four tt_engine_*
      functions (`dumpbin /exports`).
   2. Walks `dumpbin /dependents` recursively from the DLL. A dependency found in the bin directory or in the Swift
@@ -27,13 +39,32 @@ param(
     [Parameter(Mandatory)] [string] $Out,
     [string] $Configuration = 'release',
     # The Swift runtime's bin directory; default: the PATH entry that holds swiftCore.dll.
-    [string] $RuntimeDir = ''
+    [string] $RuntimeDir = '',
+    # Assemble the Rust library (target/<triple>/release) instead of the Swift one.
+    [switch] $Rust
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $exports = @('tt_engine_create', 'tt_engine_send', 'tt_engine_reply', 'tt_engine_destroy')
+
+# The Rust library may depend on these Windows system DLLs and nothing else (matched case-insensitively against the
+# whole name). Do not extend the list without review: find the crate that pulled the dependency in.
+$AllowedDependencies = @(
+    '^KERNEL32\.dll$', '^ntdll\.dll$', '^bcryptprimitives\.dll$', '^ADVAPI32\.dll$', '^USERENV\.dll$',
+    '^WS2_32\.dll$', '^api-ms-win-.*\.dll$', '^bcrypt\.dll$'
+)
+# Dependencies that prove the C runtime is not linked statically.
+$DynamicRuntime = '^(VCRUNTIME|MSVCP|UCRTBASE|CONCRT|VCCORLIB)'
+$Triples = @{ 'win-x64' = 'x86_64-pc-windows-msvc'; 'win-arm64' = 'aarch64-pc-windows-msvc' }
+
+function Test-AllowedDependency([string] $Name) {
+    foreach ($pattern in $AllowedDependencies) {
+        if ($Name -match $pattern) { return $true }
+    }
+    return $false
+}
 
 function Get-Machine([string] $Path) {
     # IMAGE_FILE_HEADER.Machine, after the PE signature that e_lfanew (offset 0x3C) points at.
@@ -82,8 +113,52 @@ function Test-NotBundled([string] $Name) {
     return $Name -match '^(api-ms-win-|ext-ms-)' -or $Name -match '^(msvcp140|vcruntime140|ucrtbase|concrt140|vccorlib140)'
 }
 
+function Invoke-RustAssembly {
+    $triple = $Triples[$Rid]
+    $targetDir = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { 'target' }
+    $bin = Join-Path (Join-Path $targetDir $triple) 'release'
+    $dll = Join-Path $bin 'TimeTugEngineC.dll'
+    if (-not (Test-Path -LiteralPath $dll)) {
+        throw "TimeTugEngineC.dll not found in $bin; build it first: cargo build --release --locked -p timetug-engine-c --target $triple"
+    }
+    $machine = Get-Machine $dll
+    if ($machine -ne $Rid) { throw "$dll is built for $machine, not $Rid" }
+
+    $dumpbin = Find-Dumpbin
+    Write-Host "dumpbin: $dumpbin"
+    Write-Host "library: $dll"
+
+    $exported = Invoke-Dumpbin $dumpbin '/exports' $dll
+    $missing = $exports | Where-Object { -not ($exported -match "\s$_\s*$") }
+    if ($missing) { throw "$dll does not export: $($missing -join ', ')" }
+    Write-Host "exports: $($exports -join ' ')"
+
+    $dependents = @(Get-Dependents $dumpbin $dll)
+    Write-Host "dependents: $($dependents -join ' ')"
+    $runtime = @($dependents | Where-Object { $_ -match $DynamicRuntime })
+    if ($runtime.Count -gt 0) {
+        throw "$dll depends on the dynamic C runtime ($($runtime -join ', ')); the C runtime must be linked statically (.cargo/config.toml, +crt-static)"
+    }
+    $unexpected = @($dependents | Where-Object { -not (Test-AllowedDependency $_) })
+    if ($unexpected.Count -gt 0) {
+        throw "$dll depends on $($unexpected -join ', '), which is not a Windows system DLL on the allow-list; find the crate that pulled it in (cargo tree) instead of extending the list"
+    }
+
+    New-Item -ItemType Directory -Force -Path $Out | Out-Null
+    # The set is exactly one file: clear out what an earlier assembly left.
+    Get-ChildItem -LiteralPath $Out -File | Remove-Item -Force
+    Copy-Item -LiteralPath $dll -Destination $Out -Force
+    $copied = Get-Item -LiteralPath (Join-Path $Out 'TimeTugEngineC.dll')
+    Write-Host ('{0,12:N0}  {1}' -f $copied.Length, $copied.Name)
+    Write-Host ('{0,12:N0}  total, 1 file for {1} in {2}' -f $copied.Length, $Rid, (Resolve-Path $Out))
+}
+
 try {
     Set-Location (Join-Path $PSScriptRoot '..\..')
+    if ($Rust) {
+        Invoke-RustAssembly
+        exit 0
+    }
     $swift = Get-Command swift -ErrorAction SilentlyContinue
     if ($null -eq $swift) { throw 'swift is not on the PATH (run scripts/ci/install-swift-windows.ps1 first)' }
     $bin = (& swift build -c $Configuration --show-bin-path | Select-Object -Last 1)

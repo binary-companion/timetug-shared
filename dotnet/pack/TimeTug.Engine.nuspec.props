@@ -7,11 +7,12 @@
       -p:RequireNativeAssets=true
     (release.yml, job nuget-pack) produces:
       lib/net8.0/TimeTug.Engine.dll                 the managed wrapper
-      runtimes/win-x64/native/*.dll                 TimeTugEngineC.dll and its Swift runtime closure
-      runtimes/win-arm64/native/*.dll               (dotnet/pack/assemble-native.ps1)
+      runtimes/win-x64/native/TimeTugEngineC.dll    the Rust engine library, exactly one native file per architecture
+      runtimes/win-arm64/native/TimeTugEngineC.dll  (dotnet/pack/assemble-native.ps1 -Rust)
       contentFiles/any/any/include/timetug_engine.h the C header
+      contentFiles/any/any/include/THIRD-PARTY-NOTICES.md  the licences of the crates linked into the library
       contentFiles/any/any/fixtures/*.json          the golden fixtures of the contract
-    The Visual C++ runtime is not bundled: an app takes it from the Visual C++ runtime framework package.
+    The C runtime is linked statically (.cargo/config.toml), so nothing else is bundled or needed.
   -->
   <PropertyGroup>
     <PackageId>TimeTug.Engine</PackageId>
@@ -32,15 +33,17 @@
     <None Include="$(TimeTugRepositoryRoot)LICENSE" Pack="true" PackagePath="" Visible="false" />
     <None Include="$(TimeTugRepositoryRoot)include\timetug_engine.h" Pack="true" PackagePath="contentFiles/any/any/include/"
           BuildAction="None" PackageCopyToOutput="false" Visible="false" />
+    <None Include="$(TimeTugRepositoryRoot)THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="contentFiles/any/any/include/"
+          BuildAction="None" PackageCopyToOutput="false" Visible="false" />
     <None Include="$(TimeTugRepositoryRoot)Conformance\Fixtures\golden\*.json" Pack="true" PackagePath="contentFiles/any/any/fixtures/"
           BuildAction="None" PackageCopyToOutput="false" Visible="false" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(NativeWinX64Dir)' != ''">
-    <None Include="$(NativeWinX64Dir)\*.dll" Pack="true" PackagePath="runtimes/win-x64/native/" Visible="false" />
+    <None Include="$(NativeWinX64Dir)\TimeTugEngineC.dll" Pack="true" PackagePath="runtimes/win-x64/native/" Visible="false" />
   </ItemGroup>
   <ItemGroup Condition="'$(NativeWinArm64Dir)' != ''">
-    <None Include="$(NativeWinArm64Dir)\*.dll" Pack="true" PackagePath="runtimes/win-arm64/native/" Visible="false" />
+    <None Include="$(NativeWinArm64Dir)\TimeTugEngineC.dll" Pack="true" PackagePath="runtimes/win-arm64/native/" Visible="false" />
   </ItemGroup>
 
   <!-- A release package without the engine for both architectures is refused before the nuspec is written. -->
