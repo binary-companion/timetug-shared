@@ -7,6 +7,7 @@
 
 pub(crate) mod support;
 
+mod account_manager_tests;
 mod dedup_state_store_tests;
 mod engine_clock_tests;
 mod engine_host_tests;
@@ -16,4 +17,6 @@ mod file_settings_storage_tests;
 mod launch_acknowledgement_tests;
 mod ledger_store_tests;
 mod legacy_fixture_tests;
+mod source_reconciler_tests;
+mod source_refresh_coordinator_tests;
 mod ui_tick_policy_tests;
