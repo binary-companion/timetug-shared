@@ -4,14 +4,9 @@ Reference answers produced by the Swift code of this library at the baseline tag
 
 ## Regenerate
 
-```bash
-scripts/dev/export-vectors.sh          # swift build -c release --product VectorExporter -Xswiftc -enable-testing, then runs it
-git diff --exit-code vectors/          # must be empty: the exporter is deterministic
-```
+The Swift exporter (`Sources/VectorExporter`, `scripts/dev/export-vectors.sh`) and the `vectors-current` and `vectors-drift` jobs were removed when `v2` became Rust-only (phase 3, task 10). The vectors are now frozen reference answers: the Rust tests replay them and nothing regenerates them on `v2`.
 
-The exporter needs `-Xswiftc -enable-testing` because it reaches internal entry points with `@testable import`. Run it on macOS. The CI job `vectors-current` (`macos-26`) does the same on every pull request and push and fails if a committed file differs.
-
-The vectors depend on the runner's Foundation, Unicode data and time zone database. If a later runner image changes a zone's rules or Foundation's folding tables, `vectors-current` fails. The fix is to pin the affected cases to past dates (or drop the character), never to accept the new output silently.
+To regenerate them (for example after a deliberate change of a rule), check out the last commit that still had the Swift code (`268d3cddf07316dd2854d1fa2601a2db25d3b04e`, recorded in `docs/rust-port/README.md`) on macOS, run `scripts/dev/export-vectors.sh` there (it builds `VectorExporter` with `swift build -c release --product VectorExporter -Xswiftc -enable-testing`), and copy the changed files here. Review every diff before accepting it; the vectors depend on the macOS runner's Foundation, Unicode data and time zone database, so pin cases to past dates or fix the cause as described elsewhere in this file.
 
 ## Format
 
@@ -47,13 +42,12 @@ Every file is one JSON document:
 
 ## When to re-check the vectors
 
-`.github/workflows/vectors-drift.yml` re-runs the export every Monday (and on `workflow_dispatch`) and opens an issue when it differs. Also re-check by hand when any of these changes:
+Re-check by hand when any of these changes:
 
-- [ ] Xcode, the macOS runner image or the Swift toolchain (run `scripts/dev/export-vectors.sh`, then inspect `git diff vectors/`).
-- [ ] Once the Rust crates exist: the `jiff` version (its zone database must still give the answers in the vectors).
-- [ ] A new Swift zone rule or zone-dependent behaviour: add a vector for it.
+- [ ] The `jiff` version (its zone database must still give the answers in the vectors).
+- [ ] A new zone rule or zone-dependent behaviour: add a vector for it (see "Regenerate" for how).
 
-Investigate every diff in `zones/*`, `ical/timezones`, `core/url-accept` and `text/*`; never accept one blindly. Pin the cases to past dates or fix the cause, as described elsewhere in this file.
+Investigate every diff in `zones/*`, `ical/timezones`, `core/url-accept` and `text/*`; never accept one blindly.
 
 ## Not covered
 
