@@ -5,6 +5,28 @@ The budget (design section 6.4, phase 3 gate): the native payload of the `TimeTu
 `runtimes/<rid>/native/TimeTugEngineC.dll`. The Swift engine's payload was 74,626,048 bytes (x64) and 73,146,368 bytes
 (ARM64), see [baselines.md](baselines.md).
 
+## Result
+
+Measured by `dotnet/pack/measure-size.ps1` in the `dotnet-rust-package` job of pull request 56 (CI, hosted
+`windows-latest` and `windows-11-arm`; the same bytes are in every run, the build is deterministic enough that all
+three benchmark runs saw the same size):
+
+| Architecture | Files | Uncompressed | Zip (Optimal) | Budget | Result |
+|---|---:|---:|---:|---:|---|
+| win-x64 | 1 | 3,534,336 bytes (3.4 MB) | 1,589,598 bytes | 8,388,608 bytes | pass, 42% of the budget |
+| win-arm64 | 1 | 3,351,040 bytes (3.2 MB) | 1,514,038 bytes | 8,388,608 bytes | pass, 40% of the budget |
+
+The package (`TimeTug.Engine`, both architectures, header, notices, fixtures) is 3,317,804 bytes. The Swift package
+carried 74,626,048 bytes (x64) and 73,146,368 bytes (ARM64) uncompressed (28,299,296 and 27,643,266 compressed): the
+Rust payload is 4.7% and 4.6% of that. Other platforms (not part of the gate): `libTimeTugEngineC.dylib` 5,713,544
+bytes (development Mac, arm64; 3,193,904 on the hosted `macos-26` run, which is a different build).
+
+`dumpbin /dependents` of `TimeTugEngineC.dll`, both architectures: `bcryptprimitives.dll`, `kernel32.dll`,
+`api-ms-win-core-synch-l1-2-0.dll`, `KERNEL32.dll`, `ntdll.dll` (the list as the script prints it, every entry on the
+allow-list; no `VCRUNTIME*`, no `MSVCP*`). The release profile (`opt-level = "s"`, fat LTO, one codegen unit,
+`panic = "abort"`, `strip = "symbols"`) was in effect from the start and the bundled zone database is in the library,
+so none of the "if the gate fails" steps was needed.
+
 ## The gate
 
 `dotnet/pack/measure-size.ps1` measures the uncompressed native set of each architecture and exits 1 above
