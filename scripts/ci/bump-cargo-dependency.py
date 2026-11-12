@@ -151,7 +151,7 @@ def main(argv):
         tag, why = reader.pinned_tag(lock.read_text(encoding='utf-8'), 'calendar-connectors')
         if tag != version:
             raise RuntimeError(why or f'Cargo.lock pins calendar-connectors at {tag}, not {version}')
-    except (subprocess.CalledProcessError, OSError, RuntimeError) as problem:
+    except Exception as problem:  # noqa: BLE001 - whatever went wrong, both files are put back
         manifest.write_bytes(original.encode('utf-8'))
         lock.write_bytes(original_lock)
         fail(f'could not move calendar-connectors to {version}: {problem}; {manifest} and {lock} were restored')
