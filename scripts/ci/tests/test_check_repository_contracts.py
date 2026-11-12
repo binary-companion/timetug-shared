@@ -3,8 +3,7 @@ from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'check-repository-contracts.py'
 REQUIRED_JOBS = ('macos', 'linux', 'windows-x64', 'windows-arm64', 'architecture', 'dotnet-windows-x64',
-                 'dotnet-windows-arm64', 'compat', 'compat-dotnet', 'rust-macos', 'rust-linux', 'rust-windows-x64',
-                 'rust-windows-arm64', 'rust-lint', 'rust-targets')
+                 'dotnet-windows-arm64', 'compat', 'compat-dotnet', 'rust-lint', 'rust-targets')
 CI = '''name: CI
 on: [pull_request]
 jobs:

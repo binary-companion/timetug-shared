@@ -92,12 +92,10 @@ if (root / '.github' / 'workflows').is_dir():
 
 # The job ids of ci.yml are the required status checks of the branch-protection rulesets (macos, linux, windows-x64,
 # windows-arm64, architecture, dotnet-windows-x64, dotnet-windows-arm64, compat, compat-dotnet, rust-lint,
-# rust-targets, and rust-macos, rust-linux, rust-windows-x64, rust-windows-arm64 until the owner drops them from the
-# ruleset); a renamed or deleted one would block every merge or silently stop enforcing its rule. compat and
+# rust-targets); a renamed or deleted one would block every merge or silently stop enforcing its rule. compat and
 # compat-dotnet are also the backward-compatibility jobs of AGENTS.md.
 REQUIRED_JOBS = ('macos', 'linux', 'windows-x64', 'windows-arm64', 'architecture', 'dotnet-windows-x64',
-                 'dotnet-windows-arm64', 'compat', 'compat-dotnet', 'rust-macos', 'rust-linux', 'rust-windows-x64',
-                 'rust-windows-arm64', 'rust-lint', 'rust-targets')
+                 'dotnet-windows-arm64', 'compat', 'compat-dotnet', 'rust-lint', 'rust-targets')
 ci_workflow = root / '.github' / 'workflows' / 'ci.yml'
 if ci_workflow.is_file():
     ci_jobs = load(ci_workflow).get('jobs')
