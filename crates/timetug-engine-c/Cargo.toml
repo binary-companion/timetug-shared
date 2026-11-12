@@ -10,12 +10,15 @@ publish = false
 
 [lib]
 name = "TimeTugEngineC"
-crate-type = ["cdylib", "staticlib"]
+# `rlib` as well, so the integration tests (tests/scenarios.rs) can link the library; the file names of the release
+# artifacts (TimeTugEngineC.dll, libTimeTugEngineC.dylib, libTimeTugEngineC.so) come from `name` and are unchanged.
+crate-type = ["cdylib", "staticlib", "rlib"]
 
 # Cargo cannot override single workspace lints, so these are the workspace lints (conventions section 2) with
-# unsafe_code allowed and every unsafe operation inside an unsafe fn still marked explicitly.
+# unsafe_code denied crate-wide (lib.rs) and allowed only in c_interface.rs and delivery.rs, and every unsafe operation
+# inside an unsafe fn still marked explicitly.
 [lints.rust]
-unsafe_code = "allow"
+unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "deny"
 
 [lints.clippy]
@@ -39,5 +42,13 @@ calendar-google = { workspace = true }
 calendar-microsoft = { workspace = true }
 calendar-caldav = { workspace = true }
 calendar-ical-subscription = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
+jiff = { workspace = true }
+uuid = { workspace = true }
+base64 = { workspace = true }
+async-trait = { workspace = true }
 tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

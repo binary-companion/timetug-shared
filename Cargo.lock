@@ -653,6 +653,8 @@ dependencies = [
 name = "timetug-engine-c"
 version = "0.0.0"
 dependencies = [
+ "async-trait",
+ "base64",
  "calendar-caldav",
  "calendar-core",
  "calendar-google",
@@ -660,11 +662,14 @@ dependencies = [
  "calendar-ical-subscription",
  "calendar-microsoft",
  "calendar-oauth",
+ "jiff",
+ "serde",
  "serde_json",
  "timetug-core",
  "timetug-engine",
  "timetug-engine-protocol",
  "tokio",
+ "uuid",
 ]
 
 [[package]]
