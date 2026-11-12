@@ -11,7 +11,10 @@ Usage (from the repository root; the CI jobs `compat` and `compat-dotnet` run th
   compat.py frozen BASELINE [--strict PATH...] [--additive PATH...] [--appendable PATH...]
                                              fail if a file under PATH that exists in BASELINE was deleted or
                                              changed in a way its kind does not allow:
-                                               --strict      no change at all (persisted-data fixtures)
+                                               --strict      no change at all (persisted-data fixtures). A path
+                                                             OLD=NEW names a directory that moved: a baseline file
+                                                             under OLD must exist byte for byte at its old place
+                                                             or at the same place under NEW
                                                --additive    the JSON may only gain object members; arrays keep
                                                              their length (golden fixtures)
                                                --appendable  as --additive, and arrays may also gain entries at
@@ -20,6 +23,8 @@ Usage (from the repository root; the CI jobs `compat` and `compat-dotnet` run th
   compat.py header BASELINE HEADER           fail if a declaration of HEADER at BASELINE (the tt_engine_* functions
                                              and the typedefs) differs, comments and spacing aside
   compat.py exports BASELINE HEADER LIBRARY  fail if LIBRARY does not export every function HEADER declared at BASELINE
+  compat.py ran LOG MINIMUM                  fail unless the `cargo test` LOG shows no failure and at least MINIMUM
+                                             passed tests (a filter that matched nothing must not pass)
   compat.py nuget-baseline [--index URL]     write version=<latest X.Y.Z of TimeTug.Engine on nuget.org> (empty:
                                              none or unreachable) to $GITHUB_OUTPUT
 
@@ -130,11 +135,44 @@ def additive_change(baseline_text, current_text, append):
     return 'modified: a field or entry of the baseline was removed or changed (only additions are allowed)'
 
 
+def blob(revision, path):
+    """The object id of path at revision, or None when it does not exist there."""
+    found = subprocess.run(['git', 'rev-parse', '--verify', '--quiet', f'{revision}:{path}'],
+                           capture_output=True, text=True)
+    return found.stdout.strip() if found.returncode == 0 else None
+
+
+def moved_problems(baseline, old, new):
+    """[(path, reason)] for the files under old at baseline that exist byte for byte neither at their old path nor at
+    the same place under new at HEAD (the directory was moved; its files are strictly add-only)."""
+    problems = []
+    for path in git('ls-tree', '-r', '--name-only', baseline, '--', old).split('\n'):
+        if not path:
+            continue
+        relative = path[len(old):].lstrip('/')
+        moved = f'{new.rstrip("/")}/{relative}'
+        expected = blob(baseline, path)
+        if expected in (blob('HEAD', path), blob('HEAD', moved)):
+            continue
+        if blob('HEAD', path) is None and blob('HEAD', moved) is None:
+            problems.append((path, f'deleted (neither {path} nor {moved} exists)'))
+        else:
+            problems.append((path, 'modified (files here model data on users\' disks: existing ones never change)'))
+    return problems
+
+
 def frozen_problems(baseline, paths, mode):
     """[(path, reason)] for the files under paths that exist in baseline and changed in a way mode does not allow."""
     if not paths:
         return []
     problems = []
+    if mode == 'strict':
+        moved = [path.split('=', 1) for path in paths if '=' in path]
+        paths = [path for path in paths if '=' not in path]
+        for old, new in moved:
+            problems += moved_problems(baseline, old, new)
+        if not paths:
+            return problems
     for line in changed_baseline_files(git('diff', '--name-status', '--no-renames', baseline, 'HEAD', '--', *paths)):
         status, _, path = line.partition('\t')
         if status == 'D':
@@ -221,6 +259,24 @@ def library_symbols(library):
     return symbol_names(subprocess.run(command, check=True, capture_output=True, text=True).stdout, darwin)
 
 
+RESULT = re.compile(r'^test result: (ok|FAILED)\. (\d+) passed; (\d+) failed;', re.M)
+
+
+def tests_ran(log, minimum):
+    """Why a `cargo test` log does not show at least `minimum` passing tests and no failure (empty: it does)."""
+    results = RESULT.findall(log)
+    passed = sum(int(count) for _, count, _ in results)
+    failed = sum(int(count) for _, _, count in results)
+    problems = []
+    if failed or any(status != 'ok' for status, _, _ in results):
+        problems.append(f'{failed} test(s) failed')
+    if passed < minimum:
+        problems.append(f'only {passed} test(s) passed, expected at least {minimum} (a filter matched nothing?)')
+    if not problems:
+        print(f'{passed} test(s) passed')
+    return problems
+
+
 def nuget_baseline(index_url):
     try:
         with urllib.request.urlopen(index_url, timeout=30) as response:
@@ -284,6 +340,17 @@ def main(argv):
         if not missing:
             print(f'{library} exports {" ".join(wanted)}')
         return 1 if missing else 0
+    if command == 'ran' and len(args) == 2:
+        try:
+            with open(args[0], encoding='utf-8', errors='replace') as handle:
+                log = handle.read()
+        except OSError as problem:
+            error(f'cannot read {args[0]}: {problem}')
+            return 2
+        problems = tests_ran(log, int(args[1]))
+        for problem in problems:
+            error(problem)
+        return 1 if problems else 0
     if command == 'nuget-baseline':
         index = args[args.index('--index') + 1] if '--index' in args else NUGET_INDEX
         version = nuget_baseline(index)

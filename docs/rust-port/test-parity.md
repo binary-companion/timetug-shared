@@ -1,4 +1,4 @@
-<!-- Seeded with: python3 scripts/ci/swift-test-inventory.py Tests > docs/rust-port/swift-tests-baseline.txt; then each baseline line as a row with Rust test '-' and status 'pending' (an awk one-liner over the baseline). Edit rows by hand as tests are ported; see conventions section 8. -->
+<!-- Seeded with: python3 scripts/ci/swift-test-inventory.py Tests > docs/rust-port/swift-tests-baseline.txt (the script left with the Swift sources in phase 3 task 10; the baseline file is frozen, take it from commit 268d3cd if it must be regenerated); then each baseline line as a row with Rust test '-' and status 'pending' (an awk one-liner over the baseline). Edit rows by hand as tests are ported; see conventions section 8. -->
 
 | Swift test | Rust test | Status |
 |---|---|---|

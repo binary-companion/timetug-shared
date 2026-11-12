@@ -4,19 +4,15 @@
   include/timetug_engine.h with clang, and runs it with the DLL on the PATH.
 
 .DESCRIPTION
-  The Windows counterpart of c-harness/run.sh. Exactly one of -Swift and -Rust selects the library:
-    -Swift  swift build; the bin directory comes from `swift build --show-bin-path`, never .build\release (no symlink
-            rights on the runners). The Swift runtime DLLs are on the PATH after install-swift-windows.ps1.
-    -Rust   cargo build --release -p timetug-engine-c; the DLL and its import library (TimeTugEngineC.dll.lib, written
-            by cargo next to the DLL) are in target\release.
+  The Windows counterpart of c-harness/run.sh. The Rust library is built (cargo build --release -p timetug-engine-c);
+  the DLL and its import library (TimeTugEngineC.dll.lib, written by cargo next to the DLL) are in target\release.
+  -Rust is accepted and changes nothing: it was the switch while the Swift library still existed.
   Extra harness arguments (for example --iterations 20 --case stale_handles) go in -HarnessArguments.
   Exits non-zero on any failure.
 #>
 [CmdletBinding()]
 param(
-    [switch] $Swift,
     [switch] $Rust,
-    [string] $Configuration = 'release',
     [string[]] $HarnessArguments = @()
 )
 
@@ -29,20 +25,12 @@ function Invoke-Checked([string] $Exe, [string[]] $Arguments) {
 }
 
 try {
-    if ($Swift -eq $Rust) { throw 'give exactly one of -Swift and -Rust' }
     Set-Location (Join-Path $PSScriptRoot '..\..')
 
-    if ($Swift) {
-        Invoke-Checked swift @('build', '-c', $Configuration, '--product', 'TimeTugEngineC')
-        $bin = (& swift build -c $Configuration --show-bin-path | Select-Object -Last 1).Trim()
-        if ($LASTEXITCODE -ne 0) { throw "swift build --show-bin-path exited with code $LASTEXITCODE" }
-        $importName = 'TimeTugEngineC.lib'
-    } else {
-        Invoke-Checked cargo @('build', '--release', '--locked', '-p', 'timetug-engine-c')
-        $target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { Join-Path (Get-Location) 'target' }
-        $bin = Join-Path $target 'release'
-        $importName = 'TimeTugEngineC.dll.lib'
-    }
+    Invoke-Checked cargo @('build', '--release', '--locked', '-p', 'timetug-engine-c')
+    $target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { Join-Path (Get-Location) 'target' }
+    $bin = Join-Path $target 'release'
+    $importName = 'TimeTugEngineC.dll.lib'
 
     $dll = Join-Path $bin 'TimeTugEngineC.dll'
     if (-not (Test-Path -LiteralPath $dll)) { throw "TimeTugEngineC.dll not found in $bin" }

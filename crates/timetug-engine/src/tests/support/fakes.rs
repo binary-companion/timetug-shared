@@ -67,13 +67,13 @@ impl Drop for TempDir {
     }
 }
 
-/// Synthetic JSON files written by the Mac encoders (`Tests/TimeTugEngineTests/Fixtures`; Task 10 of phase 3 moves
-/// them to `fixtures/engine/` and changes the one path below).
+/// Synthetic JSON files written by the Mac encoders (`fixtures/engine/`, moved there from the Swift
+/// package's `Tests/TimeTugEngineTests/Fixtures` in phase 3 task 10).
 pub(crate) enum Fixtures {}
 
 impl Fixtures {
     pub(crate) fn directory() -> PathBuf {
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../Tests/TimeTugEngineTests/Fixtures")
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../fixtures/engine")
     }
 
     pub(crate) fn path(name: &str) -> PathBuf {

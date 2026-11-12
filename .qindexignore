@@ -6,3 +6,8 @@
 # skipped by the script itself.
 docs/superpowers/plans/
 target/
+fixtures/
+vectors/
+Conformance/Fixtures/
+THIRD-PARTY-NOTICES.md
+docs/rust-port/swift-tests-baseline.txt

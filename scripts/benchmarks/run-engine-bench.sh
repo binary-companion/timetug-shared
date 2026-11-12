@@ -1,8 +1,8 @@
 #!/bin/sh
-# Resource baseline of the engine (Swift, or with --rust the Rust library) on macOS or Linux (docs/rust-port/baselines.md): builds the engine library,
+# Resource baseline of the engine (the Rust library; --rust is accepted and changes nothing) on macOS or Linux (docs/rust-port/baselines.md): builds the engine library,
 # builds dotnet/TimeTug.Engine.Bench with the library copied next to it, runs it and writes the JSON.
 #   scripts/benchmarks/run-engine-bench.sh [--idle-seconds <n>] [--out <file>] [--rust]
-# Defaults: 600 seconds, build/bench/engine-bench.json. Needs the .NET 8 SDK or newer and a Swift toolchain.
+# Defaults: 600 seconds, build/bench/engine-bench.json. Needs the .NET 8 SDK or newer and the pinned Rust toolchain.
 set -eu
 repo_dir=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 idle_seconds=600
@@ -21,13 +21,8 @@ case "$(uname -s)" in
   *) library=libTimeTugEngineC.so ;;
 esac
 
-if [ "$rust" = 1 ]; then
-  (cd "$repo_dir" && cargo build --release --locked -p timetug-engine-c)
-  bin_dir="${CARGO_TARGET_DIR:-$repo_dir/target}/release"
-else
-  swift build -c release --product TimeTugEngineC --package-path "$repo_dir"
-  bin_dir=$(swift build -c release --package-path "$repo_dir" --show-bin-path)
-fi
+(cd "$repo_dir" && cargo build --release --locked -p timetug-engine-c)
+bin_dir="${CARGO_TARGET_DIR:-$repo_dir/target}/release"
 native_dir="$repo_dir/build/bench/native"
 rm -rf "$native_dir"
 mkdir -p "$native_dir" "$(dirname -- "$out")"
