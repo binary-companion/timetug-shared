@@ -106,7 +106,7 @@ class PackInventoryTests(unittest.TestCase):
     def test_an_extra_native_file_is_reported(self):
         for architecture in NATIVE_ARCHITECTURES:
             with self.subTest(architecture=architecture), tempfile.TemporaryDirectory() as directory:
-                extra = f'runtimes/{architecture}/native/swiftCore.dll'
+                extra = f'runtimes/{architecture}/native/VCRUNTIME140.dll'
                 found = problems(build(directory, COMPLETE + [extra]))
                 self.assertEqual(len(found), 1)
                 self.assertIn(f'unexpected native file {extra}', found[0])

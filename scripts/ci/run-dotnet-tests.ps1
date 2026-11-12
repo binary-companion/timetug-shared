@@ -4,10 +4,8 @@
   of tests that ran against scripts/ci/dotnet-test-floor.txt.
 
 .DESCRIPTION
-  The native set (from dotnet/pack/assemble-native.ps1) is copied next to the test binary. Every PATH entry that
-  holds the Swift runtime is removed first, so the tests prove the set is complete: a Swift runtime DLL missing from
-  it fails to load here instead of in an app. (The Rust set is one DLL with a static C runtime and needs none of
-  that; the removal is harmless there and keeps the Swift jobs working until phase 3 task 10.) Exits non-zero when the build or a test fails or too few tests ran.
+  The native set (from dotnet/pack/assemble-native.ps1: one DLL with a static C runtime) is copied next to the test
+  binary, so the tests prove the set is complete. Exits non-zero when the build or a test fails or too few tests ran.
 #>
 [CmdletBinding()]
 param(
@@ -24,7 +22,6 @@ if (-not (Test-Path -LiteralPath (Join-Path $NativeDir 'TimeTugEngineC.dll'))) {
     exit 1
 }
 $native = (Resolve-Path -LiteralPath $NativeDir).Path
-$env:Path = ($env:Path -split ';' | Where-Object { $_ -and -not (Test-Path -LiteralPath (Join-Path $_ 'swiftCore.dll')) }) -join ';'
 Remove-Item Env:TIMETUG_ENGINE_LIBRARY -ErrorAction SilentlyContinue
 
 # The exit code is read on the very next statement: a later native command would overwrite it.
@@ -35,5 +32,5 @@ if ($testExit -ne 0) {
     Write-Host "::error::dotnet test exited with code $testExit"
     exit $testExit
 }
-python scripts/ci/count-swift-tests.py $Log --dotnet-floor-file scripts/ci/dotnet-test-floor.txt
+python scripts/ci/count-dotnet-tests.py $Log --floor-file scripts/ci/dotnet-test-floor.txt
 exit $LASTEXITCODE

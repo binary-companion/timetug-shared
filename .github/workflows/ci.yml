@@ -1,54 +1,44 @@
-# Continuous integration for the library. Runs on pull requests and on every push to main.
-# The job ids are the required status checks of the Protect main ruleset; renaming one breaks every merge.
-#   macos          swift test on the whole package, then the C smoke test (c-smoke/run.sh).
-#   linux          swift test in the swift:6.0 container: proves the library stays portable; then the C smoke test.
-#   windows-x64    swift test on windows-latest with Swift installed by scripts/ci/install-swift-windows.ps1, then
-#                  the C smoke test (scripts/ci/run-c-smoke.ps1).
-#   windows-arm64  the same on windows-11-arm.
-# The C smoke test builds the TimeTugEngineC library, compiles c-smoke/smoke.c against include/timetug_engine.h
-# with the system C compiler and runs it; on macOS and Linux it first checks that the library exports the four
-# tt_engine_* functions.
+# Continuous integration for the library (the Rust workspace). Runs on pull requests and on every push to main and v2.
+# The job ids are the required status checks of the Protect main and Protect v2 rulesets; renaming one breaks every
+# merge. scripts/ci/check-repository-contracts.py fails when one of them is missing.
+#   macos, linux, windows-x64, windows-arm64
+#                  the Rust workspace on each platform (the toolchain is pinned in rust-toolchain.toml): cargo test, a
+#                  release build, a check that the C interface library has the file name the C# wrapper loads
+#                  (TimeTugEngineC.dll, libTimeTugEngineC.dylib, libTimeTugEngineC.so), the C smoke test against that
+#                  library (c-smoke/run.sh, scripts/ci/run-c-smoke.ps1: it compiles c-smoke/smoke.c against
+#                  include/timetug_engine.h with the system C compiler and checks the four tt_engine_* exports), then
+#                  the C concurrency harness (c-harness/harness.c: ordered and coalescing callbacks, destroy from
+#                  inside and outside a callback, stale handles, many engines; c-harness/run.sh,
+#                  scripts/ci/run-c-harness.ps1).
+#   rust-macos, rust-linux, rust-windows-x64, rust-windows-arm64
+#                  transitional aliases of the four jobs above. Before phase 3 task 10 those jobs carried these names
+#                  and the rulesets still require them. Each alias succeeds only when its job succeeded. The owner
+#                  removes the four required names from the rulesets, and then these jobs.
 #   dotnet-windows-x64, dotnet-windows-arm64
 #                  the managed wrapper and its tests (dotnet/TimeTug.Engine.Tests: golden fixtures, the conformance
-#                  scenarios through the real DLL, lifecycle) on windows-latest and windows-11-arm: build the DLL,
-#                  assemble it with its Swift runtime closure and check its exports (dotnet/pack/assemble-native.ps1),
-#                  then run the tests with the Swift runtime removed from the PATH (scripts/ci/run-dotnet-tests.ps1),
-#                  with a floor on the test count (scripts/ci/dotnet-test-floor.txt).
-#   dotnet-rust-windows-x64, dotnet-rust-windows-arm64
-#                  the same on the Rust library (cargo build --release --locked -p timetug-engine-c --target <triple>,
-#                  dotnet/pack/assemble-native.ps1 -Rust: the four exports, only Windows system DLLs as dependencies, no
-#                  Visual C++ runtime), then the tests through the same script and floor. Swift stays until phase 3 task 10.
+#                  scenarios through the real DLL, lifecycle) on windows-latest and windows-11-arm: cargo build --release
+#                  --locked -p timetug-engine-c --target <triple>, dotnet/pack/assemble-native.ps1 (the four exports,
+#                  only Windows system DLLs as dependencies, no Visual C++ runtime), then the tests through
+#                  scripts/ci/run-dotnet-tests.ps1 with a floor on the test count (scripts/ci/dotnet-test-floor.txt).
 #   dotnet-rust-package
-#                  packs the two Rust native sets (exactly one native file per architecture, THIRD-PARTY-NOTICES.md beside the
+#                  packs the two native sets (exactly one native file per architecture, THIRD-PARTY-NOTICES.md beside the
 #                  header), checks the package contents and applies the size gate (8 MB uncompressed per architecture).
 #   dotnet-macos, dotnet-linux
 #                  the same C# tests against libTimeTugEngineC.dylib and .so (extra coverage); dotnet-macos also builds the
 #                  benchmark harness (dotnet/TimeTug.Engine.Bench, run by hand through bench.yml).
-#   architecture   portability rules, repository contracts and the tests of the release script, the bump script and workflows.
+#   architecture   repository contracts and the tests of the CI scripts, the release script, the bump script and workflows.
 #   compat         backward compatibility with the latest release (AGENTS.md, "Backward compatibility"), pull requests only:
 #                  the baseline's fixtures and scenarios changed only by additions and its persisted-format fixtures
-#                  unchanged, the C header's declarations unchanged, the Swift public API of every library product
-#                  (swift package diagnose-api-breaking-changes), the baseline's golden fixtures (re-encoded to a
-#                  superset) and scenarios through the current code, and the baseline's tt_engine_* exports. Skipped
-#                  with a notice for the label semver:major, and when no X.Y.Z tag exists. scripts/ci/compat/ holds
-#                  the logic; its tests run in the architecture job.
+#                  unchanged (they moved from Tests/TimeTugEngineTests/Fixtures to fixtures/engine), the C header's
+#                  declarations unchanged, the baseline's golden fixtures (re-encoded to a superset) and scenarios through
+#                  the current code, and the baseline's tt_engine_* exports. Skipped with a notice for the label
+#                  semver:major, and when no X.Y.Z tag exists. scripts/ci/compat/ holds the logic; its tests run in the
+#                  architecture job.
 #   compat-dotnet  the same rule for the managed wrapper: dotnet pack with package validation against the latest
 #                  TimeTug.Engine on nuget.org (skipped for semver:major, and when nothing is published).
-#   rust-macos, rust-linux, rust-windows-x64, rust-windows-arm64
-#                  the Rust workspace of the v2 branch (AGENTS.md, "On v2: Rust"): cargo test and a release build on each
-#                  platform, then a check that the C interface library has the file name the C# wrapper loads
-#                  (TimeTugEngineC.dll, libTimeTugEngineC.dylib, libTimeTugEngineC.so), then the C smoke test against
-#                  the Rust library (c-smoke/run.sh --rust, scripts/ci/run-c-smoke.ps1 -Rust).
-#                  Then the C concurrency harness (c-harness/harness.c: ordered and coalescing callbacks, destroy from
-#                  inside and outside a callback, stale handles, many engines) against that library, built by
-#                  c-harness/run.sh --rust (scripts/ci/run-c-harness.ps1 -Rust on Windows).
 #   rust-lint      rustfmt, clippy, cargo-deny, the crate architecture, tokio feature and no-clock checks, and their tests.
 #   rust-targets   release builds for x86_64-apple-darwin, aarch64-apple-ios and aarch64-apple-ios-sim.
-#   vectors-current  re-runs the VectorExporter (scripts/dev/export-vectors.sh) and fails if vectors/ differs from the committed
-#                  files: the golden vectors the Rust tests replay stay what the Swift code produces, for as long as it exists.
 # The labeled and unlabeled triggers re-run CI when a label changes, so adding or removing semver:major re-decides compat.
-# Every swift test runs with --force-resolved-versions, so a Package.resolved that no longer matches
-# Package.swift fails here instead of being silently re-resolved.
 name: CI
 
 on:
@@ -68,170 +58,158 @@ jobs:
     runs-on: macos-26
     permissions:
       contents: read
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Select newest Xcode
-        run: scripts/ci/select-xcode.sh
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
       - name: Test
-        run: swift test --force-resolved-versions
-      - name: C smoke test
+        run: cargo test --workspace --locked
+      - name: Release build
+        run: cargo build --workspace --release --locked
+      - name: The C interface library has its documented name
+        run: test -f target/release/libTimeTugEngineC.dylib
+      - name: C smoke test against the Rust library
         run: c-smoke/run.sh
+      - name: C concurrency harness
+        run: c-harness/run.sh
 
   linux:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Log in to Docker Hub
-        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
-        run: |
-          for attempt in 1 2 3; do
-            echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin && exit 0
-            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 15)); fi
-          done
-          echo "::warning::Docker Hub login failed; pulling anonymously."
-      - name: Pull the Swift image
-        run: |
-          for attempt in 1 2 3; do
-            docker pull swift:6.0 && exit 0
-            sleep $((attempt * 15))
-          done
-          exit 1
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
       - name: Test
-        run: |
-          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work swift:6.0 swift test --force-resolved-versions
-      - name: C smoke test
-        run: |
-          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work swift:6.0 c-smoke/run.sh
+        run: cargo test --workspace --locked
+      - name: Release build
+        run: cargo build --workspace --release --locked
+      - name: The C interface library has its documented name
+        run: test -f target/release/libTimeTugEngineC.so
+      - name: C smoke test against the Rust library
+        run: c-smoke/run.sh
+      - name: C concurrency harness
+        run: c-harness/run.sh
 
   windows-x64:
     runs-on: windows-latest
     permissions:
       contents: read
-    timeout-minutes: 45
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Install Swift
-        shell: pwsh
-        run: ./scripts/ci/install-swift-windows.ps1
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
       - name: Test
-        shell: pwsh
-        run: |
-          # PowerShell does not stop at a failing native command, and a later native command
-          # overwrites $LASTEXITCODE (a failing swift test followed by git made a step pass in the
-          # bring-up probe). So the exit code is read on the very next statement, and the step can
-          # only succeed when swift test exited 0 AND the log shows enough executed tests.
-          # Floor: Core 301 + Bridge 13 + Engine 152 + Protocol 59 + C interface 34 = 559 Swift Testing tests on macOS
-          # (a parameterized test, such as the one that runs every conformance scenario, counts once); 499 is about
-          # 90 % of that, so a silently skipped target or a zero turns the job red while normal growth needs no edit.
-          # --minimum-runs 5 is one summary per test target (TimeTugCoreTests, CalendarBridgeTests, TimeTugEngineTests,
-          # TimeTugEngineProtocolTests, TimeTugEngineCTests): it also catches a vanished Bridge, whose 13 tests alone
-          # would not move the total below the floor.
-          # --minimum-per-run 1 makes every summary report at least one test: a target that still
-          # builds but holds no tests prints `Test run with 0 tests ... passed`, which the total and
-          # the run count alone accept (the 301 of Core is above the floor).
-          # Raise the floor and the run count when targets or tests are added.
-          $PSNativeCommandUseErrorActionPreference = $true
-          swift test --force-resolved-versions 2>&1 | Tee-Object -FilePath test.log
-          $swiftExit = $LASTEXITCODE
-          # With the native-command preference above PowerShell normally throws first; this explicit
-          # check is the guard that does not depend on that preference.
-          if ($swiftExit -ne 0) {
-            Write-Host "::error::swift test exited with code $swiftExit"
-            exit $swiftExit
-          }
-          python --version
-          python scripts/ci/count-swift-tests.py test.log --minimum 499 --minimum-runs 5 --minimum-per-run 1
-          exit $LASTEXITCODE
-      - name: C smoke test
+        run: cargo test --workspace --locked
+      - name: Release build
+        run: cargo build --workspace --release --locked
+      - name: The C interface library has its documented name
+        run: test -f target/release/TimeTugEngineC.dll
+      - name: C smoke test against the Rust library
         shell: pwsh
         run: ./scripts/ci/run-c-smoke.ps1
+      - name: C concurrency harness
+        shell: pwsh
+        run: ./scripts/ci/run-c-harness.ps1
 
   windows-arm64:
     runs-on: windows-11-arm
     permissions:
       contents: read
-    timeout-minutes: 45
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Install Swift
-        shell: pwsh
-        run: ./scripts/ci/install-swift-windows.ps1
-      - name: Test
+      - name: Install rustup when the image has none
         shell: pwsh
         run: |
-          # Same step as windows-x64; see the comments there for the exit code handling and the floor.
-          $PSNativeCommandUseErrorActionPreference = $true
-          swift test --force-resolved-versions 2>&1 | Tee-Object -FilePath test.log
-          $swiftExit = $LASTEXITCODE
-          # With the native-command preference above PowerShell normally throws first; this explicit
-          # check is the guard that does not depend on that preference.
-          if ($swiftExit -ne 0) {
-            Write-Host "::error::swift test exited with code $swiftExit"
-            exit $swiftExit
+          if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
+            Invoke-WebRequest -Uri https://static.rust-lang.org/rustup/dist/aarch64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
+            ./rustup-init.exe -y --default-toolchain none --profile minimal
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
           }
-          python --version
-          python scripts/ci/count-swift-tests.py test.log --minimum 499 --minimum-runs 5 --minimum-per-run 1
-          exit $LASTEXITCODE
-      - name: C smoke test
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Release build
+        run: cargo build --workspace --release --locked
+      - name: The C interface library has its documented name
+        run: test -f target/release/TimeTugEngineC.dll
+      - name: C smoke test against the Rust library
         shell: pwsh
         run: ./scripts/ci/run-c-smoke.ps1
+      - name: C concurrency harness
+        shell: pwsh
+        run: ./scripts/ci/run-c-harness.ps1
+
+  rust-macos:
+    needs: macos
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 5
+    env:
+      RESULT: ${{ needs.macos.result }}
+    steps:
+      - name: The job macos succeeded
+        run: |
+          echo "macos: $RESULT"
+          test "$RESULT" = success
+
+  rust-linux:
+    needs: linux
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 5
+    env:
+      RESULT: ${{ needs.linux.result }}
+    steps:
+      - name: The job linux succeeded
+        run: |
+          echo "linux: $RESULT"
+          test "$RESULT" = success
+
+  rust-windows-x64:
+    needs: windows-x64
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 5
+    env:
+      RESULT: ${{ needs.windows-x64.result }}
+    steps:
+      - name: The job windows-x64 succeeded
+        run: |
+          echo "windows-x64: $RESULT"
+          test "$RESULT" = success
+
+  rust-windows-arm64:
+    needs: windows-arm64
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    permissions: {}
+    timeout-minutes: 5
+    env:
+      RESULT: ${{ needs.windows-arm64.result }}
+    steps:
+      - name: The job windows-arm64 succeeded
+        run: |
+          echo "windows-arm64: $RESULT"
+          test "$RESULT" = success
 
   dotnet-windows-x64:
-    runs-on: windows-latest
-    permissions:
-      contents: read
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Install Swift
-        shell: pwsh
-        run: ./scripts/ci/install-swift-windows.ps1
-      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
-        with:
-          dotnet-version: 8.0.x
-      - name: Build the engine library
-        shell: pwsh
-        run: |
-          swift build -c release --product TimeTugEngineC
-          exit $LASTEXITCODE
-      - name: Assemble the native set and check its exports
-        shell: pwsh
-        run: ./dotnet/pack/assemble-native.ps1 -Rid win-x64 -Out build/native/win-x64
-      - name: C# tests
-        shell: pwsh
-        run: ./scripts/ci/run-dotnet-tests.ps1 -NativeDir build/native/win-x64
-
-  dotnet-windows-arm64:
-    runs-on: windows-11-arm
-    permissions:
-      contents: read
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Install Swift
-        shell: pwsh
-        run: ./scripts/ci/install-swift-windows.ps1
-      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
-        with:
-          dotnet-version: 8.0.x
-      - name: Build the engine library
-        shell: pwsh
-        run: |
-          swift build -c release --product TimeTugEngineC
-          exit $LASTEXITCODE
-      - name: Assemble the native set and check its exports
-        shell: pwsh
-        run: ./dotnet/pack/assemble-native.ps1 -Rid win-arm64 -Out build/native/win-arm64
-      - name: C# tests
-        shell: pwsh
-        run: ./scripts/ci/run-dotnet-tests.ps1 -NativeDir build/native/win-arm64
-
-  dotnet-rust-windows-x64:
     runs-on: windows-latest
     permissions:
       contents: read
@@ -250,17 +228,17 @@ jobs:
           exit $LASTEXITCODE
       - name: Assemble the native set (the exports and the dependencies are checked)
         shell: pwsh
-        run: ./dotnet/pack/assemble-native.ps1 -Rust -Rid win-x64 -Out build/native/win-x64
+        run: ./dotnet/pack/assemble-native.ps1 -Rid win-x64 -Out build/native/win-x64
       - name: C# tests against the Rust library
         shell: pwsh
         run: ./scripts/ci/run-dotnet-tests.ps1 -NativeDir build/native/win-x64
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: native-rust-win-x64
+          name: native-win-x64
           path: build/native/win-x64
           if-no-files-found: error
 
-  dotnet-rust-windows-arm64:
+  dotnet-windows-arm64:
     runs-on: windows-11-arm
     permissions:
       contents: read
@@ -288,20 +266,20 @@ jobs:
           exit $LASTEXITCODE
       - name: Assemble the native set (the exports and the dependencies are checked)
         shell: pwsh
-        run: ./dotnet/pack/assemble-native.ps1 -Rust -Rid win-arm64 -Out build/native/win-arm64
+        run: ./dotnet/pack/assemble-native.ps1 -Rid win-arm64 -Out build/native/win-arm64
       - name: C# tests against the Rust library
         shell: pwsh
         run: ./scripts/ci/run-dotnet-tests.ps1 -NativeDir build/native/win-arm64
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: native-rust-win-arm64
+          name: native-win-arm64
           path: build/native/win-arm64
           if-no-files-found: error
 
-  # The package the Rust library ships in: exactly one native file per architecture, the notices beside the header, and
+  # The package the library ships in: exactly one native file per architecture, the notices beside the header, and
   # the 8 MB size gate (dotnet/pack/measure-size.ps1 exits 1 above 8,388,608 bytes uncompressed per architecture).
   dotnet-rust-package:
-    needs: [dotnet-rust-windows-x64, dotnet-rust-windows-arm64]
+    needs: [dotnet-windows-x64, dotnet-windows-arm64]
     runs-on: windows-latest
     permissions:
       contents: read
@@ -310,11 +288,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: native-rust-win-x64
+          name: native-win-x64
           path: build/native/win-x64
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: native-rust-win-arm64
+          name: native-win-arm64
           path: build/native/win-arm64
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
@@ -339,69 +317,45 @@ jobs:
     runs-on: macos-26
     permissions:
       contents: read
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Select newest Xcode
-        run: scripts/ci/select-xcode.sh
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 8.0.x
       - name: Build the engine library
-        run: swift build -c release --product TimeTugEngineC
+        run: cargo build --release --locked -p timetug-engine-c
       - name: Build the benchmark harness
         run: dotnet build dotnet/TimeTug.Engine.Bench -c Release
       - name: C# tests
         run: |
           set -euo pipefail
-          export TIMETUG_ENGINE_LIBRARY="$(swift build -c release --show-bin-path)/libTimeTugEngineC.dylib"
+          export TIMETUG_ENGINE_LIBRARY="$PWD/target/release/libTimeTugEngineC.dylib"
           dotnet test dotnet/TimeTug.Engine.Tests -c Release --logger 'console;verbosity=normal' 2>&1 | tee dotnet-test.log
-          python3 scripts/ci/count-swift-tests.py dotnet-test.log --dotnet-floor-file scripts/ci/dotnet-test-floor.txt
+          python3 scripts/ci/count-dotnet-tests.py dotnet-test.log --floor-file scripts/ci/dotnet-test-floor.txt
 
   dotnet-linux:
-    # Pinned: ubuntu-latest became 26.04, which has no libxml2.so.2 (a dependency of the Swift runtime copied out of the swift:6.0 container), so the engine library fails to load.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Log in to Docker Hub
-        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
-        run: |
-          for attempt in 1 2 3; do
-            echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin && exit 0
-            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 15)); fi
-          done
-          echo "::warning::Docker Hub login failed; pulling anonymously."
-      - name: Pull the Swift image
-        run: |
-          for attempt in 1 2 3; do
-            docker pull swift:6.0 && exit 0
-            sleep $((attempt * 15))
-          done
-          exit 1
-      # The library is built in the swift:6.0 container; its Swift runtime is copied out beside it, and the tests run
-      # on the runner (a newer glibc than the image's, which runs what the image built).
-      - name: Build the engine library
-        run: |
-          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work swift:6.0 bash -c '
-            set -euo pipefail
-            swift build -c release --product TimeTugEngineC
-            mkdir -p build/native/linux
-            cp "$(swift build -c release --show-bin-path)/libTimeTugEngineC.so" build/native/linux/
-            cp -L /usr/lib/swift/linux/*.so build/native/linux/'
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 8.0.x
+      - name: Build the engine library
+        run: cargo build --release --locked -p timetug-engine-c
       - name: C# tests
         run: |
           set -euo pipefail
-          export TIMETUG_ENGINE_LIBRARY="$PWD/build/native/linux/libTimeTugEngineC.so"
-          export LD_LIBRARY_PATH="$PWD/build/native/linux"
+          export TIMETUG_ENGINE_LIBRARY="$PWD/target/release/libTimeTugEngineC.so"
           dotnet test dotnet/TimeTug.Engine.Tests -c Release --logger 'console;verbosity=normal' 2>&1 | tee dotnet-test.log
-          python3 scripts/ci/count-swift-tests.py dotnet-test.log --dotnet-floor-file scripts/ci/dotnet-test-floor.txt
+          python3 scripts/ci/count-dotnet-tests.py dotnet-test.log --floor-file scripts/ci/dotnet-test-floor.txt
 
   architecture:
     runs-on: ubuntu-latest
@@ -413,18 +367,15 @@ jobs:
         run: |
           python3 -m venv build/venv
           build/venv/bin/python -m pip install -r scripts/ci/requirements-test.txt
-      - name: Architecture rules
-        run: scripts/ci/check-architecture.sh
       - name: Repository contracts
         run: build/venv/bin/python scripts/ci/check-repository-contracts.py
       - name: Tests of the checks, of the release script and of the bump workflow
         run: |
-          scripts/ci/tests/test-check-architecture.sh
           scripts/release/tests/test-next-version.sh
           PYTHON="$PWD/build/venv/bin/python" scripts/release/tests/test-release-version-step.sh
-          # The steps of bump-dependencies.yml, run against the real bump-resolved.py and Package.resolved.
+          # The steps of bump-dependencies.yml, run against the real bump-cargo-dependency.py and stub git and gh.
           PYTHON="$PWD/build/venv/bin/python" scripts/ci/tests/test-bump-workflow-step.sh
-          # Includes test_bump_resolved.py (the Package.resolved editor) and the contracts tests.
+          # Includes test_bump_cargo_dependency.py (the Cargo.toml editor) and the contracts tests.
           build/venv/bin/python -m unittest discover -s scripts/ci/tests -p 'test_*.py'
 
   compat:
@@ -432,13 +383,10 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 45
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          # The baseline is a release tag; diagnose-api-breaking-changes checks it out from this clone.
+          # The baseline is a release tag: the history and the tags are needed.
           fetch-depth: 0
           persist-credentials: false
       - name: Decide whether the checks apply
@@ -448,7 +396,9 @@ jobs:
         run: python3 scripts/ci/compat/compat.py gate --base-ref "origin/${BASE_REF:-main}"
       # Each check below runs even when an earlier one failed, so one run reports every broken category.
       # Golden fixtures and scenarios may only gain fields (scenarios also entries at the end of a list); the
-      # persisted-data fixtures model files on users' disks and never change. Deleting any of them fails.
+      # persisted-data fixtures model files on users' disks and never change. Deleting any of them fails. The
+      # persisted-data fixtures moved from Tests/TimeTugEngineTests/Fixtures (the 1.x layout) to fixtures/engine: a
+      # baseline file must exist unchanged at either path (OLD=NEW).
       - name: Files that exist in the baseline are intact (fixtures, scenarios, persisted formats)
         if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
         env:
@@ -456,64 +406,46 @@ jobs:
         run: |
           python3 scripts/ci/compat/compat.py frozen "$BASELINE" \
             --additive Conformance/Fixtures/golden --appendable Conformance/Scenarios \
-            --strict Tests/TimeTugEngineTests/Fixtures
+            --strict Tests/TimeTugEngineTests/Fixtures=fixtures/engine fixtures/engine
       - name: C header declarations
         if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
         env:
           BASELINE: ${{ steps.gate.outputs.baseline }}
         run: python3 scripts/ci/compat/compat.py header "$BASELINE" include/timetug_engine.h
-      - name: Log in to Docker Hub
-        if: steps.gate.outputs.run == 'true' && env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
-        run: |
-          for attempt in 1 2 3; do
-            echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin && exit 0
-            if [ "$attempt" -lt 3 ]; then sleep $((attempt * 15)); fi
-          done
-          echo "::warning::Docker Hub login failed; pulling anonymously."
-      - name: Pull the Swift image
-        if: steps.gate.outputs.run == 'true'
-        run: |
-          for attempt in 1 2 3; do
-            docker pull swift:6.0 && exit 0
-            sleep $((attempt * 15))
-          done
-          exit 1
-      - name: Swift public API of every library product
+      - name: Install the pinned Rust toolchain
+        if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Export the baseline's golden fixtures and scenarios
+        id: baseline
         if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
         env:
           BASELINE: ${{ steps.gate.outputs.baseline }}
-        run: |
-          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e BASELINE -v "$PWD:/work" -w /work swift:6.0 bash -c '
-            set -euo pipefail
-            git config --global --add safe.directory /work
-            swift package --force-resolved-versions diagnose-api-breaking-changes "$BASELINE" \
-              --products TimeTugCore CalendarBridge TimeTugEngine TimeTugEngineProtocol TimeTugEngineC'
-      - name: The baseline's golden fixtures and scenarios through the current code
-        if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
+        run: scripts/ci/compat/export-baseline.sh "$BASELINE" build/compat-baseline
+      - name: The baseline's golden fixtures through the current code
+        if: ${{ !cancelled() && steps.baseline.conclusion == 'success' }}
         env:
-          BASELINE: ${{ steps.gate.outputs.baseline }}
+          TT_BASELINE_FIXTURES: ${{ github.workspace }}/build/compat-baseline/golden
         run: |
           set -euo pipefail
-          scripts/ci/compat/export-baseline.sh "$BASELINE" build/compat-baseline
-          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work \
-            -e TT_BASELINE_FIXTURES=/work/build/compat-baseline/golden \
-            -e TT_BASELINE_SCENARIOS=/work/build/compat-baseline/scenarios \
-            swift:6.0 swift test --force-resolved-versions --filter FixtureTests --filter ScenarioTests 2>&1 | tee build/compat-test.log
-          # A filter that matched nothing must not pass: both suites must have run (on Linux every target reports in
-          # one summary, so the count of summaries cannot show it).
-          python3 scripts/ci/count-swift-tests.py build/compat-test.log --minimum 20
-          for suite in FixtureTests ScenarioTests; do
-            grep -q "Suite $suite passed" build/compat-test.log || { echo "::error::$suite did not run"; exit 1; }
-          done
+          cargo test --locked -p timetug-engine-protocol fixture 2>&1 | tee build/compat-fixtures.log
+          # A filter that matched nothing must not pass.
+          python3 scripts/ci/compat/compat.py ran build/compat-fixtures.log 20
+      - name: The baseline's scenarios through the current library
+        if: ${{ !cancelled() && steps.baseline.conclusion == 'success' }}
+        env:
+          TT_BASELINE_SCENARIOS: ${{ github.workspace }}/build/compat-baseline/scenarios
+        run: |
+          set -euo pipefail
+          cargo test --release --locked -p timetug-engine-c --test scenarios 2>&1 | tee build/compat-scenarios.log
+          python3 scripts/ci/compat/compat.py ran build/compat-scenarios.log 3
       - name: The library still exports the baseline's C functions
         if: ${{ !cancelled() && steps.gate.outputs.run == 'true' }}
         env:
           BASELINE: ${{ steps.gate.outputs.baseline }}
         run: |
           set -euo pipefail
-          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD:/work" -w /work swift:6.0 \
-            swift build --force-resolved-versions --product TimeTugEngineC
-          python3 scripts/ci/compat/compat.py exports "$BASELINE" include/timetug_engine.h .build/debug/libTimeTugEngineC.so
+          cargo build --release --locked -p timetug-engine-c
+          python3 scripts/ci/compat/compat.py exports "$BASELINE" include/timetug_engine.h target/release/libTimeTugEngineC.so
 
   compat-dotnet:
     runs-on: ubuntu-latest
@@ -547,107 +479,6 @@ jobs:
         run: |
           dotnet pack dotnet/TimeTug.Engine -c Release -o build/nupkg-compat \
             "-p:Version=$VERSION" "-p:TimeTugPackageValidationBaseline=$VERSION"
-
-  # The Rust port (v2 branch). Each job installs the toolchain pinned in
-  # rust-toolchain.toml. The test steps use bash so that a failing cargo command fails the step on Windows too.
-  rust-macos:
-    runs-on: macos-26
-    permissions:
-      contents: read
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Install the pinned Rust toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-      - name: Test
-        run: cargo test --workspace --locked
-      - name: Release build
-        run: cargo build --workspace --release --locked
-      - name: The C interface library has its documented name
-        run: test -f target/release/libTimeTugEngineC.dylib
-      - name: C smoke test against the Rust library
-        run: c-smoke/run.sh --rust
-      - name: C concurrency harness
-        run: c-harness/run.sh --rust
-
-  rust-linux:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Install the pinned Rust toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-      - name: Test
-        run: cargo test --workspace --locked
-      - name: Release build
-        run: cargo build --workspace --release --locked
-      - name: The C interface library has its documented name
-        run: test -f target/release/libTimeTugEngineC.so
-      - name: C smoke test against the Rust library
-        run: c-smoke/run.sh --rust
-      - name: C concurrency harness
-        run: c-harness/run.sh --rust
-
-  rust-windows-x64:
-    runs-on: windows-latest
-    permissions:
-      contents: read
-    timeout-minutes: 30
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Install the pinned Rust toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-      - name: Test
-        run: cargo test --workspace --locked
-      - name: Release build
-        run: cargo build --workspace --release --locked
-      - name: The C interface library has its documented name
-        run: test -f target/release/TimeTugEngineC.dll
-      - name: C smoke test against the Rust library
-        shell: pwsh
-        run: ./scripts/ci/run-c-smoke.ps1 -Rust
-      - name: C concurrency harness
-        shell: pwsh
-        run: ./scripts/ci/run-c-harness.ps1 -Rust
-
-  rust-windows-arm64:
-    runs-on: windows-11-arm
-    permissions:
-      contents: read
-    timeout-minutes: 30
-    defaults:
-      run:
-        shell: bash
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Install rustup when the image has none
-        shell: pwsh
-        run: |
-          if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
-            Invoke-WebRequest -Uri https://static.rust-lang.org/rustup/dist/aarch64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
-            ./rustup-init.exe -y --default-toolchain none --profile minimal
-            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-            "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-          }
-      - name: Install the pinned Rust toolchain
-        run: rustup show active-toolchain || rustup toolchain install
-      - name: Test
-        run: cargo test --workspace --locked
-      - name: Release build
-        run: cargo build --workspace --release --locked
-      - name: The C interface library has its documented name
-        run: test -f target/release/TimeTugEngineC.dll
-      - name: C smoke test against the Rust library
-        shell: pwsh
-        run: ./scripts/ci/run-c-smoke.ps1 -Rust
-      - name: C concurrency harness
-        shell: pwsh
-        run: ./scripts/ci/run-c-harness.ps1 -Rust
 
   rust-lint:
     runs-on: ubuntu-latest
@@ -692,7 +523,7 @@ jobs:
           python3 scripts/ci/check-tokio-features.py
       - name: The pure crates and the engine read no clock and no environment (SystemClock excepted)
         run: python3 scripts/ci/check-no-clock.py
-      - name: Swift-to-Rust test parity
+      - name: Every test of the Swift baseline has a Rust counterpart
         run: python3 scripts/ci/check-test-parity.py --require-complete TimeTugCoreTests --require-complete CalendarBridgeTests --require-complete TimeTugEngineTests --require-complete TimeTugEngineProtocolTests --require-complete TimeTugEngineCTests
       - name: Third-party notices list every crate of the library's dependency tree
         run: python3 scripts/ci/check-third-party-notices.py
@@ -703,7 +534,6 @@ jobs:
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_no_clock.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_test_parity.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_third_party_notices.py'
-          python3 -m unittest discover -s scripts/ci/tests -p 'test_swift_test_inventory.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_use_local_connectors.py'
 
   rust-targets:
@@ -720,20 +550,3 @@ jobs:
           for target in x86_64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim; do
             cargo build --workspace --release --locked --target "$target"
           done
-
-  vectors-current:
-    runs-on: macos-26
-    permissions:
-      contents: read
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - name: Select newest Xcode
-        run: scripts/ci/select-xcode.sh
-      - name: Export the vectors
-        run: scripts/dev/export-vectors.sh
-      - name: Vectors are current
-        run: |
-          git status --short vectors/
-          git diff --exit-code vectors/
-          test -z "$(git ls-files --others --exclude-standard vectors/)"

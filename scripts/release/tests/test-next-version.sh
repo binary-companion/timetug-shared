@@ -79,4 +79,37 @@ expect_usage_error "--labels" --latest 1.0.0 --labels
 expect_usage_error "--latest" --latest
 expect_usage_error "--override" --latest 1.0.0 --labels "" --override
 expect_usage_error "override 0.9.0 is lower than the latest tag 1.0.6" --latest 1.0.6 --labels "" --override 0.9.0
+# The prerelease form (v2 only): --prerelease <id> prints 2.0.0-<id>. The id is dot-separated identifiers of
+# [0-9A-Za-z-], numeric ones without a leading zero; labels are ignored; an override cannot be combined with it; an
+# empty id means "not a prerelease"; and it is refused once a stable 2.x or higher release exists.
+expect 0 2.0.0-alpha.1 --prerelease alpha.1
+expect 0 2.0.0-alpha.1 --latest 1.8.1 --labels "semver:major" --prerelease alpha.1
+expect 0 2.0.0-alpha.1 --latest "" --labels "" --prerelease alpha.1
+expect 0 2.0.0-rc.12 --latest 1.9.9 --prerelease rc.12
+expect 0 2.0.0-beta --prerelease beta
+expect 0 2.0.0-alpha.0 --prerelease alpha.0
+expect 0 2.0.0-x-y.7a --prerelease x-y.7a
+expect 3 "" --prerelease "" --latest ""
+expect 0 1.0.1 --prerelease "" --latest 1.0.0 --labels ""
+expect 2 "" --prerelease alpha..1
+expect 2 "" --prerelease .alpha
+expect 2 "" --prerelease alpha.
+expect 2 "" --prerelease alpha.01
+expect 2 "" --prerelease 01
+expect 2 "" --prerelease -
+expect 2 "" --prerelease "alpha 1"
+expect 2 "" --prerelease "alpha.1+build"
+expect 2 "" --prerelease "alpha.1;rm"
+expect 2 "" --prerelease "../x"
+expect 2 "" --prerelease "*"
+expect 2 "" --prerelease alpha.1 --override 2.0.0-alpha.1
+expect 2 "" --prerelease alpha.1 --override 2.0.0
+expect 2 "" --prerelease alpha.1 --latest 2.0.0
+expect 2 "" --prerelease alpha.1 --latest 2.3.4
+expect 2 "" --prerelease alpha.1 --latest 10.0.0
+expect 2 "" --prerelease alpha.1 --latest v1.0.0
+expect_usage_error "--prerelease" --prerelease
+expect_usage_error "stable release 2.0.0 exists" --prerelease alpha.1 --latest 2.0.0
+expect_usage_error "not a prerelease identifier" --prerelease alpha.01
+expect_usage_error "cannot be combined" --prerelease alpha.1 --override 3.0.0
 echo PASS

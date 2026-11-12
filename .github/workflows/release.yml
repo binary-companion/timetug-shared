@@ -10,6 +10,15 @@
 # (the nuget.org account of the trusted-publishing policy) is unset; the package is still built, tested and
 # uploaded as a workflow artifact. A dispatch with publish: false is a dry run on any branch: no tag, no release,
 # no notification and no push, only the package (version: the version input, or 0.0.0-dryrun.<run number>).
+#
+# The native library is the Rust one: cargo build --release --locked -p timetug-engine-c --target <triple> with
+# TIMETUG_ENGINE_VERSION set to the package version (it becomes ready.engineVersion).
+#
+# Prereleases (the v2 branch, until 2.0.0): a dispatch on ref v2 with the input prerelease (for example alpha.1)
+# releases 2.0.0-<prerelease> from the v2 commit: the tag, a GitHub prerelease and the NuGet package as a prerelease
+# version. No library-released dispatch is sent, so no dependent opens a bump pull request for it. The step "Compute
+# the version" refuses the input on any other ref. Both the publish and the bump environment must allow the v2 branch
+# (the owner adds it in the repository settings); until then the run waits for or is refused by the environment.
 name: Release
 
 on:
@@ -26,6 +35,11 @@ on:
         required: false
         type: boolean
         default: true
+      prerelease:
+        description: "Release 2.0.0-<this> as a prerelease, for example alpha.1. Only on ref v2: the tag is created on the v2 commit, the GitHub release is a prerelease, the package is a prerelease version, and no dependent is notified."
+        required: false
+        type: string
+        default: ""
 
 concurrency:
   group: release
@@ -35,7 +49,7 @@ permissions: {}
 
 jobs:
   publish:
-    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish)
+    if: (github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish)) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/v2' && inputs.prerelease != '' && inputs.publish)
     runs-on: ubuntu-latest
     environment: publish
     permissions:
@@ -44,6 +58,7 @@ jobs:
     outputs:
       version: ${{ steps.version.outputs.version }}
       created: ${{ steps.release.outputs.created }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -56,11 +71,35 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ github.sha }}
           OVERRIDE: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          REF: ${{ github.ref }}
         run: |
           set -euo pipefail
           # The latest version is the highest strict X.Y.Z tag REACHABLE from the pushed commit, so a
           # hand-made tag on a side branch cannot over- or under-bump this release.
           latest="$(git tag --list '[0-9]*.[0-9]*.[0-9]*' --merged "$SHA" --sort=-v:refname | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)"
+          # A prerelease (the v2 branch only): 2.0.0-<prerelease> on this commit. The tag is immutable, so a tag that
+          # exists on another commit is an error; one on this commit recovers a missing release.
+          if [ -n "$PRERELEASE" ]; then
+            if [ "$REF" != refs/heads/v2 ]; then
+              echo "::error::a prerelease can only be released from the v2 branch (ref: $REF)"
+              exit 2
+            fi
+            if [ -n "$OVERRIDE" ]; then
+              echo "::error::the version input cannot be combined with a prerelease"
+              exit 2
+            fi
+            version="$(scripts/release/next-version.sh --latest "$latest" --prerelease "$PRERELEASE")"
+            existing="$(git rev-parse -q --verify "refs/tags/$version^{commit}" || true)"
+            if [ -n "$existing" ] && [ "$existing" != "$SHA" ]; then
+              echo "::error::the tag $version already exists on another commit ($existing); tags are immutable, choose another prerelease"
+              exit 1
+            fi
+            echo "version=$version" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "Releasing the prerelease $version from $SHA (latest stable: ${latest:-none})"
+            exit 0
+          fi
           if [ -z "$OVERRIDE" ]; then
             tagged="$(git tag --points-at "$SHA" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | head -1 || true)"
             if [ -n "$tagged" ]; then
@@ -99,12 +138,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
           SHA: ${{ github.sha }}
+          IS_PRERELEASE: ${{ steps.version.outputs.prerelease }}
         run: |
           if gh release view "$VERSION" >/dev/null 2>&1; then
             echo "::notice::Release $VERSION already exists; not creating it again."
             echo "created=false" >> "$GITHUB_OUTPUT"
           else
-            gh release create "$VERSION" --target "$SHA" --title "$VERSION" --generate-notes
+            flags=()
+            if [ "$IS_PRERELEASE" = true ]; then flags+=(--prerelease); fi
+            gh release create "$VERSION" --target "$SHA" --title "$VERSION" --generate-notes ${flags[@]+"${flags[@]}"}
             echo "created=true" >> "$GITHUB_OUTPUT"
           fi
       # The release exists at this point and a re-run would find it already tagged and release nothing,
@@ -117,17 +159,18 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-          cc="$(python3 scripts/ci/resolved-version.py Package.resolved calendar-connectors)"
+          cc="$(python3 scripts/ci/cargo-dependency-version.py Cargo.lock calendar-connectors)"
           body="$(gh release view "$VERSION" --json body --jq .body)"
           printf '%s\n\nBuilt and tested with calendar-connectors %s.\n' "$body" "$cc" > "$RUNNER_TEMP/notes.md"
           gh release edit "$VERSION" --notes-file "$RUNNER_TEMP/notes.md"
 
   # Tells each dependent that a version exists, so its own workflow can open a bump pull request.
-  # Skipped when nothing was released. The token comes from the timetug-bot GitHub App, installed on
-  # timetug and timetug-shared; the bump environment holds its credentials and is limited to main.
+  # Skipped when nothing was released, and for a prerelease (no dependent follows a prerelease). The token comes
+  # from the timetug-bot GitHub App, installed on timetug and timetug-shared; the bump environment holds its
+  # credentials and is limited to main.
   notify:
     needs: publish
-    if: needs.publish.outputs.created == 'true'
+    if: needs.publish.outputs.created == 'true' && needs.publish.outputs.prerelease != 'true'
     runs-on: ubuntu-latest
     environment: bump
     permissions:
@@ -181,7 +224,8 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "Package version $version"
 
-  # The native set per architecture, built on its own runner with the version stamped in, and tested there.
+  # The native set per architecture, built with cargo on its own runner with the version in TIMETUG_ENGINE_VERSION,
+  # and tested there.
   nuget-native:
     needs: nuget-version
     if: ${{ !cancelled() && needs.nuget-version.result == 'success' }}
@@ -191,8 +235,10 @@ jobs:
         include:
           - runner: windows-latest
             rid: win-x64
+            triple: x86_64-pc-windows-msvc
           - runner: windows-11-arm
             rid: win-arm64
+            triple: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
@@ -200,22 +246,29 @@ jobs:
     env:
       VERSION: ${{ needs.nuget-version.outputs.version }}
       RID: ${{ matrix.rid }}
+      TRIPLE: ${{ matrix.triple }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Install Swift
-        shell: pwsh
-        run: ./scripts/ci/install-swift-windows.ps1
-      - name: Stamp the version into the engine
+      - name: Install rustup when the image has none
+        if: matrix.rid == 'win-arm64'
         shell: pwsh
         run: |
-          python scripts/release/stamp-engine-version.py $env:VERSION
-          exit $LASTEXITCODE
-      - name: Build the engine library
+          if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
+            Invoke-WebRequest -Uri https://static.rust-lang.org/rustup/dist/aarch64-pc-windows-msvc/rustup-init.exe -OutFile rustup-init.exe
+            ./rustup-init.exe -y --default-toolchain none --profile minimal
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          }
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Build the engine library (the version is stamped in through TIMETUG_ENGINE_VERSION)
         shell: pwsh
+        env:
+          TIMETUG_ENGINE_VERSION: ${{ needs.nuget-version.outputs.version }}
         run: |
-          swift build -c release --product TimeTugEngineC
+          cargo build --release --locked -p timetug-engine-c --target $env:TRIPLE
           exit $LASTEXITCODE
       - name: Assemble the native set and check its exports
         shell: pwsh
@@ -235,8 +288,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  # One package with both native sets. Its C# tests run on a runner with no Swift toolchain at all, so they also
-  # prove the x64 set is complete. The package is checked and measured, then uploaded whether or not it is pushed.
+  # One package with both native sets. Its C# tests run on a runner that builds nothing, so they also prove the
+  # assembled x64 set is complete. The package is checked and measured, then uploaded whether or not it is pushed.
   nuget-pack:
     needs: [nuget-version, nuget-native]
     if: ${{ !cancelled() && needs.nuget-native.result == 'success' }}
