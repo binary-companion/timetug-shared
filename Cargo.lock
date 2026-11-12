@@ -695,7 +695,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
- "timetug-bridge",
  "timetug-core",
  "timetug-engine",
 ]
