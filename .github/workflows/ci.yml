@@ -10,10 +10,6 @@
 #                  the C concurrency harness (c-harness/harness.c: ordered and coalescing callbacks, destroy from
 #                  inside and outside a callback, stale handles, many engines; c-harness/run.sh,
 #                  scripts/ci/run-c-harness.ps1).
-#   rust-macos, rust-linux, rust-windows-x64, rust-windows-arm64
-#                  transitional aliases of the four jobs above. Before phase 3 task 10 those jobs carried these names
-#                  and the rulesets still require them. Each alias succeeds only when its job succeeded. The owner
-#                  removes the four required names from the rulesets, and then these jobs.
 #   dotnet-windows-x64, dotnet-windows-arm64
 #                  the managed wrapper and its tests (dotnet/TimeTug.Engine.Tests: golden fixtures, the conformance
 #                  scenarios through the real DLL, lifecycle) on windows-latest and windows-11-arm: cargo build --release
@@ -152,62 +148,6 @@ jobs:
       - name: C concurrency harness
         shell: pwsh
         run: ./scripts/ci/run-c-harness.ps1
-
-  rust-macos:
-    needs: macos
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    permissions: {}
-    timeout-minutes: 5
-    env:
-      RESULT: ${{ needs.macos.result }}
-    steps:
-      - name: The job macos succeeded
-        run: |
-          echo "macos: $RESULT"
-          test "$RESULT" = success
-
-  rust-linux:
-    needs: linux
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    permissions: {}
-    timeout-minutes: 5
-    env:
-      RESULT: ${{ needs.linux.result }}
-    steps:
-      - name: The job linux succeeded
-        run: |
-          echo "linux: $RESULT"
-          test "$RESULT" = success
-
-  rust-windows-x64:
-    needs: windows-x64
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    permissions: {}
-    timeout-minutes: 5
-    env:
-      RESULT: ${{ needs.windows-x64.result }}
-    steps:
-      - name: The job windows-x64 succeeded
-        run: |
-          echo "windows-x64: $RESULT"
-          test "$RESULT" = success
-
-  rust-windows-arm64:
-    needs: windows-arm64
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    permissions: {}
-    timeout-minutes: 5
-    env:
-      RESULT: ${{ needs.windows-arm64.result }}
-    steps:
-      - name: The job windows-arm64 succeeded
-        run: |
-          echo "windows-arm64: $RESULT"
-          test "$RESULT" = success
 
   dotnet-windows-x64:
     runs-on: windows-latest
