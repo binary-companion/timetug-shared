@@ -2,7 +2,7 @@
 //!
 //! Lock-protected bookkeeping of the engine's in-flight work, readable from any context. Tests use it to wait for
 //! real quiescence instead of a fixed number of yields; the engine never reads it. Swift's `internal` is `pub` here,
-//! so the unused-code lint stays quiet until the engine (task 4 of phase 3) uses it.
+//! so a host crate's tests can read the engine's counters through `Engine::activity`.
 
 use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard, PoisonError};

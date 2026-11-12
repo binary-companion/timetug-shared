@@ -1,9 +1,13 @@
 //! Ports of `TimeTugEngineTests/Support/ManualClock.swift` and `Support/Fakes.swift`, plus small helpers the Rust tests
-//! share (`ts`, `standup`). The later engine tasks add `EngineHarness`, `AccountFakes` and `TimelineRecorder` here. Items that only later tasks use stay, as in the Swift files.
+//! share (`ts`, `standup`). `account_fakes` is `Support/AccountFakes.swift` (phase 3 task 2). `engine_harness`, `scripted_source` and `timeline_recorder` are `Support/EngineHarness.swift` and `Support/TimelineRecorder.swift` (phase 3 task 4). Items that only later tasks use stay, as in the Swift files.
 #![allow(dead_code)]
 
+pub(crate) mod account_fakes;
+pub(crate) mod engine_harness;
 mod fakes;
-mod manual_clock;
+pub(crate) mod manual_clock;
+pub(crate) mod scripted_source;
+pub(crate) mod timeline_recorder;
 
 pub(crate) use fakes::{Fixtures, LockedBox, TempDir, poll};
 pub(crate) use manual_clock::ManualClock;

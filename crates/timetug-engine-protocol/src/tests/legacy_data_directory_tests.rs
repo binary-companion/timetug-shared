@@ -175,3 +175,121 @@ fn a_legacy_data_directory_loads_and_the_wire_state_reports_it() {
         Some("1800090000|x")
     );
 }
+
+// MARK: - An Engine over the directory (Review Focus 4, end to end)
+
+mod engine_over_the_directory {
+    use std::collections::BTreeMap;
+    use std::sync::{Arc, Mutex};
+
+    use async_trait::async_trait;
+    use calendar_core::connection::{
+        AuthorizationInteraction, ConnectorRegistry, CredentialField, InMemoryCredentialStore,
+        OAuthRedirectSession,
+    };
+    use calendar_core::failure::{Failure, Outcome};
+    use timetug_core::TakeoverSettings;
+    use timetug_engine::command::EngineCommand;
+    use timetug_engine::diagnostic::EngineDiagnostic;
+    use timetug_engine::engine::Engine;
+    use timetug_engine::host::{EngineHost, SignInPrompting};
+    use timetug_engine::settings::{EngineSettings, InMemorySettingsStorage};
+
+    use super::{FILES, bytes, legacy_directory};
+    use crate::state_mapping::wire_message_for_state;
+    use crate::wire_types::WireState;
+
+    /// The host never shows UI in this test: every sign-in is cancelled.
+    struct NoInteraction;
+
+    #[async_trait]
+    impl AuthorizationInteraction for NoInteraction {
+        async fn begin_oauth_redirect(&self) -> Outcome<Box<dyn OAuthRedirectSession>> {
+            Err(Failure::Cancelled)
+        }
+
+        async fn prompt_credentials(
+            &self,
+            _fields: &[CredentialField],
+        ) -> Outcome<BTreeMap<String, String>> {
+            Err(Failure::Cancelled)
+        }
+    }
+
+    struct NoSignIn;
+
+    #[async_trait]
+    impl SignInPrompting for NoSignIn {
+        async fn prepare(
+            &self,
+            _title: String,
+            _help: Option<calendar_core::connection::CredentialHelp>,
+            _values: BTreeMap<String, String>,
+            _error: Option<String>,
+        ) {
+        }
+
+        async fn last_non_secret_values(&self) -> Option<BTreeMap<String, String>> {
+            None
+        }
+    }
+
+    /// An engine built over a copy of the 1.x data directory with fakes (no connector kinds, in-memory settings holding
+    /// the Mac app's legacy values), started: the wire state reports the accounts, settings and ledger, the lessons are
+    /// loaded, and nothing on disk is lost.
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_started_engine_reports_the_legacy_data_directory() {
+        let dir = legacy_directory();
+        let accounts_before = bytes(dir.path(), "accounts.json");
+        let sync_before = bytes(dir.path(), "sync-state.json");
+        let takeover: TakeoverSettings =
+            serde_json::from_slice(&bytes(dir.path(), "settings-legacy.json")).unwrap();
+        let settings = Arc::new(InMemorySettingsStorage::new(EngineSettings {
+            takeover,
+            ..EngineSettings::default()
+        }));
+        let diagnostics: Arc<Mutex<Vec<EngineDiagnostic>>> = Arc::default();
+        let sink = Arc::clone(&diagnostics);
+        let mut host = EngineHost::new(
+            dir.path(),
+            settings.clone(),
+            Arc::new(InMemoryCredentialStore::new()),
+            Arc::new(NoInteraction),
+            Arc::new(NoSignIn),
+            ConnectorRegistry::new(),
+        );
+        host.diagnostics = Arc::new(move |d| sink.lock().unwrap().push(d));
+        let engine = Engine::new(host);
+        engine.send(EngineCommand::Start).await;
+        let state = engine.states().borrow().clone();
+        engine.send(EngineCommand::Stop).await;
+
+        let wire: WireState =
+            serde_json::from_value(wire_message_for_state(&state).payload.unwrap()).unwrap();
+        assert_eq!(wire.accounts.len(), 1);
+        assert_eq!(wire.accounts[0].kind_id, "microsoft-brokered");
+        assert_eq!(
+            wire.accounts[0].connection_id,
+            "7E3A9C21-4B58-4D0F-A6E2-91C8B5D40F37"
+        );
+        assert_eq!(wire.accounts[0].config["authMode"], "external");
+        assert!(!wire.settings.takeover.enabled);
+        assert!(wire.settings.takeover.require_other_attendees);
+        assert_eq!(wire.settings.takeover.lead_time, 120.0);
+        assert_eq!(wire.ledger.count, 4);
+        assert!(
+            diagnostics
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|d| d.category == "ledger" && d.message == "ledger loaded with 4 keys")
+        );
+        // Nothing was lost: the account list and the sync state are byte for byte as they were, and the data directory
+        // holds the five files plus nothing else the engine should not write.
+        assert_eq!(bytes(dir.path(), "accounts.json"), accounts_before);
+        assert_eq!(bytes(dir.path(), "sync-state.json"), sync_before);
+        for name in FILES {
+            assert!(dir.path().join(name).is_file(), "{name} is gone");
+        }
+    }
+}
