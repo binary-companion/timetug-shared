@@ -1,4 +1,5 @@
-//! `TimeTugEngine/Inference`: task 1 of phase 3 needs only the `TextGenerator` seam (a field of `EngineHost`); task 3
-//! adds the prompt builder and the adjudicator.
+//! `TimeTugEngine/Inference`: the `TextGenerator` seam (a field of `EngineHost`), the prompt builder and the adjudicator.
 
+pub mod prompt_builder;
 pub mod text_generator;
+pub mod text_generator_adjudicator;
