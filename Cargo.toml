@@ -21,14 +21,14 @@ timetug-engine-protocol = { path = "crates/timetug-engine-protocol" }
 # connector crates; it replaced the phase 0 commit that only held the empty workspace). Phase 3 switches `rev` to a
 # prerelease tag, phase 4 to `tag = "2.0.0"`. To build against a local checkout instead,
 # run scripts/dev/use-local-connectors.sh <path> (it writes a git-ignored cargo config; never commit a [patch]).
-calendar-core = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
-calendar-oauth = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
-calendar-ical = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
-calendar-google = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
-calendar-microsoft = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
-calendar-caldav = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
-calendar-ical-subscription = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
-calendar-test-support = { git = "https://github.com/binary-companion/calendar-connectors", rev = "ea8a9e2fdb29749a3a041ef381eaa1c9aed7f027" }
+calendar-core = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0-alpha.1" }
+calendar-oauth = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0-alpha.1" }
+calendar-ical = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0-alpha.1" }
+calendar-google = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0-alpha.1" }
+calendar-microsoft = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0-alpha.1" }
+calendar-caldav = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0-alpha.1" }
+calendar-ical-subscription = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0-alpha.1" }
+calendar-test-support = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0-alpha.1" }
 
 serde = { version = "=1.0.229", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }
