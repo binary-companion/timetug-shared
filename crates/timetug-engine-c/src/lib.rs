@@ -8,7 +8,10 @@
 #![allow(non_snake_case)]
 #![deny(unsafe_code)]
 
+pub mod c_interface;
+pub mod connectors;
 pub mod delivery;
+pub mod engine_session;
 pub mod handle_registry;
 pub mod manual_engine_clock;
 pub mod remote_host_services;

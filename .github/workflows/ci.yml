@@ -558,7 +558,7 @@ jobs:
       - name: The pure crates and the engine read no clock and no environment (SystemClock excepted)
         run: python3 scripts/ci/check-no-clock.py
       - name: Swift-to-Rust test parity
-        run: python3 scripts/ci/check-test-parity.py --require-complete TimeTugCoreTests --require-complete CalendarBridgeTests --require-complete TimeTugEngineTests --require-complete TimeTugEngineProtocolTests
+        run: python3 scripts/ci/check-test-parity.py --require-complete TimeTugCoreTests --require-complete CalendarBridgeTests --require-complete TimeTugEngineTests --require-complete TimeTugEngineProtocolTests --require-complete TimeTugEngineCTests
       - name: Tests of the Rust checks and of the local-override script
         run: |
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_crate_architecture.py'
