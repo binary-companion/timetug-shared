@@ -1,11 +1,12 @@
 <#
 .SYNOPSIS
-  Resource baseline of the Swift engine on Windows (docs/rust-port/baselines.md): assembles the native set, builds
+  Resource baseline of the engine on Windows (docs/rust-port/baselines.md): assembles the native set, builds
   dotnet/TimeTug.Engine.Bench with it and writes the measurements as JSON.
 
 .DESCRIPTION
-  Builds TimeTugEngineC with `swift build -c release` unless -SkipBuild, assembles the DLL with its Swift runtime
-  closure (dotnet/pack/assemble-native.ps1) into build/bench/native, builds the harness with that set copied next to
+  Builds TimeTugEngineC with `swift build -c release` unless -SkipBuild (with -Rust: `cargo build --release --locked
+  -p timetug-engine-c --target <triple>`), assembles the DLL with its Swift runtime closure, or alone for -Rust
+  (dotnet/pack/assemble-native.ps1) into build/bench/native, builds the harness with that set copied next to
   it, and runs it. Needs a Swift toolchain, Visual Studio's dumpbin and the .NET 8 SDK or newer.
 
 .EXAMPLE
@@ -15,7 +16,8 @@
 param(
     [int] $IdleSeconds = 600,
     [string] $Out = 'build/bench/engine-bench.json',
-    [switch] $SkipBuild
+    [switch] $SkipBuild,
+    [switch] $Rust
 )
 
 Set-StrictMode -Version Latest
@@ -25,11 +27,20 @@ Set-Location (Join-Path $PSScriptRoot '..\..')
 $rid = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'win-arm64' } else { 'win-x64' }
 $native = Join-Path 'build/bench/native' $rid
 
-if (-not $SkipBuild) {
-    swift build -c release --product TimeTugEngineC
-    if ($LASTEXITCODE -ne 0) { throw "swift build exited with code $LASTEXITCODE" }
+if ($Rust) {
+    $triple = if ($rid -eq 'win-arm64') { 'aarch64-pc-windows-msvc' } else { 'x86_64-pc-windows-msvc' }
+    if (-not $SkipBuild) {
+        cargo build --release --locked -p timetug-engine-c --target $triple
+        if ($LASTEXITCODE -ne 0) { throw "cargo build exited with code $LASTEXITCODE" }
+    }
+    ./dotnet/pack/assemble-native.ps1 -Rust -Rid $rid -Out $native
+} else {
+    if (-not $SkipBuild) {
+        swift build -c release --product TimeTugEngineC
+        if ($LASTEXITCODE -ne 0) { throw "swift build exited with code $LASTEXITCODE" }
+    }
+    ./dotnet/pack/assemble-native.ps1 -Rid $rid -Out $native
 }
-./dotnet/pack/assemble-native.ps1 -Rid $rid -Out $native
 if ($LASTEXITCODE -ne 0) { throw "assemble-native.ps1 exited with code $LASTEXITCODE" }
 $nativeFull = (Resolve-Path -LiteralPath $native).Path
 
