@@ -84,8 +84,52 @@ class NoClockTests(unittest.TestCase):
         self.assertIn('crates/timetug-bridge/src/lib.rs', output)
 
     def test_other_crates_are_not_scanned(self):
-        code, output = run({'crates/timetug-engine/src/lib.rs': OFFENDING})
+        code, output = run({'crates/timetug-engine-protocol/src/lib.rs': OFFENDING, 'crates/timetug-engine-c/src/lib.rs': OFFENDING})
         self.assertEqual(code, 0, output)
+
+    def test_the_engine_is_scanned_with_the_same_rules(self):
+        code, output = run({'crates/timetug-engine/src/accounts/manager.rs': OFFENDING})
+        self.assertEqual(code, 1, output)
+        for token in ['Timestamp::now', 'SystemTime', 'Instant::now', 'Zoned::now', 'tokio::time', 'std::env']:
+            self.assertIn(f'`{token}`', output)
+        self.assertIn('EngineClock', output)
+
+    def test_only_the_system_clock_file_of_the_engine_may_use_tokio_time_and_the_wall_clock(self):
+        system_clock = (
+            'use std::time::Duration;\n'
+            'pub async fn sleep(deadline: jiff::Timestamp) {\n'
+            '    let _ = jiff::Timestamp::now();\n'
+            '    tokio::time::sleep(Duration::from_secs(1)).await;\n'
+            '    let _ = deadline;\n'
+            '}\n'
+        )
+        code, output = run({'crates/timetug-engine/src/clock.rs': system_clock})
+        self.assertEqual(code, 0, output)
+        # The same code anywhere else in the engine is refused ...
+        code, output = run({'crates/timetug-engine/src/engine/mod.rs': system_clock})
+        self.assertEqual(code, 1, output)
+        self.assertIn('`tokio::time`', output)
+        self.assertIn('`Timestamp::now`', output)
+        # ... and so is the same file name in the pure crates.
+        code, output = run({'crates/timetug-core/src/clock.rs': system_clock, 'crates/timetug-bridge/src/clock.rs': system_clock})
+        self.assertEqual(code, 1, output)
+        self.assertIn('crates/timetug-core/src/clock.rs', output)
+        self.assertIn('crates/timetug-bridge/src/clock.rs', output)
+
+    def test_the_system_clock_file_may_not_read_the_environment_or_other_clocks(self):
+        text = (
+            'pub fn bad() {\n'
+            '    let _ = std::env::var("X");\n'
+            '    let _ = std::time::SystemTime::UNIX_EPOCH;\n'
+            '    let _ = std::time::Instant::now();\n'
+            '    let _ = jiff::Zoned::now();\n'
+            '}\n'
+        )
+        code, output = run({'crates/timetug-engine/src/clock.rs': text})
+        self.assertEqual(code, 1, output)
+        for token in ['std::env', 'SystemTime', 'Instant::now', 'Zoned::now']:
+            self.assertIn(f'`{token}`', output)
+        self.assertNotIn('`tokio::time`', output)
 
     def test_tests_are_excluded(self):
         files = {
