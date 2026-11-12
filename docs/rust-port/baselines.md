@@ -200,3 +200,56 @@ Individual runs (ms), Swift then Rust: sparse 5000 14.250 to 15.073 and 6.531 to
 
 Run it: `scripts/benchmarks/run-dedup.sh --rust` (optionally `dense 1000`). A dense 5000 row takes about a minute in
 Rust and over a minute and a half in Swift per repetition set (six repetitions each), so a full run is several minutes.
+
+## Rust engine against these baselines (phase 3, Task 9 gate)
+
+`TimeTug.Engine.Bench` against the Rust library (`scripts/benchmarks/run-engine-bench.sh --rust`,
+`scripts/benchmarks/run-engine-bench.ps1 -Rust`, or the workflow "Engine benchmark" with `engine=rust`), the same
+harness, the same 600 s idle, three runs per machine, the median recorded, measured 2026-11-12. The engine library
+is the workspace release build (`opt-level = "s"`, fat LTO, one codegen unit, strip, abort; on Windows a static C
+runtime). Gate: each of `readyMs`, `workingSetBytes`, `privateBytes`, `cpuMsIdle` at or below the Swift median of the
+same machine (10% tolerance on time and CPU, which was not needed), and the native payload at most 8 MB per Windows
+architecture ([size.md](size.md)).
+
+| Machine | Metric | Swift median | Rust median | Rust / Swift | Gate |
+|---|---|---:|---:|---:|---|
+| Windows x64, hosted `windows-latest` (run 43174649487) | readyMs | 196.3 | 147.4 | 0.75 | pass |
+| | workingSetBytes | 18,878,464 | 17,248,256 | 0.91 | pass |
+| | privateBytes | 13,455,360 | 9,994,240 | 0.74 | pass |
+| | cpuMsIdle | 62.5 | 31.2 | 0.50 | pass |
+| | nativeModuleBytes | 74,626,048 | 3,534,336 | 0.05 | pass (at most 8,388,608) |
+| Windows ARM64, hosted `windows-11-arm` | readyMs | 571.0 | 162.7 | 0.28 | pass |
+| | workingSetBytes | 9,625,600 | 9,199,616 | 0.96 | pass |
+| | privateBytes | 14,045,184 | 10,874,880 | 0.77 | pass |
+| | cpuMsIdle | 93.8 | 31.2 | 0.33 | pass |
+| | nativeModuleBytes | 73,146,368 | 3,351,040 | 0.05 | pass (at most 8,388,608) |
+| macOS arm64, hosted `macos-26` | readyMs | 233.3 | 208.7 | 0.89 | pass |
+| | workingSetBytes | 37,650,432 | 37,453,824 | 0.99 | pass |
+| | privateBytes (physical footprint) | 32,376,704 | 31,999,808 | 0.99 | pass |
+| | cpuMsIdle | 81.1 | 69.0 | 0.85 | pass |
+| | nativeModuleBytes | 7,610,248 | 3,193,904 | 0.42 | pass |
+| macOS arm64, development Mac (Apple M1 Max) | readyMs | 388.4 | 254.9 | 0.66 | pass |
+| | workingSetBytes | 58,884,096 | 57,196,544 | 0.97 | pass |
+| | privateBytes (physical footprint) | 33,522,504 | 32,621,336 | 0.97 | pass |
+| | cpuMsIdle | 82.2 | 25.2 | 0.31 | pass |
+| | nativeModuleBytes | 7,936,248 | 5,713,544 | 0.72 | pass |
+
+Individual runs (readyMs / workingSetBytes / privateBytes / cpuMsIdle):
+
+- Windows x64: 147.4 / 17,264,640 / 9,994,240 / 46.9; 111.8 / 17,248,256 / 9,957,376 / 15.6; 152.6 / 17,182,720 / 10,878,976 / 31.2.
+- Windows ARM64: 161.5 / 9,224,192 / 10,936,320 / 15.6; 167.3 / 9,113,600 / 10,874,880 / 31.2; 162.7 / 9,199,616 / 10,809,344 / 62.5.
+- macOS hosted: 219.6 / 37,044,224 / 32,032,640 / 89.2; 145.6 / 37,453,824 / 31,999,808 / 69.0; 208.7 / 37,732,352 / 30,590,784 / 57.3.
+- Development Mac: 191.6 / 57,196,544 / 32,621,336 / 25.2; 254.9 / 56,885,248 / 32,408,392 / 24.7; 355.0 / 58,048,512 / 33,424,248 / 71.9.
+
+Conditions. The hosted rows ran on the same images as the Swift rows (`win25-vs2026` 20261103.298.1, `win11-vs2026-arm64`
+20261101.203.1, `macos26` 20261102.0473.1), three fresh runners each. The development Mac (macOS 27.0.1, .NET SDK
+8.0.133, Rust 1.99.1, 10 logical CPUs) ran three runs one after another with only the owner's usual apps open and no
+other work of the agent's in the Mac's foreground; the machine was not quiet, and the 1-minute / 5-minute / 15-minute
+load averages at the start of each run were 3.27 / 2.63 / 2.76 (run 1), 1.92 / 1.98 / 2.34 (run 2) and 6.51 / 6.39 /
+4.81 (run 3), ending at 1.92, 6.51 and 9.53 (1 minute): other sessions began building during runs 2 and 3. Run 3 (the
+slowest `readyMs` and the highest `cpuMsIdle`) therefore ran under load; the median is run 2 for `readyMs` and run 1
+for the others, and the Rust figures are below the Swift baseline in every run. **Not measured: the Parallels VM row.**
+The VM was suspended when this work started and its "Pause idle" setting is on, which breaks a 600 s idle
+measurement; changing it needs the owner. The ARM64 comparison is therefore against the hosted `windows-11-arm`
+row only. The .NET suite ran against the Rust library on all of these platforms (66 tests, floor 59): see the pull
+request.

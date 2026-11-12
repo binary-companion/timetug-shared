@@ -1,6 +1,6 @@
-# Resource baselines of the Swift engine (docs/rust-port/baselines.md): time to ready, working set, private bytes, idle CPU
-# and native module size, measured by dotnet/TimeTug.Engine.Bench against the Swift engine library, three runs per platform
-# on fresh runners. Run by hand; each run uploads its JSON as an artifact (bench-<platform>-<run>). Not part of CI.
+# Resource baselines of the engine (docs/rust-port/baselines.md): time to ready, working set, private bytes, idle CPU
+# and native module size, measured by dotnet/TimeTug.Engine.Bench against the Swift engine library (input engine=swift, the
+# default) or the Rust one (engine=rust), three runs per platform on fresh runners. Run by hand; each run uploads its JSON as an artifact (bench-<platform>-<run>). Not part of CI.
 name: Engine benchmark
 
 on:
@@ -11,6 +11,11 @@ on:
         type: choice
         options: [all, windows-x64, windows-arm64, macos-arm64]
         default: all
+      engine:
+        description: Which engine library to measure
+        type: choice
+        options: [swift, rust]
+        default: swift
       idle-seconds:
         description: Seconds the started engine idles before memory and CPU are read
         type: string
@@ -52,12 +57,27 @@ jobs:
       matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install rustup when the image has none
+        if: inputs.engine == 'rust' && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
+            $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'aarch64' } else { 'x86_64' }
+            Invoke-WebRequest -Uri "https://static.rust-lang.org/rustup/dist/$arch-pc-windows-msvc/rustup-init.exe" -OutFile rustup-init.exe
+            ./rustup-init.exe -y --default-toolchain none --profile minimal
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            "$env:USERPROFILE\.cargo\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          }
+      - name: Install the pinned Rust toolchain
+        if: inputs.engine == 'rust'
+        shell: bash
+        run: rustup show active-toolchain || rustup toolchain install
       - name: Install Swift
-        if: runner.os == 'Windows'
+        if: inputs.engine != 'rust' && runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/ci/install-swift-windows.ps1
       - name: Select newest Xcode
-        if: runner.os == 'macOS'
+        if: inputs.engine != 'rust' && runner.os == 'macOS'
         run: scripts/ci/select-xcode.sh
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
@@ -76,15 +96,24 @@ jobs:
         shell: pwsh
         env:
           IDLE_SECONDS: ${{ inputs.idle-seconds }}
-        run: ./scripts/benchmarks/run-engine-bench.ps1 -IdleSeconds ([int]$env:IDLE_SECONDS) -Out build/bench/engine-bench.json
+          ENGINE: ${{ inputs.engine }}
+        run: |
+          $extra = @{}
+          if ($env:ENGINE -eq 'rust') { $extra.Rust = $true }
+          ./scripts/benchmarks/run-engine-bench.ps1 -IdleSeconds ([int]$env:IDLE_SECONDS) -Out build/bench/engine-bench.json @extra
+          exit $LASTEXITCODE
       - name: Measure (macOS)
         if: runner.os == 'macOS'
         env:
           IDLE_SECONDS: ${{ inputs.idle-seconds }}
-        run: scripts/benchmarks/run-engine-bench.sh --idle-seconds "$IDLE_SECONDS" --out build/bench/engine-bench.json
+          ENGINE: ${{ inputs.engine }}
+        run: |
+          extra=""
+          if [ "$ENGINE" = rust ]; then extra="--rust"; fi
+          scripts/benchmarks/run-engine-bench.sh --idle-seconds "$IDLE_SECONDS" --out build/bench/engine-bench.json $extra
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: bench-${{ matrix.platform }}-${{ matrix.run }}
+          name: bench-${{ inputs.engine }}-${{ matrix.platform }}-${{ matrix.run }}
           path: |
             build/bench/engine-bench.json
             machine.json
