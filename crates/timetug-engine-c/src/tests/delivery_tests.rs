@@ -232,3 +232,16 @@ fn handle_tokens_are_never_zero_never_reused_and_unknown_values_are_not_found() 
     assert!(registry.session(0xdead_beef).is_none());
     assert_eq!(registry.len(), 2);
 }
+
+#[test]
+fn a_wrapped_counter_skips_zero_and_live_tokens() {
+    let registry: HandleRegistry<u32> = HandleRegistry::new();
+    let live = registry.insert(Arc::new(1));
+    registry.set_last_token_for_test(live.wrapping_sub(16));
+    let next = registry.insert(Arc::new(2));
+    assert_ne!(next, live, "a live token is not handed out again");
+    registry.set_last_token_for_test(usize::MAX - 15);
+    let wrapped = registry.insert(Arc::new(3));
+    assert_ne!(wrapped, 0, "NULL is never a handle");
+    assert_eq!(registry.session(wrapped).as_deref(), Some(&3));
+}

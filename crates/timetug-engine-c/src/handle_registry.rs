@@ -36,10 +36,16 @@ impl<T> HandleRegistry<T> {
     /// or NULL.
     pub fn insert(&self, session: Arc<T>) -> usize {
         let mut inner = self.lock();
-        inner.last_token = inner.last_token.wrapping_add(16);
-        let token = inner.last_token;
-        inner.sessions.insert(token, session);
-        token
+        // The counter wraps only after 2^60 handles on a 64-bit target; even then a token is never 0 (NULL) and never one
+        // that is alive.
+        loop {
+            inner.last_token = inner.last_token.wrapping_add(16);
+            let token = inner.last_token;
+            if token != 0 && !inner.sessions.contains_key(&token) {
+                inner.sessions.insert(token, session);
+                return token;
+            }
+        }
     }
 
     pub fn session(&self, token: usize) -> Option<Arc<T>> {
@@ -55,6 +61,11 @@ impl<T> HandleRegistry<T> {
             return None;
         }
         self.lock().sessions.remove(&token)
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_last_token_for_test(&self, token: usize) {
+        self.lock().last_token = token;
     }
 
     /// How many sessions are alive.
