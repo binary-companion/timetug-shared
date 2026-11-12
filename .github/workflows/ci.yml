@@ -30,7 +30,8 @@
 #   rust-macos, rust-linux, rust-windows-x64, rust-windows-arm64
 #                  the Rust workspace of the v2 branch (AGENTS.md, "On v2: Rust"): cargo test and a release build on each
 #                  platform, then a check that the C interface library has the file name the C# wrapper loads
-#                  (TimeTugEngineC.dll, libTimeTugEngineC.dylib, libTimeTugEngineC.so).
+#                  (TimeTugEngineC.dll, libTimeTugEngineC.dylib, libTimeTugEngineC.so), then the C smoke test against
+#                  the Rust library (c-smoke/run.sh --rust, scripts/ci/run-c-smoke.ps1 -Rust).
 #   rust-lint      rustfmt, clippy, cargo-deny, the crate architecture, tokio feature and no-clock checks, and their tests.
 #   rust-targets   release builds for x86_64-apple-darwin, aarch64-apple-ios and aarch64-apple-ios-sim.
 #   vectors-current  re-runs the VectorExporter (scripts/dev/export-vectors.sh) and fails if vectors/ differs from the committed
@@ -450,6 +451,8 @@ jobs:
         run: cargo build --workspace --release --locked
       - name: The C interface library has its documented name
         run: test -f target/release/libTimeTugEngineC.dylib
+      - name: C smoke test against the Rust library
+        run: c-smoke/run.sh --rust
 
   rust-linux:
     runs-on: ubuntu-latest
@@ -466,6 +469,8 @@ jobs:
         run: cargo build --workspace --release --locked
       - name: The C interface library has its documented name
         run: test -f target/release/libTimeTugEngineC.so
+      - name: C smoke test against the Rust library
+        run: c-smoke/run.sh --rust
 
   rust-windows-x64:
     runs-on: windows-latest
@@ -485,6 +490,9 @@ jobs:
         run: cargo build --workspace --release --locked
       - name: The C interface library has its documented name
         run: test -f target/release/TimeTugEngineC.dll
+      - name: C smoke test against the Rust library
+        shell: pwsh
+        run: ./scripts/ci/run-c-smoke.ps1 -Rust
 
   rust-windows-arm64:
     runs-on: windows-11-arm
@@ -513,6 +521,9 @@ jobs:
         run: cargo build --workspace --release --locked
       - name: The C interface library has its documented name
         run: test -f target/release/TimeTugEngineC.dll
+      - name: C smoke test against the Rust library
+        shell: pwsh
+        run: ./scripts/ci/run-c-smoke.ps1 -Rust
 
   rust-lint:
     runs-on: ubuntu-latest
