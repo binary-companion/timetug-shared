@@ -56,7 +56,7 @@ $AllowedDependencies = @(
     '^WS2_32\.dll$', '^api-ms-win-.*\.dll$', '^bcrypt\.dll$'
 )
 # Dependencies that prove the C runtime is not linked statically.
-$DynamicRuntime = '^(VCRUNTIME|MSVCP|UCRTBASE|CONCRT|VCCORLIB)'
+$DynamicRuntime = '^(VCRUNTIME|MSVCP|UCRTBASE|CONCRT|VCCORLIB|api-ms-win-crt-)'
 $Triples = @{ 'win-x64' = 'x86_64-pc-windows-msvc'; 'win-arm64' = 'aarch64-pc-windows-msvc' }
 
 function Test-AllowedDependency([string] $Name) {
@@ -135,6 +135,8 @@ function Invoke-RustAssembly {
 
     $dependents = @(Get-Dependents $dumpbin $dll)
     Write-Host "dependents: $($dependents -join ' ')"
+    # Every Rust DLL imports at least kernel32.dll: an empty list means the dumpbin output was not understood.
+    if ($dependents.Count -eq 0) { throw "dumpbin /dependents listed no dependencies for $dll; the dependency checks cannot be trusted" }
     $runtime = @($dependents | Where-Object { $_ -match $DynamicRuntime })
     if ($runtime.Count -gt 0) {
         throw "$dll depends on the dynamic C runtime ($($runtime -join ', ')); the C runtime must be linked statically (.cargo/config.toml, +crt-static)"
