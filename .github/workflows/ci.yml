@@ -298,6 +298,8 @@ jobs:
           PYTHON="$PWD/build/venv/bin/python" scripts/release/tests/test-release-version-step.sh
           # The steps of bump-dependencies.yml, run against the real bump-resolved.py and Package.resolved.
           PYTHON="$PWD/build/venv/bin/python" scripts/ci/tests/test-bump-workflow-step.sh
+          # The major-version guard of the bump workflow, against a throwaway Package.resolved.
+          scripts/ci/tests/test-bump-major-guard.sh
           # Includes test_bump_resolved.py (the Package.resolved editor) and the contracts tests.
           build/venv/bin/python -m unittest discover -s scripts/ci/tests -p 'test_*.py'
 
