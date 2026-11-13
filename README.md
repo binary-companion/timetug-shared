@@ -4,6 +4,10 @@ The platform-neutral logic of [TimeTug](https://github.com/binary-companion/time
 
 This is the `v2` branch, the Rust rewrite. The Swift package it replaces is gone from it; `main` still holds that package and releases `1.x` until `v2` replaces it (see `docs/rust-port/README.md`).
 
+## Documentation
+
+[docs/api.md](docs/api.md) is the API reference: the Rust crates, the engine and its JSON protocol, the C interface, C# on Windows (the `TimeTug.Engine` NuGet package, with a complete example), and what exists for Swift on macOS today (the `1.x` Swift libraries; bindings to the Rust engine are planned, not available). The rustdoc of every crate is built with `cargo doc --no-deps --workspace --open`.
+
 ## Use
 
 The C interface library is `TimeTugEngineC.dll`, `libTimeTugEngineC.dylib` or `libTimeTugEngineC.so`, built with `cargo build --release -p timetug-engine-c` (`target/release`); four functions, `tt_engine_create`, `tt_engine_send`, `tt_engine_reply` and `tt_engine_destroy`, declared in `include/timetug_engine.h` and speaking the JSON contract v1 (one golden example per message in `Conformance/Fixtures/golden`, end-to-end scripts in `Conformance/Scenarios`). The .NET wrapper `dotnet/TimeTug.Engine` ships as the NuGet package `TimeTug.Engine` with one native DLL per Windows architecture (at most 8 MB each, `docs/rust-port/size.md`). Core never reads the clock: callers pass `now`.
