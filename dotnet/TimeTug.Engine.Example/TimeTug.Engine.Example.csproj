@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The complete example of docs/api.md ("C# on Windows"): start the engine, supply configuration and host services,
+    receive state, shut down. It references the wrapper project here; an application references the NuGet package
+    TimeTug.Engine instead. The tests run it (TimeTug.Engine.Tests/ExampleTests.cs).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12.0</LangVersion>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TimeTug.Engine\TimeTug.Engine.csproj" />
+  </ItemGroup>
+
+</Project>

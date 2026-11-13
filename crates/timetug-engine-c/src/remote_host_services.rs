@@ -93,6 +93,7 @@ fn spawn_detached(future: impl Future<Output = ()> + Send + 'static) {
 
 // MARK: - Credentials
 
+/// The host's credential store, over `service.credentials.*`.
 pub struct RemoteCredentialStore {
     table: Arc<RequestTable>,
     /// The host's own spelling of each connection's latest revision. The engine holds revisions as `Uuid`s, whose
@@ -102,6 +103,7 @@ pub struct RemoteCredentialStore {
 }
 
 impl RemoteCredentialStore {
+    /// Creates the store, sending its requests through `table`.
     pub fn new(table: Arc<RequestTable>) -> RemoteCredentialStore {
         RemoteCredentialStore {
             table,
@@ -225,6 +227,7 @@ impl RevisionSpellings {
         self.latest.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Remembers the host's spelling `text` of the latest `revision` for `connection_id`.
     pub fn record(&self, text: &str, revision: Uuid, connection_id: &str) {
         self.lock()
             .insert(connection_id.to_string(), (revision, text.to_string()));
@@ -248,8 +251,10 @@ pub struct RemoteHttpTransport {
 }
 
 impl RemoteHttpTransport {
+    /// The time in seconds after which a request that has no answer fails.
     pub const TIMEOUT: f64 = 60.0;
 
+    /// Creates the transport, sending its requests through `table`.
     pub fn new(table: Arc<RequestTable>) -> RemoteHttpTransport {
         RemoteHttpTransport { table }
     }
@@ -297,11 +302,13 @@ impl HttpTransport for RemoteHttpTransport {
 
 // MARK: - Sign-in
 
+/// The host's sign-in interaction (OAuth redirect and related steps), over `service.auth.*`.
 pub struct RemoteAuthorizationInteraction {
     table: Arc<RequestTable>,
 }
 
 impl RemoteAuthorizationInteraction {
+    /// Creates the interaction, sending its requests through `table`.
     pub fn new(table: Arc<RequestTable>) -> RemoteAuthorizationInteraction {
         RemoteAuthorizationInteraction { table }
     }
@@ -412,11 +419,13 @@ impl Drop for RemoteRedirectSession {
 
 // MARK: - The sign-in form
 
+/// The host's credential sign-in form.
 pub struct RemoteSignInPrompting {
     table: Arc<RequestTable>,
 }
 
 impl RemoteSignInPrompting {
+    /// Creates the prompting, sending its requests through `table`.
     pub fn new(table: Arc<RequestTable>) -> RemoteSignInPrompting {
         RemoteSignInPrompting { table }
     }
@@ -473,6 +482,7 @@ pub struct RemoteTextGenerator {
 }
 
 impl RemoteTextGenerator {
+    /// Creates the generator, sending its requests through `table`.
     pub fn new(table: Arc<RequestTable>) -> RemoteTextGenerator {
         RemoteTextGenerator { table }
     }
@@ -561,6 +571,7 @@ impl RemoteExternalTokenSource {
         "other",
     ];
 
+    /// Creates the token source, sending its requests through `table` and reporting problems to `diagnostics`.
     pub fn new(
         table: Arc<RequestTable>,
         diagnostics: EngineDiagnosticSink,

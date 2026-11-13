@@ -61,18 +61,27 @@ pub type StatusObserver = Arc<dyn Fn(Status) + Send + Sync>;
 
 /// What a reconcile produced: the full source set to apply and the connections whose source could not be built.
 pub struct SourceReconcilerUpdate {
+    /// Every source that should be running after this pass: the system calendar when enabled, then one per account
+    /// whose
+    /// source could be built.
     pub sources: Vec<Arc<dyn CalendarSource>>,
+    /// Build error text for each connection whose source could not be created; it becomes `Status::build_failures`.
     pub failures: BTreeMap<ConnectionId, String>,
 }
 
 /// What `AccountManager` needs from the source reconciler (`SourceReconciler` implements it).
 #[async_trait]
 pub trait SourceReconciling: Send + Sync {
+    /// Brings the running sources in line with `connections`: starts new ones, stops removed ones and keeps unchanged
+    /// ones. `system_calendar_enabled` adds or drops the system calendar source.
     async fn reconcile(
         &self,
         connections: &[Connection],
         system_calendar_enabled: bool,
     ) -> SourceReconcilerUpdate;
+    /// Like `reconcile`, but also replaces the source of `connection` with a freshly built one and restarts its
+    /// change
+    /// listener.
     async fn rebuild(
         &self,
         connection: &Connection,
@@ -81,23 +90,31 @@ pub trait SourceReconciling: Send + Sync {
     ) -> SourceReconcilerUpdate;
     /// Swift's `sourceID(forConnection:)`.
     async fn source_id_for_connection(&self, connection_id: &str) -> Option<String>;
+    /// Cancels every source listener and releases the sources.
     async fn stop(&self);
 }
 
 /// `AccountManager.WaitingStyle`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum WaitingStyle {
+    /// Sign-in happens in the user's browser (OAuth); the front end shows a waiting message.
     Browser,
+    /// Sign-in uses the host's in-app credential form (password kinds).
     InApp,
 }
 
 /// `AccountManager.Status`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Status {
+    /// The stored accounts, in stored order.
     pub accounts: Vec<Connection>,
+    /// True while an add, re-authorize or remove is in progress; a second sign-in request is ignored meanwhile.
     pub is_working: bool,
+    /// Connections whose calendar source could not be built, with the reason.
     pub build_failures: BTreeMap<ConnectionId, String>,
+    /// User-facing text of the last failure; cleared when the next sign-in starts, `None` when there is none.
     pub error_message: Option<String>,
+    /// Which kind of sign-in the manager is waiting on; `Browser` until a password kind starts signing in.
     pub waiting_style: WaitingStyle,
 }
 
@@ -230,18 +247,23 @@ impl AccountManager {
     }
 
     #[must_use]
+    /// Replaces the per-account sync state store (by default a file store in the data directory). Call before the
+    /// manager
+    /// is shared.
     pub fn with_sync_state(mut self, sync_state: Arc<dyn SyncStateStore>) -> AccountManager {
         self.sync_state = sync_state;
         self
     }
 
     #[must_use]
+    /// Sets the observer called with the new `Status` each time it changes. Call before the manager is shared.
     pub fn with_on_status_change(mut self, on_status_change: StatusObserver) -> AccountManager {
         self.on_status_change = on_status_change;
         self
     }
 
     #[must_use]
+    /// Sets the sink that receives the manager's diagnostics. Call before the manager is shared.
     pub fn with_diagnostics(mut self, diagnostics: EngineDiagnosticSink) -> AccountManager {
         self.diagnose = diagnostics;
         self
@@ -263,6 +285,7 @@ impl AccountManager {
         result
     }
 
+    /// A copy of the current status.
     pub fn status(&self) -> Status {
         self.lock().current.clone()
     }
@@ -333,6 +356,9 @@ impl AccountManager {
             .unwrap_or_else(|| connection.source_id())
     }
 
+    /// Loads the stored accounts, requests system calendar access when that source is enabled, then builds the
+    /// sources.
+    /// An unreadable account file leaves no accounts and sets an error message; nothing is deleted.
     pub async fn start(&self) {
         // await point (AccountManager.swift:109): the store reads the file; no manager state is held.
         match self.connection_store.load().await {
@@ -371,6 +397,9 @@ impl AccountManager {
         }
     }
 
+    /// Signs in a new account of connector kind `kind_id` and stores it. Does nothing while another sign-in is
+    /// running; an
+    /// unknown kind sets an error message.
     pub async fn add_account(&self, kind_id: &str) {
         in_current_or_new_task(self.add_account_in_task(kind_id)).await;
     }
@@ -519,6 +548,7 @@ impl AccountManager {
         }));
     }
 
+    /// Starts `reauthorize` for `connection_id` as a cancellable background task; ignored while a sign-in is running.
     pub fn begin_reauthorize(self: &Arc<Self>, connection_id: &str) {
         if self.lock().current.is_working {
             return;
@@ -533,6 +563,7 @@ impl AccountManager {
         }));
     }
 
+    /// Cancels the background sign-in started by `begin_add_account` or `begin_reauthorize`, if there is one.
     pub fn cancel_authorization(&self) {
         let token = self.lock().auth_task.clone();
         if let Some(token) = token {
@@ -676,6 +707,9 @@ impl AccountManager {
         }
     }
 
+    /// Signs the stored account `connection_id` in again and rebuilds its source. An unknown account, an unknown kind
+    /// or an
+    /// account being removed sets an error message instead.
     pub async fn reauthorize(&self, connection_id: &str) {
         in_current_or_new_task(self.reauthorize_in_task(connection_id)).await;
     }
@@ -814,6 +848,7 @@ impl AccountManager {
         ));
     }
 
+    /// Cancels any running sign-in and stops the source reconciler.
     pub async fn stop(&self) {
         let token = self.lock().auth_task.clone();
         if let Some(token) = token {

@@ -13,6 +13,7 @@ use crate::model::calendar_info::CalendarInfo;
 use crate::model::event::TimeTugCalendarEvent;
 use crate::model::merge_types::{MergeProvenance, MergedMember};
 
+/// The outcome of resolving duplicates across a set of events.
 #[derive(Clone, Debug)]
 pub struct DuplicateResolution {
     /// Merged events, sorted by start, then title, then id.
@@ -232,6 +233,8 @@ impl DuplicateResolver {
         Self::resolve_with_engine(events, calendars, lessons, verdicts, "unknown")
     }
 
+    /// As [`DuplicateResolver::resolve`], with `engine_id` naming the inference engine; it is part of the cache key
+    /// of each verdict request, so verdicts from another engine are not reused.
     pub fn resolve_with_engine(
         events: &[TimeTugCalendarEvent],
         calendars: &[CalendarInfo],

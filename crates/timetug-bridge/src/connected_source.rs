@@ -21,6 +21,7 @@ impl ConnectedSource {
         ConnectedSource::with_mapper(source, EventMapper::new())
     }
 
+    /// Wraps `source`, using `mapper` to convert its calendars and events to Core's model.
     pub fn with_mapper(source: Arc<dyn LibrarySource>, mapper: EventMapper) -> ConnectedSource {
         ConnectedSource { source, mapper }
     }

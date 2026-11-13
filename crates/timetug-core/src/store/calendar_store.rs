@@ -37,16 +37,20 @@ use crate::sources::{CalendarSource, SourceError, SourceStatus};
 use crate::store::join_all::{BoxFuture, Completions};
 use crate::widget::snapshot::WidgetSnapshot;
 
+/// What the store publishes after a refresh or a change to the settings, lessons or verdicts.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CalendarSnapshot {
+    /// The events of the fetched window after duplicate resolution.
     pub events: Vec<TimeTugCalendarEvent>,
     /// Deduplicated events spanning today and the following two local days, for widgets only.
     pub widget_events: Vec<TimeTugCalendarEvent>,
+    /// The calendars of all sources.
     pub calendars: Vec<CalendarInfo>,
     /// Keyed by `CalendarSource.id`.
     pub statuses: BTreeMap<String, SourceStatus>,
     /// `CalendarSource.id` -> `displayName`, for front ends that show source problems.
     pub source_names: BTreeMap<String, String>,
+    /// When the sources were last read (`Timestamp::MIN` before the first refresh).
     pub fetched_at: Timestamp,
     /// Increases only when the store accepts a new publication, including a local settings/lesson change.
     pub revision: u64,
@@ -91,12 +95,21 @@ impl CalendarSnapshot {
     }
 }
 
+/// Whether model-based duplicate detection is working.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum InferenceStatus {
+    /// Switched off (the default).
     Disabled,
+    /// Switched on but no adjudicator is configured.
     NoEngine,
-    Unavailable { reason: String },
+    /// Switched on but the adjudicator reports it cannot run now.
+    Unavailable {
+        /// Why not, as the adjudicator words it.
+        reason: String,
+    },
+    /// The adjudicator is available but does not run on the device.
     NotOnDevice,
+    /// Running on the device with the given engine.
     Active(EngineInfo),
 }
 
@@ -106,11 +119,14 @@ pub enum InferenceStatus {
 /// decoding.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct DedupState {
+    /// The user's merge and separate corrections.
     pub lessons: LessonBook,
+    /// The cached model verdicts.
     pub verdicts: VerdictCache,
 }
 
 impl DedupState {
+    /// Bundles `lessons` and `verdicts`.
     pub fn new(lessons: LessonBook, verdicts: VerdictCache) -> DedupState {
         DedupState { lessons, verdicts }
     }
@@ -343,6 +359,8 @@ impl CalendarStore {
 
     const MAX_PENDING_PER_PASS: usize = 20;
 
+    /// Creates a store over `sources` with the calendar `zone`, an optional `adjudicator` and `pass_clock`, the clock that
+    /// times adjudication passes. Inference starts switched off; nothing is fetched until the first refresh.
     pub fn new(
         sources: Vec<Arc<dyn CalendarSource>>,
         zone: Zone,
@@ -554,6 +572,7 @@ impl CalendarStore {
         self.lock().latest_snapshot.clone()
     }
 
+    /// Whether model-based duplicate detection is active, and why not when it is not.
     pub fn inference_status(&self) -> InferenceStatus {
         let state = self.lock();
         if !state.inference_enabled {
@@ -576,6 +595,8 @@ impl CalendarStore {
         }
     }
 
+    /// Switches model-based duplicate detection on or off and returns the snapshot made at `now`. A change discards
+    /// in-flight inference results.
     pub fn set_inference_enabled(&self, enabled: bool, now: Timestamp) -> CalendarSnapshot {
         let mut state = self.lock();
         if state.inference_enabled != enabled {
@@ -761,11 +782,14 @@ impl CalendarStore {
         state.make_snapshot(now)
     }
 
+    /// The lessons and verdicts to persist.
     pub fn state(&self) -> DedupState {
         let state = self.lock();
         DedupState::new(state.lessons.clone(), state.verdicts.clone())
     }
 
+    /// Restores persisted lessons and verdicts, dropping verdicts that are no longer compatible. In-flight inference
+    /// results are discarded.
     pub fn load(&self, dedup_state: DedupState) {
         let mut state = self.lock();
         state.invalidate_inference();

@@ -11,7 +11,9 @@ pub enum UITickPolicy {}
 /// `UITickPolicy.Wake`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Wake {
+    /// When the UI should wake next.
     pub date: Timestamp,
+    /// True when the day agenda must be rebuilt at this wake, false when republishing the cached agenda is enough.
     pub rebuild_agenda: bool,
 }
 

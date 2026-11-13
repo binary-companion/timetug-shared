@@ -3,9 +3,13 @@
 use std::sync::Arc;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+/// Severity of an `EngineDiagnostic`.
 pub enum Level {
+    /// Routine progress.
     Info,
+    /// Something unexpected that the engine handled.
     Warning,
+    /// A failure the user may need to know about.
     Error,
 }
 
@@ -31,14 +35,18 @@ impl Level {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// A log line the engine hands to the host's sink.
 pub struct EngineDiagnostic {
+    /// Severity.
     pub level: Level,
+    /// Short area name such as `ledger`, `takeover` or `engine`.
     pub category: String,
     /// Never contains event titles or other calendar content.
     pub message: String,
 }
 
 impl EngineDiagnostic {
+    /// Creates a diagnostic.
     pub fn new(
         level: Level,
         category: impl Into<String>,

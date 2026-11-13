@@ -45,6 +45,7 @@ impl Drop for SleepGuard<'_> {
 }
 
 impl ManualEngineClock {
+    /// Creates a clock that reads `start` until it is advanced.
     pub fn new(start: Timestamp) -> ManualEngineClock {
         ManualEngineClock {
             state: Mutex::new(State {

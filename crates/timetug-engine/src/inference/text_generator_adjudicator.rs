@@ -25,8 +25,11 @@ pub struct TextGeneratorAdjudicator {
 }
 
 impl TextGeneratorAdjudicator {
+    /// Seconds one `judge` call may take in total; requests not started by then are left pending.
     pub const DEADLINE: f64 = 30.0;
+    /// Most requests one `judge` call sends to the model.
     pub const MAX_REQUESTS: usize = 20;
+    /// Prefix on the reason of an `Unavailable` result that is only temporary.
     pub const TEMPORARY_PREFIX: &'static str = "temporary: ";
 
     /// Swift's default `diagnostics` argument is `{ _ in }`: pass `ignore_diagnostics()`.

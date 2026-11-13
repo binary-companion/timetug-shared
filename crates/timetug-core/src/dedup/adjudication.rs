@@ -10,16 +10,20 @@ use crate::model::calendar_info::CalendarInfo;
 use crate::model::event::TimeTugCalendarEvent;
 use crate::text::{grapheme_count, graphemes, prefix_graphemes};
 
+/// Identifies an inference engine: the id it is cached and recorded under, its name and where it runs.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EngineInfo {
+    /// Stable id of the engine; verdict cache keys include it.
     pub id: String,
     /// Product name, e.g. "Apple Intelligence"; the front end words the badge around it.
     pub display_name: String,
+    /// True when the engine runs on the user's device (and so may see calendar content).
     pub is_on_device: bool,
 }
 
 impl EngineInfo {
+    /// Creates the description from its parts.
     pub fn new(
         id: impl Into<String>,
         display_name: impl Into<String>,
@@ -33,32 +37,53 @@ impl EngineInfo {
     }
 }
 
+/// Whether a duplicate adjudicator can judge pairs right now.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AdjudicatorAvailability {
+    /// The engine can judge pairs now.
     Available(EngineInfo),
-    Unavailable { reason: String },
+    /// The engine cannot run now.
+    Unavailable {
+        /// Why not, as the platform words it.
+        reason: String,
+    },
 }
 
 /// The fields of one event a model may see. No emails; notes are truncated.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdjudicationEvent {
+    /// Event title, truncated to [`AdjudicationEvent::MAX_TITLE_LENGTH`] characters.
     pub title: String,
+    /// Start of the event.
     pub start: Timestamp,
+    /// End of the event.
     pub end: Timestamp,
+    /// Location, truncated to [`AdjudicationEvent::MAX_LOCATION_LENGTH`] characters.
     pub location: Option<String>,
+    /// Notes, truncated to [`AdjudicationEvent::MAX_NOTES_LENGTH`] characters.
     pub notes: Option<String>,
+    /// Names of attendees other than the owner, at most [`AdjudicationEvent::MAX_ATTENDEE_NAMES`]; entries that look
+    /// like email addresses are dropped.
     pub attendee_names: Vec<String>,
+    /// Title of the event's calendar, truncated to [`AdjudicationEvent::MAX_CALENDAR_LENGTH`] characters.
     pub calendar_title: Option<String>,
 }
 
 impl AdjudicationEvent {
+    /// Longest title, in characters (grapheme clusters).
     pub const MAX_TITLE_LENGTH: usize = 256;
+    /// Longest location, in characters.
     pub const MAX_LOCATION_LENGTH: usize = 512;
+    /// Longest calendar title, in characters.
     pub const MAX_CALENDAR_LENGTH: usize = 128;
+    /// The most attendee names kept.
     pub const MAX_ATTENDEE_NAMES: usize = 10;
+    /// Longest attendee name, in characters.
     pub const MAX_ATTENDEE_NAME_LENGTH: usize = 80;
+    /// Longest notes text, in characters.
     pub const MAX_NOTES_LENGTH: usize = 500;
 
+    /// Builds the model's view of `event`: truncated text, attendee names without emails, and the title of `calendar`.
     pub fn new(event: &TimeTugCalendarEvent, calendar: Option<&CalendarInfo>) -> AdjudicationEvent {
         // Some calendar sources put the address in the name field, so drop anything email-shaped.
         let names: Vec<String> = event
@@ -85,6 +110,7 @@ impl AdjudicationEvent {
         }
     }
 
+    /// A copy with every text field and the attendee names cut to their limits again (for values built by hand).
     pub fn bounded(&self) -> AdjudicationEvent {
         let mut value = self.clone();
         value.title = prefix_graphemes(&self.title, Self::MAX_TITLE_LENGTH);
@@ -195,12 +221,14 @@ pub(crate) fn json_millis(t: Timestamp) -> String {
 pub struct PromptText;
 
 impl PromptText {
+    /// `value` as a quoted JSON string with `<` and `>` escaped, so it cannot pass for markup in a prompt.
     pub fn quoted(value: &str) -> String {
         json_string(value)
             .replace('<', "\\u003C")
             .replace('>', "\\u003E")
     }
 
+    /// `value` cut with a trailing ellipsis so that its quoted form is at most `quoted_limit` characters.
     pub fn bounded(value: &str, quoted_limit: usize) -> String {
         if grapheme_count(&Self::quoted(value)) <= quoted_limit {
             return value.to_string();
@@ -217,20 +245,26 @@ impl PromptText {
     }
 }
 
+/// One pair of ambiguous events put to a model.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AdjudicationRequest {
     /// Fingerprint of both events' relevant content (not their calendars); the cache key.
     pub id: String,
     /// The more detailed event (ties: the earlier one); the other is `second`.
     pub first: AdjudicationEvent,
+    /// The other event.
     pub second: AdjudicationEvent,
+    /// The user's corrections most relevant to this pair.
     pub lessons: Vec<Lesson>,
     /// Rule-computed facts about the pair, free of display strings. Offsets are `second` minus `first`.
     pub start_offset_minutes: i64,
+    /// End of `second` minus end of `first`, in minutes.
     pub end_offset_minutes: i64,
+    /// Minutes the two events overlap.
     pub overlap_minutes: i64,
     /// `DuplicateRules::detail_summary` of each event, e.g. "bare" or "location+notes".
     pub first_details: String,
+    /// `DuplicateRules::detail_summary` of `second`.
     pub second_details: String,
     /// False for every ambiguous pair by construction; carried so the prompt can say so.
     pub has_conflicting_details: bool,
@@ -259,6 +293,7 @@ impl AdjudicationRequest {
         }
     }
 
+    /// The bounded input derived from this request.
     pub fn input(&self) -> JudgmentInput {
         JudgmentInput::new(self)
     }
@@ -268,23 +303,38 @@ impl AdjudicationRequest {
 /// instruction and formatting changes; no volatile lesson timestamp enters the cache key.
 #[derive(Clone, Debug, PartialEq)]
 pub struct JudgmentInput {
+    /// The more detailed event, as the model sees it.
     pub first: AdjudicationEvent,
+    /// The other event.
     pub second: AdjudicationEvent,
+    /// The corrections included, at most [`LessonBook::PROMPT_LIMIT`].
     pub lessons: Vec<Correction>,
+    /// Start of `second` minus start of `first`, in minutes.
     pub start_offset_minutes: i64,
+    /// End of `second` minus end of `first`, in minutes.
     pub end_offset_minutes: i64,
+    /// Minutes the two events overlap.
     pub overlap_minutes: i64,
+    /// Details summary of `first`.
     pub first_details: String,
+    /// Details summary of `second`.
     pub second_details: String,
+    /// True when the pair has conflicting details.
     pub has_conflicting_details: bool,
 }
 
+/// One earlier user decision, reduced to what is put in a prompt.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Correction {
+    /// Normalized title of the first event.
     pub title_a: String,
+    /// Normalized title of the second event.
     pub title_b: String,
+    /// Details summary of the first event.
     pub signals_a: String,
+    /// Details summary of the second event.
     pub signals_b: String,
+    /// What the user decided.
     pub decision: LessonDecision,
 }
 
@@ -305,9 +355,13 @@ impl Correction {
 }
 
 impl JudgmentInput {
+    /// The version of the instructions and formatting; it is part of every cache key.
     pub const POLICY_VERSION: i64 = 2;
+    /// Longest lesson text taken, in characters.
     pub const MAX_LESSON_LENGTH: usize = 256;
 
+    /// Builds the input from `request`, bounding every text for the prompt and taking at most [`LessonBook::PROMPT_LIMIT`]
+    /// lessons.
     pub fn new(request: &AdjudicationRequest) -> JudgmentInput {
         let bounded = |text: &str, limit: usize| {
             PromptText::bounded(&prefix_graphemes(text, Self::MAX_LESSON_LENGTH), limit)
@@ -341,6 +395,8 @@ impl JudgmentInput {
         self.cache_key_with_policy(engine_id, Self::POLICY_VERSION)
     }
 
+    /// The cache key for `engine_id` under the given `policy_version`. Independent of the order of the two events and of
+    /// the lessons, and of calendars.
     pub fn cache_key_with_policy(&self, engine_id: &str, policy_version: i64) -> String {
         let side = |event: &AdjudicationEvent, details: &str| {
             format!(
@@ -377,21 +433,29 @@ impl JudgmentInput {
     }
 }
 
+/// A model's answer for a pair.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum VerdictAnswer {
+    /// The events are the same meeting.
     Same,
+    /// The events are different meetings.
     Different,
+    /// The model cannot tell.
     Unsure,
 }
 
+/// A model's answer for one request.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AdjudicationVerdict {
+    /// Id of the request this answers.
     pub request_id: String,
+    /// The answer.
     pub answer: VerdictAnswer,
 }
 
 impl AdjudicationVerdict {
+    /// Creates a verdict for the request `request_id`.
     pub fn new(request_id: impl Into<String>, answer: VerdictAnswer) -> AdjudicationVerdict {
         AdjudicationVerdict {
             request_id: request_id.into(),
@@ -403,6 +467,7 @@ impl AdjudicationVerdict {
 /// A platform's on-device model. Implementations live outside Core.
 #[async_trait]
 pub trait DuplicateAdjudicator: Send + Sync {
+    /// Whether the engine can judge pairs now.
     fn availability(&self) -> AdjudicatorAvailability;
     /// Verdicts for the requests it could judge; omit a request on failure so it is retried later.
     async fn judge(&self, requests: &[AdjudicationRequest]) -> Vec<AdjudicationVerdict>;
@@ -412,10 +477,14 @@ pub trait DuplicateAdjudicator: Send + Sync {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VerdictEntry {
+    /// The answer.
     pub answer: VerdictAnswer,
+    /// The engine that gave it.
     pub engine: EngineInfo,
+    /// When the verdict was stored.
     #[serde(with = "calendar_core::json::swift_reference_date")]
     pub decided_at: Timestamp,
+    /// End of the event pair, as given to [`VerdictCache::store`].
     #[serde(with = "calendar_core::json::swift_reference_date")]
     pub end: Timestamp,
 }
@@ -431,9 +500,12 @@ pub struct VerdictCache {
 }
 
 impl VerdictCache {
+    /// Seconds a verdict is kept (7 days).
     pub const RETENTION: f64 = 7.0 * 24.0 * 60.0 * 60.0;
+    /// The most verdicts kept; the oldest beyond this are dropped.
     pub const MAX_ENTRIES: usize = 1000;
 
+    /// All cached verdicts by request id.
     pub fn entries(&self) -> &BTreeMap<String, VerdictEntry> {
         &self.entries
     }
@@ -443,6 +515,7 @@ impl VerdictCache {
         self.entries.get(request_id)
     }
 
+    /// Stores `verdict` as given by `engine` at `now`, with `end` the end of the events concerned.
     pub fn store(
         &mut self,
         verdict: &AdjudicationVerdict,
@@ -461,6 +534,7 @@ impl VerdictCache {
         );
     }
 
+    /// Drops entries made under another policy version.
     pub fn discard_incompatible(&mut self) {
         let prefix = format!("j{}-", JudgmentInput::POLICY_VERSION);
         self.entries.retain(|key, _| key.starts_with(&prefix));

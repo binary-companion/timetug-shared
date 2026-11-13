@@ -27,7 +27,7 @@
 //!
 //! The engine creates no runtime and no thread: `Engine::new` and everything it spawns need a `tokio` runtime, which the
 //! caller (the C interface, the bindings, a test) provides. Swift's `Task { }` that the engine cancels and restarts is a
-//! [`TaskSlot`]: `cancel()` is cooperative (a cancelled sleep ends; a sleep that already returned still proceeds, as in
+//! `TaskSlot`: `cancel()` is cooperative (a cancelled sleep ends; a sleep that already returned still proceeds, as in
 //! Swift, so the wake accounting of `EngineActivity` stays exact), and `Drop for Engine` aborts every slot, which is
 //! Swift's `deinit`.
 //!
@@ -566,6 +566,7 @@ impl Engine {
         receiver
     }
 
+    /// A copy of the most recently published state.
     pub fn current_state(&self) -> EngineState {
         self.lock().state.clone()
     }
@@ -625,6 +626,7 @@ impl Engine {
         self.accounts_changed().await;
     }
 
+    /// Runs one command to completion. While it runs it counts as `Kind::Command` activity.
     pub async fn send(&self, command: EngineCommand) {
         let _command = ActivityEnd::begin(&self.activity, Kind::Command);
         match command {

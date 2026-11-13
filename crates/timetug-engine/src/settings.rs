@@ -7,8 +7,11 @@ use timetug_core::TakeoverSettings;
 /// Everything the host lets the engine read about the user's preferences.
 #[derive(Clone, Debug, PartialEq)]
 pub struct EngineSettings {
+    /// When and how takeovers appear.
     pub takeover: TakeoverSettings,
+    /// Whether the text model may judge ambiguous duplicate pairs.
     pub inference_enabled: bool,
+    /// Whether the system calendar (EventKit on the Mac) is a source.
     pub system_calendar_enabled: bool,
 }
 
@@ -25,7 +28,9 @@ impl Default for EngineSettings {
 
 /// Where the host keeps settings; the engine reads and writes through this seam.
 pub trait SettingsStorage: Send + Sync {
+    /// Returns the stored settings, or defaults when there are none.
     fn load(&self) -> EngineSettings;
+    /// Stores `settings`.
     fn save(&self, settings: &EngineSettings);
 }
 
@@ -40,6 +45,7 @@ pub struct InMemorySettingsStorage {
 }
 
 impl InMemorySettingsStorage {
+    /// Creates a store that starts out holding `initial`.
     pub fn new(initial: EngineSettings) -> InMemorySettingsStorage {
         InMemorySettingsStorage {
             state: Mutex::new(InMemory {

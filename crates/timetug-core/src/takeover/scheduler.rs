@@ -6,12 +6,16 @@ use crate::model::takeover_settings::TakeoverSettings;
 use crate::takeover::ledger::{Entry, TakeoverLedger};
 use crate::takeover::policy::TakeoverPolicy;
 
+/// A takeover armed for a future instant.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScheduledTakeover {
+    /// The event to present.
     pub event: TimeTugCalendarEvent,
+    /// When to present it; never earlier than the `now` it was computed at.
     pub fire_at: Timestamp,
 }
 
+/// Chooses the next takeover to arm.
 pub enum Scheduler {}
 
 impl Scheduler {

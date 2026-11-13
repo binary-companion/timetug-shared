@@ -7,10 +7,13 @@ use timetug_core::{CalendarInfo, TimeTugCalendarEvent};
 pub struct EventMapper;
 
 impl EventMapper {
+    /// Creates the mapper (it has no state).
     pub fn new() -> EventMapper {
         EventMapper
     }
 
+    /// Maps a library calendar descriptor to Core's `CalendarInfo` for the source `source_id`, carrying over the
+    /// title, colour, account name, kind, service and provider.
     pub fn calendar_info(&self, d: &CalendarDescriptor, source_id: &str) -> CalendarInfo {
         let mut info = CalendarInfo::new(source_id, d.id.clone(), d.title.clone())
             .with_color_hex(d.color_hex());
@@ -21,6 +24,7 @@ impl EventMapper {
         info
     }
 
+    /// Wraps a library event as a `TimeTugCalendarEvent` for the source `source_id`.
     /// `None` for cancelled events. Titles are never rewritten: each connector chooses its own placeholder.
     pub fn event(&self, e: CalendarEvent, source_id: &str) -> Option<TimeTugCalendarEvent> {
         if e.status == EventStatus::Cancelled {

@@ -21,13 +21,18 @@ use timetug_engine_protocol::config::WireConfig;
 /// engine clock, so a `testing` engine's polls and token expiry follow `test.advanceClock` too.
 pub enum ConnectorSetup {}
 
+/// What [`ConnectorSetup::make`] builds.
 pub struct ConnectorSetupResult {
+    /// The registry of connector kinds, ready to hand to the engine.
     pub registry: ConnectorRegistry,
     /// OAuth kinds this host build has no client for; listed as unconfigured in `availableAccountKinds`.
     pub unconfigured_kind_ids: Vec<String>,
 }
 
 impl ConnectorSetup {
+    /// Builds the registry of network connector kinds. HTTP goes through `transport`; time and sleeping go through
+    /// `clock`; `default_zone` is the zone iCloud and CalDAV kinds default to; `token_source`, when present, supplies
+    /// externally managed OAuth tokens. Kinds without a client in `config` are returned in `unconfigured_kind_ids`.
     pub fn make(
         config: &WireConfig,
         transport: Arc<dyn HttpTransport>,

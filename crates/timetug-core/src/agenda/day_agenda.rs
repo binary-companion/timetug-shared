@@ -9,6 +9,7 @@ use crate::model::takeover_settings::TakeoverSettings;
 /// Today's events as plain data for any front end. Presentation (greying, text) is the app's job.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DayAgenda {
+    /// The day's events, sorted by start then title.
     pub items: Vec<Item>,
     /// First timed (non-all-day) event that has not started yet.
     pub next: Option<TimeTugCalendarEvent>,
@@ -17,15 +18,20 @@ pub struct DayAgenda {
 /// `DayAgenda.State`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum State {
+    /// The event has ended.
     Past,
+    /// The event is under way.
     Current,
+    /// The event has not started yet.
     Upcoming,
 }
 
 /// `DayAgenda.Item`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Item {
+    /// The event (a merged event stands for all its calendars).
     pub event: TimeTugCalendarEvent,
+    /// Where the event stands relative to now.
     pub state: State,
 }
 
@@ -45,6 +51,9 @@ impl DayAgenda {
         }
     }
 
+    /// Builds today's agenda from `events` at `now` in `zone`. Events on calendars hidden in `settings` and, when
+    /// `skip_all_day_events` is set, all-day events are left out; an event starting after midnight appears only once
+    /// its lead time has begun.
     pub fn make(
         events: &[TimeTugCalendarEvent],
         settings: &TakeoverSettings,

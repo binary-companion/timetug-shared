@@ -5,14 +5,18 @@ use calendar_core::failure::Outcome;
 use timetug_core::dedup::adjudication::EngineInfo;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+/// Whether a `TextGenerator` can answer now.
 pub enum TextGeneratorAvailability {
+    /// Ready; carries the model's name and version for cached verdicts.
     Available(EngineInfo),
     /// Permanent for now: not supported, not enabled, model not ready.
     Unavailable {
+        /// Why the model is not available.
         reason: String,
     },
     /// For example energy saver; pairs stay pending.
     TemporarilyUnavailable {
+        /// Why the model is not available for the moment.
         reason: String,
     },
 }
