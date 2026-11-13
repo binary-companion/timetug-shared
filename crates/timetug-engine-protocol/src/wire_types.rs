@@ -190,32 +190,42 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WireMember {
     #[serde(rename = "memberID")]
+    /// The copy's `contentKey`.
     pub member_id: String,
     #[serde(rename = "calendarKey")]
+    /// Key of the calendar the copy came from.
     pub calendar_key: String,
+    /// Start of the copy, `WireDates` format.
     pub start: String,
+    /// End of the copy, `WireDates` format.
     pub end: String,
+    /// Which details the copy had, for example `bare` or `location+notes`.
     pub details: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// A video-meeting link found on an event.
 pub struct WireConference {
+    /// The meeting URL.
     pub url: String,
     /// `meet`, `teams`, `zoom`, `webex`, `goToMeeting`, `whereby`, `jitsi`, `slack` or `other`.
     pub provider: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// How a merge was decided.
 pub struct WireProvenance {
     /// `rule`, `inference` or `userConfirmed`.
     pub kind: String,
     #[serde(default, rename = "engineID", skip_serializing_if = "Option::is_none")]
+    /// Id of the text model, for kind `inference`.
     pub engine_id: Option<String>,
     #[serde(
         default,
         rename = "engineName",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Display name of the text model, for kind `inference`.
     pub engine_name: Option<String>,
 }
 
@@ -223,23 +233,33 @@ pub struct WireProvenance {
 /// (exclusive) read in `timeZone`, and no instants.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WireEvent {
+    /// The engine's id for the event; commands such as `takeover.join` refer to events by it.
     pub id: String,
     #[serde(rename = "sourceID")]
+    /// Id of the calendar source (an account or the system calendar) the event came from.
     pub source_id: String,
     #[serde(rename = "sourceEventID")]
+    /// The event's id within its source.
     pub source_event_id: String,
     #[serde(rename = "calendarKey")]
+    /// Key of the event's calendar, `sourceID/calendarID`; matches `WireCalendar::key`.
     pub calendar_key: String,
+    /// Event title.
     pub title: String,
     #[serde(rename = "isAllDay")]
+    /// True for an all-day event, which carries `startDate` and `endDate` instead of `start` and `end`.
     pub is_all_day: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Start instant, `WireDates` format; timed events only.
     pub start: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// End instant, `WireDates` format; timed events only.
     pub end: Option<String>,
     #[serde(default, rename = "startDate", skip_serializing_if = "Option::is_none")]
+    /// First day, `YYYY-MM-DD`; all-day events only.
     pub start_date: Option<String>,
     #[serde(default, rename = "endDate", skip_serializing_if = "Option::is_none")]
+    /// Day after the last day (exclusive), `YYYY-MM-DD`; all-day events only.
     pub end_date: Option<String>,
     /// Where the shown range starts when it differs from `start` (a merged meeting); timed events only.
     #[serde(
@@ -249,15 +269,20 @@ pub struct WireEvent {
     )]
     pub display_start: Option<String>,
     #[serde(rename = "timeZone")]
+    /// IANA id of the zone the event is read in.
     pub time_zone: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Where the event takes place, if the source has it.
     pub location: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The event's own web page, if the source has one.
     pub url: Option<String>,
     /// `confirmed`, `tentative` or `cancelled`.
     pub status: String,
+    /// Video-meeting links found on the event.
     pub conferences: Vec<WireConference>,
     #[serde(rename = "otherAttendeeCount")]
+    /// Number of attendees other than the person.
     pub other_attendee_count: i64,
     /// `accepted`, `tentative`, `declined` or `needsAction`; absent when the provider does not say.
     #[serde(
@@ -267,95 +292,126 @@ pub struct WireEvent {
     )]
     pub response_status: Option<String>,
     #[serde(rename = "additionalCalendarKeys")]
+    /// Keys of the other calendars that hold a copy of the event, sorted.
     pub additional_calendar_keys: Vec<String>,
+    /// The original copies, when the event is a merge; empty otherwise.
     pub members: Vec<WireMember>,
     #[serde(
         default,
         rename = "mergeProvenance",
         skip_serializing_if = "Option::is_none"
     )]
+    /// How the merge was decided; absent when the event is not a merge.
     pub merge_provenance: Option<WireProvenance>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// One agenda entry.
 pub struct WireAgendaItem {
     #[serde(rename = "eventID")]
+    /// Id of the event, which resolves in `WireState::events`.
     pub event_id: String,
     /// `past`, `current` or `upcoming`.
     pub state: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// The day's agenda.
 pub struct WireAgenda {
+    /// The agenda entries.
     pub items: Vec<WireAgendaItem>,
     #[serde(
         default,
         rename = "nextEventID",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Id of the next upcoming event, if there is one.
     pub next_event_id: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// A calendar a source offers.
 pub struct WireCalendar {
+    /// Calendar key, `sourceID/calendarID`; the form used in the settings key lists and in `WireEvent::calendar_key`.
     pub key: String,
     #[serde(rename = "sourceID")]
+    /// Id of the calendar source (an account or the system calendar).
     pub source_id: String,
     #[serde(rename = "calendarID")]
+    /// The calendar's id within its source.
     pub calendar_id: String,
+    /// Calendar title.
     pub title: String,
     #[serde(
         default,
         rename = "accountName",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Name of the account the calendar belongs to, if any.
     pub account_name: Option<String>,
     #[serde(default, rename = "colorHex", skip_serializing_if = "Option::is_none")]
+    /// Calendar color as `#RRGGBB`, if the source has one.
     pub color_hex: Option<String>,
     /// `standard`, `subscribed` or `birthdays`.
     pub kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The service the calendar belongs to, for example `google`; absent when unknown.
     pub service: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// The provider of the calendar, for example `google`; absent when unknown.
     pub provider: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Health of one source.
 pub struct WireSourceStatus {
     /// `ok`, `needsPermission`, `authExpired` or `failing`.
     pub kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Failure text, with kind `failing`.
     pub message: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// A quiet hint about a source, shown as a warning icon.
 pub struct WireNotice {
+    /// What the hint is about; currently `unreadableRecurrence` (repeating events whose rule could not be read).
     pub kind: String,
+    /// Number of items the hint covers.
     pub count: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// A stored account.
 pub struct WireAccount {
     #[serde(rename = "kindID")]
+    /// Id of the connector kind, as in `WireAccountKind::id`.
     pub kind_id: String,
     #[serde(rename = "connectionID")]
+    /// Id of the stored connection; used by `account.reconnect` and `account.remove`.
     pub connection_id: String,
     #[serde(rename = "displayName")]
+    /// Name to show for the account.
     pub display_name: String,
+    /// Non-secret settings of the connection, by name (for example a server URL).
     pub config: BTreeMap<String, String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Progress and errors of account sign-in.
 pub struct WireAccountStatus {
     #[serde(rename = "isWorking")]
+    /// True while a sign-in, re-authorization or removal is in progress.
     pub is_working: bool,
     #[serde(rename = "buildFailures")]
+    /// Reason the source could not be built, by connection id.
     pub build_failures: BTreeMap<String, String>,
     #[serde(
         default,
         rename = "errorMessage",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Text of the last failure, if any.
     pub error_message: Option<String>,
     /// `browser` or `inApp`.
     #[serde(rename = "waitingStyle")]
@@ -363,76 +419,103 @@ pub struct WireAccountStatus {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// A kind of account the person can add.
 pub struct WireAccountKind {
+    /// Connector kind id, as passed in `account.add`.
     pub id: String,
     #[serde(rename = "displayName")]
+    /// Name to show for the kind.
     pub display_name: String,
     /// `oauth`, `password` or `system`.
     pub authorization: String,
     #[serde(rename = "isConfigured")]
+    /// False when the platform supports the kind but this build cannot use it (for example Google without an OAuth
+    /// client).
     pub is_configured: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Whether the text model is in use.
 pub struct WireInferenceStatus {
     /// `disabled`, `noEngine`, `unavailable`, `notOnDevice` or `active`.
     pub kind: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Why the model is unavailable, with kind `unavailable`.
     pub reason: Option<String>,
     #[serde(default, rename = "engineID", skip_serializing_if = "Option::is_none")]
+    /// Id of the model, with kind `active`.
     pub engine_id: Option<String>,
     #[serde(
         default,
         rename = "engineName",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Display name of the model, with kind `active`.
     pub engine_name: Option<String>,
     #[serde(
         default,
         rename = "isOnDevice",
         skip_serializing_if = "Option::is_none"
     )]
+    /// True when the model runs on the device, with kind `active`.
     pub is_on_device: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Summary of the takeover ledger.
 pub struct WireLedger {
+    /// Number of keys in the ledger (takeovers already fired, snoozed or dismissed).
     pub count: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// The takeover the engine has armed.
 pub struct WireNextTakeover {
     #[serde(rename = "eventID")]
+    /// Id of the event the takeover is for.
     pub event_id: String,
     #[serde(rename = "fireAt")]
+    /// When the takeover fires, `WireDates` format.
     pub fire_at: String,
 }
 
 // MARK: - Settings
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// The takeover part of the settings.
 pub struct WireTakeoverSettings {
     #[serde(rename = "leadTime", serialize_with = "f64_swift")]
+    /// How long before a meeting starts its takeover fires, in seconds.
     pub lead_time: f64,
     #[serde(rename = "takeoverCalendarKeys")]
+    /// Keys of the calendars that may produce takeovers.
     pub takeover_calendar_keys: Vec<String>,
     #[serde(rename = "hiddenCalendarKeys")]
+    /// Keys of the calendars hidden from the agenda; a hidden calendar never produces a takeover.
     pub hidden_calendar_keys: Vec<String>,
     #[serde(rename = "requireConferenceLink")]
+    /// True to give takeovers only to meetings that have a video-meeting link.
     pub require_conference_link: bool,
     #[serde(rename = "requireOtherAttendees")]
+    /// True to give takeovers only to meetings that have other attendees.
     pub require_other_attendees: bool,
     #[serde(rename = "skipAllDayEvents")]
+    /// True to give no takeovers for all-day events.
     pub skip_all_day_events: bool,
+    /// Master switch for takeovers.
     pub enabled: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// The settings the engine shows.
 pub struct WireSettings {
+    /// Takeover settings.
     pub takeover: WireTakeoverSettings,
     #[serde(rename = "inferenceEnabled")]
+    /// True when the text model may judge ambiguous duplicates.
     pub inference_enabled: bool,
     #[serde(rename = "systemCalendarEnabled")]
+    /// True when the system calendar is a source.
     pub system_calendar_enabled: bool,
 }
 
@@ -446,50 +529,59 @@ pub struct WireSettingsPatch {
         serialize_with = "f64_swift_option",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Replaces the lead time, in seconds.
     pub lead_time: Option<f64>,
     #[serde(
         default,
         rename = "takeoverCalendarKeys",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Replaces the list of calendar keys that may produce takeovers.
     pub takeover_calendar_keys: Option<Vec<String>>,
     #[serde(
         default,
         rename = "hiddenCalendarKeys",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Replaces the list of hidden calendar keys; hidden calendars also lose their takeover opt-in.
     pub hidden_calendar_keys: Option<Vec<String>>,
     #[serde(
         default,
         rename = "requireConferenceLink",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Replaces the conference link requirement.
     pub require_conference_link: Option<bool>,
     #[serde(
         default,
         rename = "requireOtherAttendees",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Replaces the other-attendees requirement.
     pub require_other_attendees: Option<bool>,
     #[serde(
         default,
         rename = "skipAllDayEvents",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Replaces the all-day skip.
     pub skip_all_day_events: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// Replaces the takeover master switch.
     pub enabled: Option<bool>,
     #[serde(
         default,
         rename = "inferenceEnabled",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Replaces whether the text model may judge duplicates.
     pub inference_enabled: Option<bool>,
     #[serde(
         default,
         rename = "systemCalendarEnabled",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Replaces whether the system calendar is a source.
     pub system_calendar_enabled: Option<bool>,
 }
 
@@ -499,32 +591,47 @@ pub struct WireSettingsPatch {
 /// the engine type's fields and a later engine field cannot be forgotten.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WireState {
+    /// Starts at 0 and increases with every published state.
     pub revision: u64,
+    /// The day agenda.
     pub agenda: WireAgenda,
+    /// Deduplicated events from all sources.
     pub events: Vec<WireEvent>,
+    /// Every calendar the sources offer.
     pub calendars: Vec<WireCalendar>,
+    /// Health of each source, by source id.
     pub statuses: BTreeMap<String, WireSourceStatus>,
+    /// Quiet hints per source, by source id; a source with none has no entry.
     pub notices: BTreeMap<String, Vec<WireNotice>>,
     #[serde(rename = "sourceNames")]
+    /// Display name of each source, by source id.
     pub source_names: BTreeMap<String, String>,
     /// Pending duplicate pairs: an event id to the ids of the events it may duplicate; all resolve in `events`.
     pub candidates: BTreeMap<String, Vec<String>>,
+    /// The stored accounts.
     pub accounts: Vec<WireAccount>,
     #[serde(rename = "accountStatus")]
+    /// Sign-in progress and errors.
     pub account_status: WireAccountStatus,
+    /// The current settings.
     pub settings: WireSettings,
     #[serde(rename = "inferenceStatus")]
+    /// Whether the text model is in use.
     pub inference_status: WireInferenceStatus,
+    /// Summary of the takeover ledger.
     pub ledger: WireLedger,
     #[serde(
         default,
         rename = "nextTakeover",
         skip_serializing_if = "Option::is_none"
     )]
+    /// The armed takeover; absent when none is armed (also while one is on screen).
     pub next_takeover: Option<WireNextTakeover>,
     #[serde(rename = "takeoverVisible")]
+    /// True while a takeover is shown.
     pub takeover_visible: bool,
     #[serde(rename = "availableAccountKinds")]
+    /// The account kinds the person can add, in display order.
     pub available_account_kinds: Vec<WireAccountKind>,
 }
 
@@ -551,11 +658,15 @@ impl WireState {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+/// Payload of `event.takeoverDue`: what the host shows in the takeover.
 pub struct WireTakeoverRequest {
+    /// The meeting.
     pub event: WireEvent,
     #[serde(rename = "hasStarted")]
+    /// True when the meeting has already begun.
     pub has_started: bool,
     #[serde(default, rename = "joinURL", skip_serializing_if = "Option::is_none")]
+    /// The link to open on Join; absent when the event has no meeting link.
     pub join_url: Option<String>,
     /// Seconds.
     #[serde(rename = "snoozeOptions", serialize_with = "f64_swift_vec")]
@@ -565,20 +676,29 @@ pub struct WireTakeoverRequest {
         rename = "calendarTitle",
         skip_serializing_if = "Option::is_none"
     )]
+    /// Title of the event's calendar, if known.
     pub calendar_title: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// One event in a widget snapshot.
 pub struct WireWidgetEvent {
+    /// The engine's id for the event.
     pub id: String,
+    /// Event title.
     pub title: String,
+    /// Start instant, `WireDates` format; for an all-day event the local midnight of its first day.
     pub start: String,
+    /// End instant, `WireDates` format; for an all-day event the local midnight of its end date.
     pub end: String,
     #[serde(rename = "isAllDay")]
+    /// True for an all-day event.
     pub is_all_day: bool,
     #[serde(default, rename = "colorHex", skip_serializing_if = "Option::is_none")]
+    /// Calendar color as `#RRGGBB`, if known.
     pub color_hex: Option<String>,
     #[serde(default, rename = "joinURL", skip_serializing_if = "Option::is_none")]
+    /// The link to open to join the meeting, if the event has one.
     pub join_url: Option<String>,
 }
 
@@ -586,14 +706,19 @@ pub struct WireWidgetEvent {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WireWidgetSnapshot {
     #[serde(rename = "generatedAt")]
+    /// When the snapshot was made, `WireDates` format.
     pub generated_at: String,
+    /// The events the widget shows.
     pub events: Vec<WireWidgetEvent>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// Payload of `event.diagnostic`: a log line from the engine or a rejected command.
 pub struct WireDiagnostic {
     /// `info`, `warning` or `error`.
     pub level: String,
+    /// Short area name such as `command`, `ledger` or `takeover`.
     pub category: String,
+    /// Text of the line; contains no calendar content.
     pub message: String,
 }

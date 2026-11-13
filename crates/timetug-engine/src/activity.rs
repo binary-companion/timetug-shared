@@ -54,11 +54,13 @@ struct Counters {
 }
 
 #[derive(Default)]
+/// The engine's in-flight work counters; see the module documentation.
 pub struct EngineActivity {
     state: Mutex<Counters>,
 }
 
 impl EngineActivity {
+    /// Creates counters that are all zero and not stopped.
     pub fn new() -> EngineActivity {
         EngineActivity::default()
     }
@@ -67,10 +69,12 @@ impl EngineActivity {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Counts one more unit of work of `kind` as started.
     pub fn begin(&self, kind: Kind) {
         *self.lock().counts.entry(kind).or_insert(0) += 1;
     }
 
+    /// Counts one unit of work of `kind` as finished.
     pub fn end(&self, kind: Kind) {
         *self.lock().counts.entry(kind).or_insert(0) -= 1;
     }
@@ -80,26 +84,32 @@ impl EngineActivity {
         self.lock().handled_wakes += 1;
     }
 
+    /// Counts one event the engine emitted to its front end.
     pub fn event_emitted(&self) {
         self.lock().emitted += 1;
     }
 
+    /// Counts one source change signal the refresh coordinator received.
     pub fn signal_received(&self) {
         self.lock().signals += 1;
     }
 
+    /// Records that the engine has stopped, so `is_idle` ignores background kinds from then on.
     pub fn mark_stopped(&self) {
         self.lock().stopped = true;
     }
 
+    /// Number of clock sleeps the engine armed that returned and finished their work.
     pub fn wakes_handled(&self) -> i64 {
         self.lock().handled_wakes
     }
 
+    /// Number of events emitted to the front end.
     pub fn events_emitted(&self) -> i64 {
         self.lock().emitted
     }
 
+    /// Number of source change signals received.
     pub fn signals_received(&self) -> i64 {
         self.lock().signals
     }
@@ -118,6 +128,7 @@ impl EngineActivity {
             .all(|kind| state.counts.get(kind).copied().unwrap_or(0) == 0)
     }
 
+    /// A one-line text of every counter, for test failure messages.
     pub fn summary(&self) -> String {
         let state = self.lock();
         let parts: Vec<String> = Kind::ALL

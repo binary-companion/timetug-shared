@@ -14,10 +14,14 @@ use crate::wire_types::WireSettingsPatch;
 
 /// What a host command decodes to.
 pub enum CommandOutcome {
+    /// A command for the engine.
     Engine(EngineCommand),
     /// `system.event` with `kind: timeZoneChanged` and a zone: the session adopts the zone, then sends the command.
     TimeZone(Zone, EngineCommand),
+    /// `test.advanceClock`: the session moves its manual clock forward. Only decoded when the engine was created with
+    /// `testing`.
     TestAdvanceClock {
+        /// How far to advance, in seconds; finite and not negative.
         seconds: f64,
     },
     /// The command was not understood or not applicable. The diagnostic has no id; the session adds the command's.
@@ -108,6 +112,7 @@ struct Advance {
 }
 
 impl CommandDecoder {
+    /// Creates a decoder; `testing` allows the `test.advanceClock` command.
     pub fn new(testing: bool) -> CommandDecoder {
         CommandDecoder { testing }
     }

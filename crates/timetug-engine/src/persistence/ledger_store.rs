@@ -15,8 +15,10 @@ pub struct LedgerStore {
 }
 
 impl LedgerStore {
+    /// Name of the file inside the data directory.
     pub const FILE_NAME: &'static str = "takeover-ledger.json";
 
+    /// Creates a store for `takeover-ledger.json` in `directory`; problems are reported to `diagnostics`.
     pub fn new(directory: impl AsRef<Path>, diagnostics: EngineDiagnosticSink) -> LedgerStore {
         LedgerStore {
             file: JsonFile::new(

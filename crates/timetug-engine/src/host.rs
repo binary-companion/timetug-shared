@@ -22,6 +22,9 @@ use crate::settings::SettingsStorage;
 /// typed, without secrets, or `None` when the sign-in failed before a form was submitted.
 #[async_trait]
 pub trait SignInPrompting: Send + Sync {
+    /// Arms the form for the next sign-in prompt with its `title`, optional `help`, prefilled `values` and the
+    /// previous
+    /// attempt's `error`.
     async fn prepare(
         &self,
         title: String,
@@ -29,6 +32,9 @@ pub trait SignInPrompting: Send + Sync {
         values: BTreeMap<String, String>,
         error: Option<String>,
     );
+    /// The values the user typed in the last submitted form, without secrets; `None` when sign-in failed before a
+    /// form was
+    /// submitted.
     async fn last_non_secret_values(&self) -> Option<BTreeMap<String, String>>;
 }
 
@@ -45,19 +51,32 @@ pub type ZoneProvider = Arc<dyn Fn() -> Zone + Send + Sync>;
 /// Everything the host supplies to the engine.
 #[derive(Clone)]
 pub struct EngineHost {
+    /// Directory where the engine keeps its files (accounts, ledger, dedup state, and `settings.json` for the C
+    /// interface).
     pub data_directory: PathBuf,
+    /// Where preferences are stored.
     pub settings: Arc<dyn SettingsStorage>,
+    /// Where secrets such as tokens and passwords are stored.
     pub credentials: Arc<dyn CredentialStore>,
+    /// How the engine opens a browser and waits for an OAuth sign-in.
     pub interaction: Arc<dyn AuthorizationInteraction>,
+    /// The host's sign-in form for password kinds.
     pub sign_in: Arc<dyn SignInPrompting>,
+    /// The connector kinds this build can sign in with.
     pub registry: ConnectorRegistry,
     /// Kind ids supported in code but not registered in this build (for example Google without an OAuth client).
     pub unconfigured_kind_ids: Vec<String>,
+    /// Builds the system calendar source (EventKit on the Mac); `None` when the platform has none.
     pub build_system_source: Option<BuildSystemSource>,
+    /// Asks the user for system calendar access; `None` when there is nothing to ask.
     pub request_system_access: Option<RequestSystemAccess>,
+    /// The host's text model for judging duplicates; `None` disables model inference.
     pub text_generator: Option<Arc<dyn TextGenerator>>,
+    /// Where the engine sends its diagnostics.
     pub diagnostics: EngineDiagnosticSink,
+    /// The only time source the engine reads; `SystemClock` unless a test supplies another.
     pub clock: Arc<dyn EngineClock>,
+    /// Returns the current time zone whenever the engine needs the calendar.
     pub zone: ZoneProvider,
 }
 

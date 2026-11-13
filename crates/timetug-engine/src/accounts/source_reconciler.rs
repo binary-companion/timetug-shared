@@ -45,6 +45,8 @@ pub struct SourceReconciler {
 }
 
 impl SourceReconciler {
+    /// Creates a reconciler that builds account sources with `build_account`, the system calendar source with
+    /// `build_system_source`, and reports each source's change notifications to `on_change`.
     pub fn new(
         build_account: BuildAccount,
         build_system_source: BuildSystemSource,
@@ -224,6 +226,7 @@ impl TaskBag {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Registers `task` under `id`; if that task already finished and removed itself, nothing is stored.
     pub fn insert(&self, task: CancelToken, id: Uuid) {
         let mut state = self.lock();
         // The task may already have ended (and removed itself) before it was inserted.
@@ -232,6 +235,7 @@ impl TaskBag {
         }
     }
 
+    /// Forgets the task `id` (called when it ends).
     pub fn remove(&self, id: Uuid) {
         let mut state = self.lock();
         if state.tasks.remove(&id).is_none() {
@@ -239,6 +243,7 @@ impl TaskBag {
         }
     }
 
+    /// Cancels every registered task.
     pub fn cancel_all(&self) {
         let all: Vec<CancelToken> = std::mem::take(&mut self.lock().tasks)
             .into_values()
