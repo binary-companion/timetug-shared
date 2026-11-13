@@ -282,8 +282,8 @@ size here is larger than a single-architecture release package; the comparison i
 | Files in the package | 181 | 147 | 0.81 | |
 | MSIX file, ARM64 (bytes) | 143,480,981 | 91,738,516 | 0.64 | |
 | MSIX file, x64 (bytes, CI artifact) | 143,459,224 | 91,716,806 | 0.64 | |
-| Engine native files per architecture | 21 (`TimeTugEngineC.dll` 13,896,192 + Swift runtime and Foundation DLLs) | 1 (`TimeTugEngineC.dll` 3,351,040) | | |
-| Working set at 5 min (bytes) | 211,439,616 (batch 1), 204,705,792 (batch 2) | 194,736,128 | 0.92 to 0.96 | pass |
+| Engine native files per architecture | 18 (`TimeTugEngineC.dll` 13,896,192 + Swift runtime and Foundation DLLs) | 1 (`TimeTugEngineC.dll` 3,351,040) | | |
+| Working set at 5 min (bytes) | 211,439,616 (batch 1), 204,705,792 (batch 2) | 194,736,128 | 0.92 to 0.95 | pass |
 | Private bytes at 5 min (bytes) | 38,387,712 (batch 1), 40,488,960 (batch 2) | 38,146,048 | 0.94 to 0.99 | pass |
 | Start to tray icon (ms) | 792 (batch 1), 682 (batch 2) | 722 | 0.91 to 1.06 | pass |
 | Idle CPU over 600 s (s) | 0.625 (batch 1), 2.563 (batch 2) | 2.422 | 3.9 (batch 1), 0.95 (batch 2) | see below |
@@ -313,7 +313,7 @@ Pooled over all six Swift runs: start to tray 737 ms, working set 208,986,112, p
 
 - **Size:** the Rust package is 36% smaller installed and 36% smaller as an MSIX. The engine's own native payload fell
   from 13.9 MB plus the Swift runtime and Foundation DLLs to one 3.4 MB DLL per architecture.
-- **Memory:** the Rust build is 4% to 8% lower in working set and equal or slightly lower in private bytes. The app is
+- **Memory:** the Rust build is 5% to 8% lower in working set and equal or slightly lower in private bytes. The app is
   dominated by .NET and WinUI (about 195 to 211 MB working set), so the engine change is a small share.
 - **Start to tray:** the first start after a fresh install is slower for both builds (about 1.1 to 1.4 s); later starts are
   0.57 to 0.79 s. Rust is within noise of Swift.
@@ -327,7 +327,7 @@ Pooled over all six Swift runs: start to tray 737 ms, working set 208,986,112, p
   the data cannot say whether the difference between the two batches is the machine (Defender, a Windows background
   task, the host) or the build. The absolute figures are about 0.4% of one core. This metric should be re-measured
   before the gate is called passed: ideally interleaved runs (Swift, Rust, Swift, Rust) and, in addition, the engine
-  harness numbers above, in which Rust used half the idle CPU of Swift on every machine.
+  harness numbers above, in which Rust used less idle CPU than Swift on every machine.
 - **Gate (installed size lower; memory, idle CPU and start time not worse, 10% tolerance on time and CPU):** met for
   size, memory and start time; met for idle CPU against the pooled Swift median and the second Swift batch, not met
   against the first Swift batch alone (see above).
