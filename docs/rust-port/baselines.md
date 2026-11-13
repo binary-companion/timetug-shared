@@ -261,8 +261,8 @@ The whole Windows app (`timetug-windows`) with each engine, on the Parallels VM 
 development Mac, measured 2026-11-12 (phase 4, Task 4). Both builds are the CI development package
 (`msix-arm64`, package `BinaryCompanion.TimeTug.Dev`, version 0.1.0.0):
 
-- **Swift engine:** `main` of `timetug-windows` at `3fb1f90` (`TimeTug.Engine` 1.8.x).
-- **Rust engine:** the trial branch `rust-engine-trial` at `cc65e6b` (`TimeTug.Engine` 2.0.0-alpha.1; draft pull request
+- **Swift engine:** `main` of `timetug-windows` at `3fb1f90` (`TimeTug.Engine` 1.8.0).
+- **Rust engine:** the trial branch `rust-engine-trial`, the build of CI run 43301880174 (`commit.txt` `cc65e6b`, the pull request's merge commit; `TimeTug.Engine` 2.0.0-alpha.1; draft pull request
   `binary-companion/timetug-windows#54`, CI run 43301880174).
 
 Measured with `scripts/vm/vm-measure.ps1` (`timetug-windows`), in the signed-in user's session. Each run stops the
