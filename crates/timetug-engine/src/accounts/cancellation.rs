@@ -27,6 +27,7 @@ impl Default for CancelToken {
 }
 
 impl CancelToken {
+    /// Creates a token that is not cancelled.
     pub fn new() -> CancelToken {
         CancelToken {
             flag: Arc::new(watch::Sender::new(false)),

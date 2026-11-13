@@ -12,15 +12,22 @@ use crate::diagnostic::EngineDiagnostic;
 #[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug)]
 pub enum EngineEvent {
+    /// A meeting is due: the host presents the takeover.
     TakeoverDue {
+        /// The takeover to present.
         request: TakeoverRequest,
+        /// Title of the event's calendar, when it is known.
         calendar_title: Option<String>,
     },
+    /// A takeover announced earlier is no longer going to happen (the meeting moved, ended or was removed).
     TakeoverWithdrawn {
+        /// Id of the event whose takeover is withdrawn.
         event_id: String,
     },
+    /// A fresh snapshot for widgets, emitted when the state they show changed.
     WidgetSnapshot(WidgetSnapshot),
     /// The host opens this with its own safe-open policy.
     JoinRequested(UrlString),
+    /// A log line for the host to record.
     Diagnostic(EngineDiagnostic),
 }

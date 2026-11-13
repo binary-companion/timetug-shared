@@ -10,11 +10,17 @@ use crate::settings::EngineSettings;
 /// A platform or system condition the host reports to the engine.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SystemEvent {
+    /// The system woke from sleep.
     Wake,
+    /// The system clock was changed.
     ClockChanged,
+    /// The time zone changed.
     TimeZoneChanged,
+    /// The calendar day rolled over.
     DayChanged,
+    /// The network came back; sources that backed off after a failure are refreshed at once.
     NetworkReturned,
+    /// The display configuration changed; the engine republishes state without refetching anything.
     DisplayChanged,
 }
 
@@ -23,54 +29,88 @@ pub enum SystemEvent {
 // plain data of the Swift enum is spelled.
 #[allow(clippy::large_enum_variant)]
 pub enum EngineCommand {
+    /// Loads the saved state, builds the sources and refreshes once. Sending it twice is ignored with a warning.
     Start,
+    /// Refreshes every source now.
     Refresh,
+    /// Starts signing in a new account of connector kind `kind_id`.
     AddAccount {
+        /// Id of the connector kind, one of `EngineState::available_account_kinds`.
         kind_id: String,
     },
+    /// Removes a stored account and its source, selections and secrets.
     RemoveAccount {
+        /// Id of the account's stored connection.
         connection_id: String,
     },
+    /// Signs an existing account in again, for example after its authorization expired.
     ReauthorizeAccount {
+        /// Id of the account's stored connection.
         connection_id: String,
     },
+    /// Cancels the sign-in in progress, if any.
     CancelAuthorization,
     /// Swift's `@Sendable (inout EngineSettings) -> Void`. The engine applies it once; the protocol crate builds it
     /// from a settings patch.
     ApplySettings(Box<dyn FnOnce(&mut EngineSettings) + Send>),
+    /// The host's settings storage was changed by someone else; the engine re-reads it without writing it back.
     SettingsChangedExternally,
+    /// Tells the engine whether the menu-bar countdown is shown, which sets how often it republishes state.
     SetCountdownVisible(bool),
     /// `on_screen` false means the front end fell back to a toast.
     TakeoverPresented {
+        /// Id of the event the takeover is for.
         event_id: String,
+        /// True when the takeover is on screen, false when it was shown as a toast.
         on_screen: bool,
     },
+    /// The takeover for `event_id` was closed by the user or the host.
     TakeoverClosed {
+        /// Id of the event whose takeover closed.
         event_id: String,
     },
+    /// The user chose Join; the engine emits `EngineEvent::JoinRequested` with the meeting link, then closes the
+    /// takeover.
     Join {
+        /// Id of the outstanding takeover's event.
         event_id: String,
     },
+    /// Snoozes the outstanding takeover: it fires again after `seconds` (never later than the meeting's end) and
+    /// closes.
     Snooze {
+        /// Id of the outstanding takeover's event.
         event_id: String,
+        /// Delay before the takeover fires again, in seconds.
         seconds: f64,
     },
+    /// Dismisses the outstanding takeover without joining or snoozing.
     Dismiss {
+        /// Id of the outstanding takeover's event.
         event_id: String,
     },
     /// Settings' "Test tug": a sample takeover. The host supplies the display strings (the engine produces none).
     TestTug {
+        /// Title of the sample event.
         title: String,
+        /// Calendar title shown for the sample event.
         calendar_title: String,
     },
+    /// Merges two events into one on the user's request.
     Merge(TimeTugCalendarEvent, TimeTugCalendarEvent),
+    /// Splits a merged event back into its members.
     Unmerge(TimeTugCalendarEvent),
+    /// Keeps `members` of the merged `event` apart as separate events.
     Separate {
+        /// The merged event to split.
         event: TimeTugCalendarEvent,
+        /// The members that are to stay separate.
         members: Vec<MergedMember>,
     },
+    /// Clears the saved corrections and cached model verdicts, then asks the model again.
     ForgetCorrections,
+    /// Reports a system condition; the engine refreshes or republishes as needed.
     System(SystemEvent),
+    /// Cancels background work, stops the sources and ends every event stream.
     Stop,
 }
 

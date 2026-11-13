@@ -57,8 +57,10 @@ impl<'de> Deserialize<'de> for Stored {
 }
 
 impl FileSettingsStorage {
+    /// Name of the file inside the data directory.
     pub const FILE_NAME: &'static str = "settings.json";
 
+    /// Creates a store for `settings.json` in `directory`; problems are reported to `diagnostics`.
     pub fn new(
         directory: impl AsRef<Path>,
         diagnostics: EngineDiagnosticSink,

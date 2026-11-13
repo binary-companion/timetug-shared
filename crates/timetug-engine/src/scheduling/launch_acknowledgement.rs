@@ -16,6 +16,7 @@ pub struct LaunchAcknowledgement {
 }
 
 impl LaunchAcknowledgement {
+    /// Creates the tracker for an app launched at `launched_at`.
     pub fn new(launched_at: Timestamp) -> LaunchAcknowledgement {
         LaunchAcknowledgement {
             launched_at,
@@ -25,6 +26,9 @@ impl LaunchAcknowledgement {
         }
     }
 
+    /// Sets the current source ids. A new id becomes pending, with the launch time as cutoff on the first call and
+    /// `now`
+    /// afterwards; ids that are gone are dropped.
     pub fn register_sources(&mut self, ids: &BTreeSet<String>, now: Timestamp) {
         let cutoff = if self.registered_initial_sources {
             now

@@ -13,8 +13,10 @@ pub struct DedupStateStore {
 }
 
 impl DedupStateStore {
+    /// Name of the file inside the data directory.
     pub const FILE_NAME: &'static str = "dedup-state.json";
 
+    /// Creates a store for `dedup-state.json` in `directory`; problems are reported to `diagnostics`.
     pub fn new(directory: impl AsRef<Path>, diagnostics: EngineDiagnosticSink) -> DedupStateStore {
         DedupStateStore {
             file: JsonFile::new(

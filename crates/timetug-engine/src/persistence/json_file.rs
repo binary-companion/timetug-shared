@@ -16,7 +16,9 @@ use crate::diagnostic::{EngineDiagnostic, EngineDiagnosticSink, Level};
 /// or a write the file system refused, `DecodingError` for a file that is not the expected JSON, `EncodingError` for a
 /// value that cannot be written as JSON.
 pub struct JsonFile<Value> {
+    /// Path of the file.
     pub url: PathBuf,
+    /// Where load and save problems are reported.
     pub diagnostics: EngineDiagnosticSink,
     /// Used as the diagnostic category and in messages, for example "ledger".
     pub label: String,
@@ -24,6 +26,7 @@ pub struct JsonFile<Value> {
 }
 
 impl<Value: Serialize + DeserializeOwned> JsonFile<Value> {
+    /// Creates a handle for the file at `url`; `label` names it in diagnostics. Nothing is read yet.
     pub fn new(
         url: impl Into<PathBuf>,
         diagnostics: EngineDiagnosticSink,

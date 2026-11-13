@@ -566,6 +566,7 @@ impl Engine {
         receiver
     }
 
+    /// A copy of the most recently published state.
     pub fn current_state(&self) -> EngineState {
         self.lock().state.clone()
     }
@@ -625,6 +626,7 @@ impl Engine {
         self.accounts_changed().await;
     }
 
+    /// Runs one command to completion. While it runs it counts as `Kind::Command` activity.
     pub async fn send(&self, command: EngineCommand) {
         let _command = ActivityEnd::begin(&self.activity, Kind::Command);
         match command {

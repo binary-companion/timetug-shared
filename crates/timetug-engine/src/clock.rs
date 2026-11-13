@@ -10,6 +10,7 @@ use jiff::Timestamp;
 /// The only place the engine reads time. Hosts normally do not supply one; tests supply a manual clock.
 #[async_trait]
 pub trait EngineClock: Send + Sync {
+    /// The current time.
     fn now(&self) -> Timestamp;
     /// Returns when `now()` reaches `deadline`; returns at once for a past deadline; `Err(Failure::Cancelled)` if
     /// cancelled.

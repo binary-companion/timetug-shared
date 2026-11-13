@@ -51,6 +51,9 @@ pub struct SourceRefreshCoordinator {
 }
 
 impl SourceRefreshCoordinator {
+    /// Creates a coordinator that calls `refresh` for each batched pass. `activity`, when given, counts signals and
+    /// the
+    /// running worker.
     pub fn new(
         activity: Option<Arc<EngineActivity>>,
         refresh: RefreshFn,
@@ -64,6 +67,9 @@ impl SourceRefreshCoordinator {
         }
     }
 
+    /// Records a source change and starts a worker if none is running. A change without calendar ids marks a full
+    /// refresh;
+    /// any other change adds its source id to the next pass. A burst while a pass runs causes one follow-up pass.
     pub async fn signal(&self, change: SourceChange) {
         let shared = &self.shared;
         if let Some(activity) = &shared.activity {
