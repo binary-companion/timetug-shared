@@ -1,7 +1,8 @@
 # Opens "Bump calendar-connectors to X.Y.Z" when the library releases (repository_dispatch from its
 # release workflow), or on demand. The pull request is opened with a timetug-bot token so its CI runs;
 # the workflow never merges anything: the owner merges. It applies no semver label, so merging it
-# releases a patch version. A newer bump closes the open bump pull requests for older versions.
+# releases a patch version. A new major version of the library is skipped with a notice (scripts/ci/bump-major-guard.sh).
+# A newer bump closes the open bump pull requests for older versions.
 # Package.resolved is edited by scripts/ci/bump-resolved.py, which validates the version and the commit
 # and refuses a downgrade or a change of major; CI proves the result with --force-resolved-versions.
 name: Bump dependencies
@@ -47,7 +48,20 @@ jobs:
         with:
           ref: main
           token: ${{ steps.app.outputs.token }}
+      - name: Skip new major versions
+        id: guard
+        run: |
+          set -euo pipefail
+          # A new major version of calendar-connectors (2.0.0, the Rust library) is adopted here by hand, in a reviewed
+          # pull request: bump-resolved.py refuses it. The guard checks VERSION itself (exit 2 on anything that is not
+          # X.Y.Z), then prints proceed or skip; on skip the remaining steps are gated off and the job ends successfully.
+          decision="$(scripts/ci/bump-major-guard.sh "$VERSION")"
+          if [ "$decision" = skip ]; then
+            echo "::notice::calendar-connectors $VERSION is a new major version; adopt it by hand in a reviewed pull request"
+          fi
+          echo "decision=$decision" >> "$GITHUB_OUTPUT"
       - name: Move the pin
+        if: steps.guard.outputs.decision == 'proceed'
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
@@ -71,6 +85,7 @@ jobs:
           fi
           python3 scripts/ci/bump-resolved.py calendar-connectors "$VERSION" "$sha"
       - name: Open the pull request
+        if: steps.guard.outputs.decision == 'proceed'
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
