@@ -344,4 +344,21 @@ check "prerelease tag on this commit" 0 "version=2.0.0-alpha.1" 0
 new_repo; tag 1.8.1; commit one; tag 2.0.0-alpha.1; commit two; run_step "" alpha.2 refs/heads/v2
 check "second prerelease" 0 "version=2.0.0-alpha.2" 0
 # A non-prerelease tag-less dispatch on v2 behaves as before (the job `if` keeps it from running; the step is the same).
+# The cutover: v2 (Rust, tagged 2.0.0-alpha.1 and .2) is merged into main (Swift, latest tag 1.8.4) with
+# semver:major. The base is 1.8.4, the prerelease tags are ignored, and the release is 2.0.0.
+commitf() { echo "$1" > "$R/$1"; git -C "$R" add -A; git -C "$R" commit -q -m "$1"; } # a commit on its own file: branches merge cleanly
+new_repo; tag 1.8.3
+git -C "$R" checkout -q -b v2; commitf rust1; tag 2.0.0-alpha.1; commitf rust2; tag 2.0.0-alpha.2
+git -C "$R" checkout -q main; commitf swift-fix; tag 1.8.4
+git -C "$R" merge -q --no-ff -m "2.0.0: the library in Rust" v2 || fail "cutover: the merge of v2 failed"
+label HEAD "semver:major"; run_step ""
+check "cutover merge with semver:major" 0 "version=2.0.0" "$(git -C "$R" rev-list --count 1.8.4..HEAD)"
+# ...and without the label the same merge would be a patch of 1.8.4, never a version taken from a prerelease tag.
+new_repo; tag 1.8.3
+git -C "$R" checkout -q -b v2; commitf rust1; tag 2.0.0-alpha.1
+git -C "$R" checkout -q main; commitf swift-fix; tag 1.8.4
+git -C "$R" merge -q --no-ff -m "merge v2" v2 || fail "cutover: the second merge of v2 failed"
+run_step ""
+check "cutover merge without a label" 0 "version=1.8.5" "$(git -C "$R" rev-list --count 1.8.4..HEAD)"
+
 echo PASS
