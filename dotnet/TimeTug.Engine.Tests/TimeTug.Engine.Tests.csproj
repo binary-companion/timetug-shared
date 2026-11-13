@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TimeTug.Engine\TimeTug.Engine.csproj" />
+    <ProjectReference Include="..\TimeTug.Engine.Example\TimeTug.Engine.Example.csproj" />
   </ItemGroup>
 
   <!-- One copy of the conformance files: the repository's, linked in. -->
