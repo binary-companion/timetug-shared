@@ -253,3 +253,109 @@ The VM was suspended when this work started and its "Pause idle" setting is on, 
 measurement; changing it needs the owner. The ARM64 comparison is therefore against the hosted `windows-11-arm`
 row only. The .NET suite ran against the Rust library on all of these platforms (66 tests, floor 59): see the pull
 request.
+
+## Windows app, Swift engine versus Rust engine
+
+The whole Windows app (`timetug-windows`) with each engine, on the Parallels VM `Windows 11` (Windows 11 Pro build
+26200, ARM64, 6 vCPUs, 16 GB; .NET 10.0.15 desktop runtime; no Visual C++ redistributable installed) on the
+development Mac, measured 2026-11-12 (phase 4, Task 4). Both builds are the CI development package
+(`msix-arm64`, package `BinaryCompanion.TimeTug.Dev`, version 0.1.0.0):
+
+- **Swift engine:** `main` of `timetug-windows` at `3fb1f90` (`TimeTug.Engine` 1.8.0).
+- **Rust engine:** the trial branch `rust-engine-trial`, the build of CI run 43301880174 (`commit.txt` `cc65e6b`, the pull request's merge commit; `TimeTug.Engine` 2.0.0-alpha.1; draft pull request
+  `binary-companion/timetug-windows#54`, CI run 43301880174).
+
+Measured with `scripts/vm/vm-measure.ps1` (`timetug-windows`), in the signed-in user's session. Each run stops the
+app, starts it fresh from the same account-free state (no calendar account; the welcome window is open, as on any first
+start), and records: installed size (summed file lengths of the package's install folder, once per package); time from
+process start to the tray icon (the first time the tray library's `H.NotifyIcon_*` window exists in the process, polled
+every 20 ms); working set and private bytes of the app's processes 300 s after process start; CPU time used over the
+next 600 s of idle. Three runs per build, the median recorded, each build installed fresh before its runs. The Parallels
+setting "Pause idle" was off for the runs and has been restored to on. The script holds the VM awake while it runs.
+
+The dev package carries both the x64 and ARM64 engine libraries (and the x64/ARM64/x86 MSAL runtime), so installed
+size here is larger than a single-architecture release package; the comparison is like with like.
+
+| Metric | Swift engine (median) | Rust engine (median) | Rust / Swift | Gate |
+|---|---:|---:|---:|---|
+| Installed size (bytes) | 386,735,028 | 245,672,288 | 0.64 | pass (lower) |
+| Files in the package | 181 | 147 | 0.81 | |
+| MSIX file, ARM64 (bytes) | 143,480,981 | 91,738,516 | 0.64 | |
+| MSIX file, x64 (bytes, CI artifact) | 143,459,224 | 91,716,806 | 0.64 | |
+| Engine native files per architecture | 18 (`TimeTugEngineC.dll` 13,896,192 + Swift runtime and Foundation DLLs) | 1 (`TimeTugEngineC.dll` 3,351,040) | | |
+| Working set at 5 min (bytes) | 211,439,616 (batch 1), 204,705,792 (batch 2) | 194,736,128 | 0.92 to 0.95 | pass |
+| Private bytes at 5 min (bytes) | 38,387,712 (batch 1), 40,488,960 (batch 2) | 38,146,048 | 0.94 to 0.99 | pass |
+| Start to tray icon (ms) | 792 (batch 1), 682 (batch 2) | 722 | 0.91 to 1.06 | pass |
+| Idle CPU over 600 s (s) | 0.625 (batch 1), 2.563 (batch 2) | 2.422 | 3.9 (batch 1), 0.95 (batch 2) | see below |
+
+Individual runs. Swift batch 1 and Rust were run back to back on the same VM session; Swift batch 2 is a repeat of the
+Swift build (reinstalled) after the Rust runs, made because of the idle CPU spread.
+
+| Build | Run | Start to tray (ms) | Working set (bytes) | Private bytes (bytes) | Idle CPU 600 s (s) |
+|---|---|---:|---:|---:|---:|
+| Swift, batch 1 | 1 | 1,379 | 212,881,408 | 40,222,720 | 2.422 |
+| | 2 | 673 | 211,353,600 | 38,277,120 | 0.406 |
+| | 3 | 792 | 211,439,616 | 38,387,712 | 0.625 |
+| | **Median** | **792** | **211,439,616** | **38,387,712** | **0.625** |
+| Rust | 1 | 1,134 | 194,842,624 | 38,391,808 | 2.422 |
+| | 2 | 568 | 194,736,128 | 38,146,048 | 2.484 |
+| | 3 | 722 | 194,326,528 | 37,732,352 | 2.329 |
+| | **Median** | **722** | **194,736,128** | **38,146,048** | **2.422** |
+| Swift, batch 2 | 1 | 1,362 | 206,618,624 | 40,767,488 | 2.047 |
+| | 2 | 598 | 204,091,392 | 39,956,480 | 2.812 |
+| | 3 | 682 | 204,705,792 | 40,488,960 | 2.563 |
+| | **Median** | **682** | **204,705,792** | **40,488,960** | **2.563** |
+
+Pooled over all six Swift runs: start to tray 737 ms, working set 208,986,112, private bytes 40,089,600, idle CPU
+2.23 s (Rust medians as above).
+
+**Reading the table.**
+
+- **Size:** the Rust package is 36% smaller installed and 36% smaller as an MSIX. The engine's own native payload fell
+  from 13.9 MB plus the Swift runtime and Foundation DLLs to one 3.4 MB DLL per architecture.
+- **Memory:** the Rust build is 5% to 8% lower in working set and equal or slightly lower in private bytes. The app is
+  dominated by .NET and WinUI (about 195 to 211 MB working set), so the engine change is a small share.
+- **Start to tray:** the first start after a fresh install is slower for both builds (about 1.1 to 1.4 s); later starts are
+  0.57 to 0.79 s. Rust is within noise of Swift.
+- **Idle CPU (anomaly):** Swift batch 1 measured 0.41 to 0.63 s in two of its three runs, which the Rust build did not
+  reproduce (2.33 to 2.48 s in all three runs); against that batch alone the Rust build is 3.9 times higher and fails
+  the 10% tolerance. The Swift repeat (batch 2) measured 2.05 to 2.81 s, the same as Rust, so the pooled Swift median
+  (2.23 s) is 8% below Rust's (2.42 s), inside the tolerance, and one run of batch 1 (run 1) also sat at 2.42 s. The
+  samples show the same pattern in the high runs for both builds: a steady 30 to 150 ms of CPU in every 15 s, with no
+  spike, from the app as a whole (the process includes the .NET runtime, WinUI and the tray). The low runs of batch 1
+  were 0 to 60 ms per 15 s with long zero stretches. No instrumented comparison of the engine's own threads was made, so
+  the data cannot say whether the difference between the two batches is the machine (Defender, a Windows background
+  task, the host) or the build. The absolute figures are about 0.4% of one core. This metric should be re-measured
+  before the gate is called passed: ideally interleaved runs (Swift, Rust, Swift, Rust) and, in addition, the engine
+  harness numbers above, in which Rust used less idle CPU than Swift on every machine.
+- **Gate (installed size lower; memory, idle CPU and start time not worse, 10% tolerance on time and CPU):** met for
+  size, memory and start time; met for idle CPU against the pooled Swift median and the second Swift batch, not met
+  against the first Swift batch alone (see above).
+
+### Sleep and resume (Parallels suspend)
+
+For each build: start the app fresh (60 s settle), `scripts/vm/vm-suspend.sh`, 180 s suspended, `vm-up.sh` (resume),
+then a probe 5 s, 65 s and 125 s after the resume (process list, `Responding`, working set, private bytes, CPU time,
+a search with UI Automation for a window titled "TimeTug couldn’t start", a second launch of the package alias, and the
+number of error and warning lines in `timetug.log`).
+
+| Build | Same process after resume | Responding | "couldn’t start" window | Second launch exits (ms) before / +5 s / +65 s / +125 s | Error or warning lines in the log | CPU after resume (s, +5 s to +125 s) |
+|---|---|---|---|---|---|---|
+| Swift engine | yes (one process, same id) | yes at all three probes | none | 300 / 313 / 296 / 292 (exit code 0) | 0 | 1.97 to 2.38 |
+| Rust engine | yes | yes at all three probes | none | 1,439 / 768 / 484 / 279 (exit code 0) | 0 | 1.80 to 1.97 |
+
+Both builds survive a suspend and resume of the VM with the app and its engine intact and answering (the second launch
+reaches the running instance and exits 0). The first second launch of the Rust run was slower (1.4 s) and settled to the
+Swift level by the third probe. **Not covered:** one late takeover across a meeting start. It needs a calendar account
+with a meeting, which the VM does not have (the existing Windows account is not connected to TimeTug), and a test tug is
+immediate, not scheduled. That stays an owner-attended item (checklist 8.7).
+
+### Not measured
+
+- **x64.** No x64 Windows machine or runner was available without new sign-ins or setup (the VM runs only the ARM64
+  .NET desktop runtime, the hosted x64 runner cannot take these measurements). The x64 MSIX sizes from CI are in the
+  table (143,459,224 bytes Swift, 91,716,806 bytes Rust).
+- **A single-architecture release package.** The numbers are for the development package, which holds both engine
+  architectures.
+- **The release (Store or Direct) flavour,** and a machine with real accounts (a connected account adds sync work and
+  memory).
