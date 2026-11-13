@@ -42,7 +42,7 @@ With the `semver:major` label each check is skipped with a notice; the checks ar
 
 ## Release flow
 
-Do not tag by hand. A merge to `main` runs `release.yml`: the `semver:*` labels pick the bump, the workflow tags and publishes, appends "Built and tested with calendar-connectors X.Y.Z" to the release notes, then its `notify` job (environment `bump`, the `timetug-bot` token) dispatches `library-released` (`library` `timetug-shared`, `version` `X.Y.Z`) to `timetug`. `timetug` opens a "Bump timetug-shared to X.Y.Z" pull request that moves the `TimeTugShared` pin and raises its `CalendarConnectors` pin to at least the version this repository's `Package.resolved` records, so the app and the engine run the same connector version. The agent never merges or publishes; the owner does.
+Do not tag by hand. A merge to `1.x` (the Swift line; `main` is the Rust line from 2.0.0) runs `release.yml`: the `semver:*` labels pick the bump, the workflow tags and publishes, appends "Built and tested with calendar-connectors X.Y.Z" to the release notes, then its `notify` job (environment `bump`, the `timetug-bot` token) dispatches `library-released` (`library` `timetug-shared`, `version` `X.Y.Z`) to `timetug`. `timetug` opens a "Bump timetug-shared to X.Y.Z" pull request that moves the `TimeTugShared` pin and raises its `CalendarConnectors` pin to at least the version this repository's `Package.resolved` records, so the app and the engine run the same connector version. The agent never merges or publishes; the owner does.
 
 ## Dependents and the bump chain
 

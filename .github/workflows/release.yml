@@ -1,4 +1,5 @@
-# Releases timetug-shared. Every push to main publishes the next X.Y.Z tag and a GitHub release.
+# Releases the Swift line of timetug-shared (1.x.y). Every push to 1.x publishes the next X.Y.Z tag and a GitHub release.
+# Only tags reachable from the pushed commit count, so the 2.x tags of the Rust line on main never change a 1.x version.
 # The bump comes from the semver:* labels of the merged pull requests since the latest tag (patch
 # by default; the highest wins, so a replaced pending run cannot lose a major). Nothing is released
 # while the repository has no X.Y.Z tag (the first version is dispatched by hand), nor when the
@@ -14,7 +15,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    branches: [1.x]
   workflow_dispatch:
     inputs:
       version:
@@ -35,7 +36,7 @@ permissions: {}
 
 jobs:
   publish:
-    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish)
+    if: github.ref == 'refs/heads/1.x' && (github.event_name != 'workflow_dispatch' || inputs.publish)
     runs-on: ubuntu-latest
     environment: publish
     permissions:
@@ -124,7 +125,7 @@ jobs:
 
   # Tells each dependent that a version exists, so its own workflow can open a bump pull request.
   # Skipped when nothing was released. The token comes from the timetug-bot GitHub App, installed on
-  # timetug and timetug-shared; the bump environment holds its credentials and is limited to main.
+  # timetug and timetug-shared; the bump environment holds its credentials and is limited to main, v2 and 1.x.
   notify:
     needs: publish
     if: needs.publish.outputs.created == 'true'

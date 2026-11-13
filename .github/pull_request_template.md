@@ -2,7 +2,7 @@
 
 ## Version
 
-Add exactly one label before merging; a merge to `main` releases automatically.
+Add exactly one label before merging; a merge to `1.x` releases automatically.
 
 - `semver:major`: a breaking change: anything removed, retyped or changed in meaning in a public API, the C interface,
   the wire contract or a persisted format; a non-additive edit of an existing fixture or scenario; any edit of a
