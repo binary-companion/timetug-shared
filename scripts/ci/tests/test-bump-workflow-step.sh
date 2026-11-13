@@ -18,9 +18,9 @@ mkdir -p "$T/bin"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 # --- the shape of the workflow, then the two steps extracted ---
-"$PYTHON" - "$WORKFLOW" "$T/open.sh" "$T/move.sh" <<'PY'
+"$PYTHON" - "$WORKFLOW" "$T/open.sh" "$T/move.sh" "$T/guard.sh" <<'PY'
 import re, sys, yaml
-workflow, open_target, move_target = sys.argv[1:]
+workflow, open_target, move_target, guard_target = sys.argv[1:]
 raw = open(workflow).read()
 document = yaml.safe_load(raw)
 def check(condition, message):
@@ -48,8 +48,8 @@ check(job.get('env') == {'VERSION': '${{ github.event.client_payload.version || 
       'the job env must be exactly VERSION from the payload or the input')
 check('continue-on-error' not in job, 'the job must not set continue-on-error')
 steps = job['steps']
-check(len(steps) == 4, 'the job must have exactly four steps: token, checkout, move, open')
-token, checkout, move, open_pr = steps
+check(len(steps) == 5, 'the job must have exactly five steps: token, checkout, guard, move, open')
+token, checkout, guard, move, open_pr = steps
 check(token.get('id') == 'app' and token.get('uses') == 'actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510',
       'the first step must be the token step (id app) pinned to the reviewed create-github-app-token SHA')
 check(token.get('with') == {'app-id': '${{ vars.BUMP_APP_ID }}',
@@ -64,8 +64,17 @@ check(checkout.get('uses') == 'actions/checkout@3d3c42e5aac5ba805825da76410c1812
       'the checkout must be pinned to the reviewed actions/checkout SHA')
 check(checkout.get('with') == {'ref': 'main', 'token': '${{ steps.app.outputs.token }}'},
       'the checkout must be ref: main with the app token (so the push is made by the bot)')
+check(guard.get('name') == 'Skip new major versions' and guard.get('id') == 'guard'
+      and 'env' not in guard and '${{' not in guard['run']
+      and 'scripts/ci/bump-major-guard.sh "$VERSION"' in guard['run']
+      and '::notice::' in guard['run'] and 'decision=' in guard['run'] and 'continue-on-error' not in guard,
+      'the third step must be the major-version guard (id guard), calling bump-major-guard.sh with VERSION '
+      'and writing its decision to the step output')
 check(move.get('name') == 'Move the pin' and open_pr.get('name') == 'Open the pull request',
       'the last two steps must be "Move the pin" and "Open the pull request", in that order')
+for gated in (move, open_pr):
+    check(gated.get('if') == "steps.guard.outputs.decision == 'proceed'",
+          f"the step {gated['name']!r} must run only when the guard decided proceed")
 for step in (move, open_pr):
     check(step.get('env') == {'GH_TOKEN': '${{ steps.app.outputs.token }}'},
           f"the step {step['name']!r} env must be exactly GH_TOKEN (the app token)")
@@ -81,6 +90,7 @@ for line in raw.splitlines():
 check('refs/pull' not in raw and 'pull_request' not in raw, 'the workflow must not mention pull_request triggers')
 open(open_target, 'w').write(open_pr['run'])
 open(move_target, 'w').write(move['run'])
+open(guard_target, 'w').write(guard['run'])
 PY
 
 # --- stubs ---
@@ -240,6 +250,22 @@ move "$CURRENT"
 fresh_tree; lightweight "$CURRENT" "$NEW_SHA"
 move "$CURRENT"
 [ "$STATUS" != 0 ] && untouched || fail 'a moved tag rewrote the revision of the current version'
+
+# --- the guard step: a new major version of the connector library is skipped with a notice, anything else proceeds ---
+guard_run() { # guard_run <version>: sets STATUS; the step output lands in $T/guard.out, the log in $T/guard.log
+  rm -rf "$T/guard"; mkdir -p "$T/guard/scripts/ci"
+  cp "$ROOT/scripts/ci/bump-major-guard.sh" "$ROOT/scripts/ci/resolved-version.py" "$T/guard/scripts/ci/"
+  cp "$ROOT/Package.resolved" "$T/guard/"
+  : > "$T/guard.out"; STATUS=0
+  (cd "$T/guard" && VERSION="$1" GITHUB_OUTPUT="$T/guard.out" bash "$T/guard.sh") > "$T/guard.log" 2>&1 || STATUS=$?
+}
+guard_run "$NEXT"
+[ "$STATUS" = 0 ] && grep -qx 'decision=proceed' "$T/guard.out" || fail "the guard did not proceed for $NEXT: $(cat "$T/guard.log")"
+guard_run "$((MAJOR + 1)).0.0"
+[ "$STATUS" = 0 ] && grep -qx 'decision=skip' "$T/guard.out" || fail 'the guard did not skip a new major version'
+grep -q '::notice::' "$T/guard.log" || fail 'the guard left no notice for a skipped major version'
+guard_run '1.0'
+[ "$STATUS" != 0 ] && ! grep -q 'decision=' "$T/guard.out" || fail 'the guard accepted a malformed version'
 
 # --- the "Open the pull request" step against stub git and gh ---
 pr() { printf '{"number":%s,"headRefName":"%s","isCrossRepository":%s}' "$1" "$2" "${3:-false}"; }

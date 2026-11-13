@@ -1,5 +1,5 @@
-# Continuous integration for the library. Runs on pull requests and on every push to main.
-# The job ids are the required status checks of the Protect main ruleset; renaming one breaks every merge.
+# Continuous integration for the library. Runs on pull requests and on every push to 1.x.
+# The job ids are the required status checks of the Protect 1.x ruleset (a copy of Protect main); renaming one breaks every merge.
 #   macos          swift test on the whole package, then the C smoke test (c-smoke/run.sh).
 #   linux          swift test in the swift:6.0 container: proves the library stays portable; then the C smoke test.
 #   windows-x64    swift test on windows-latest with Swift installed by scripts/ci/install-swift-windows.ps1, then
@@ -33,7 +33,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [1.x]
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
@@ -298,6 +298,8 @@ jobs:
           PYTHON="$PWD/build/venv/bin/python" scripts/release/tests/test-release-version-step.sh
           # The steps of bump-dependencies.yml, run against the real bump-resolved.py and Package.resolved.
           PYTHON="$PWD/build/venv/bin/python" scripts/ci/tests/test-bump-workflow-step.sh
+          # The major-version guard of the bump workflow, against a throwaway Package.resolved.
+          scripts/ci/tests/test-bump-major-guard.sh
           # Includes test_bump_resolved.py (the Package.resolved editor) and the contracts tests.
           build/venv/bin/python -m unittest discover -s scripts/ci/tests -p 'test_*.py'
 
@@ -319,7 +321,7 @@ jobs:
         id: gate
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: python3 scripts/ci/compat/compat.py gate --base-ref "origin/${BASE_REF:-main}"
+        run: python3 scripts/ci/compat/compat.py gate --base-ref "origin/${BASE_REF:-1.x}"
       # Each check below runs even when an earlier one failed, so one run reports every broken category.
       # Golden fixtures and scenarios may only gain fields (scenarios also entries at the end of a list); the
       # persisted-data fixtures model files on users' disks and never change. Deleting any of them fails.
@@ -403,7 +405,7 @@ jobs:
         id: gate
         env:
           BASE_REF: ${{ github.base_ref }}
-        run: python3 scripts/ci/compat/compat.py gate --base-ref "origin/${BASE_REF:-main}"
+        run: python3 scripts/ci/compat/compat.py gate --base-ref "origin/${BASE_REF:-1.x}"
       - name: Find the published baseline package
         id: nuget
         if: steps.gate.outputs.run == 'true'
