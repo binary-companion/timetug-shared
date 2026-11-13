@@ -9,18 +9,27 @@ use crate::takeover::policy::TakeoverPolicy;
 /// fires the meeting may be gone, edited, declined, opted out or already handled.
 pub enum TakeoverGuard {}
 
+/// What to do with a takeover whose timer has fired.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Decision {
+    /// Show the takeover.
     Present,
+    /// Do not show it, for the given reason.
     Suppress(Reason),
 }
 
+/// Why a takeover is not shown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Reason {
+    /// No event in the current snapshot is the same meeting (deleted, or moved to another time).
     NotInSnapshot,
+    /// The meeting is still there but no longer passes `TakeoverPolicy::qualifies`.
     NoLongerQualifies,
+    /// The ledger shows the meeting already fired (or is snoozed).
     AlreadyFired,
+    /// The meeting has ended.
     Ended,
+    /// Another takeover overlay is on screen.
     OverlayVisible,
 }
 
@@ -36,6 +45,7 @@ impl Reason {
         }
     }
 
+    /// The reason for a Swift raw value as `as_str` produces it; `None` for any other text.
     pub fn from_raw_value(raw: &str) -> Option<Reason> {
         [
             Reason::NotInSnapshot,

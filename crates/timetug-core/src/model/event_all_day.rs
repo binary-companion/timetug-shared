@@ -18,6 +18,7 @@ impl TimeTugCalendarEvent {
         Some((first, end_exclusive))
     }
 
+    /// True when this is an all-day event whose dates include `date`; always false for timed events.
     pub fn covers(&self, date: &CalendarDate) -> bool {
         match self.all_day_dates() {
             Some((first, end_exclusive)) => first <= *date && *date < end_exclusive,

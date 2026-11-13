@@ -17,7 +17,9 @@ use crate::text::lowercased;
 /// (`title()` and `set_title(..)`); the type does not implement `Deref`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TimeTugCalendarEvent {
+    /// The connector library's event. The accessor methods read and write its fields.
     pub event: CalendarEvent,
+    /// Id of the source the event came from.
     pub source_id: String,
     /// The join links, most likely first: the library's own list (structured links, then links found in the text),
     /// merged across copies by the duplicate resolver.
@@ -30,10 +32,12 @@ pub struct TimeTugCalendarEvent {
     pub additional_calendar_keys: BTreeSet<String>,
     /// Every original copy folded into this event (including itself); empty when never merged.
     pub merged_members: Vec<MergedMember>,
+    /// How the event came to be a merged event; `None` when it is not one.
     pub merge_provenance: Option<MergeProvenance>,
     /// The connector and host of this event's calendar (the raw `CalendarService` and `CalendarProvider` values), filled
     /// by the store from `CalendarInfo`; used only to decide where a `uid` is comparable.
     pub calendar_service: Option<String>,
+    /// The raw `CalendarProvider` value of the event's calendar; see `calendar_service`.
     pub calendar_provider: Option<String>,
     /// Where the range shown to the user starts when it differs from `start` (a merged meeting shows the
     /// longer copy's range while `start` is the tug time); `None` means the same as `start`.
@@ -41,6 +45,8 @@ pub struct TimeTugCalendarEvent {
 }
 
 impl TimeTugCalendarEvent {
+    /// Wraps a library event from source `source_id`. The join links, other-attendee count and the owner's response are
+    /// derived from the event; the merge state starts empty.
     pub fn new(event: CalendarEvent, source_id: impl Into<String>) -> TimeTugCalendarEvent {
         let conferences = event.conferences.clone();
         let other_attendee_count = event.attendees.iter().filter(|a| !a.is_self).count() as i64;
@@ -71,21 +77,27 @@ impl TimeTugCalendarEvent {
         self.conferences.first().map(|c| &c.url)
     }
 
+    /// The event's title.
     pub fn title(&self) -> &str {
         &self.event.title
     }
+    /// Sets the event's title.
     pub fn set_title(&mut self, title: impl Into<String>) {
         self.event.title = title.into();
     }
+    /// The start (for a merged event, the time the takeover fires; see `shown_start`).
     pub fn start(&self) -> Timestamp {
         self.event.start
     }
+    /// Sets the start.
     pub fn set_start(&mut self, start: Timestamp) {
         self.event.start = start;
     }
+    /// The end (exclusive for an all-day event).
     pub fn end(&self) -> Timestamp {
         self.event.end
     }
+    /// Sets the end.
     pub fn set_end(&mut self, end: Timestamp) {
         self.event.end = end;
     }
@@ -93,43 +105,56 @@ impl TimeTugCalendarEvent {
     pub fn is_all_day(&self) -> bool {
         self.event.is_all_day
     }
+    /// Sets whether the event is all-day.
     pub fn set_is_all_day(&mut self, is_all_day: bool) {
         self.event.is_all_day = is_all_day;
     }
+    /// The time zone the event was created in; all-day dates are read in it.
     pub fn time_zone(&self) -> &Zone {
         &self.event.time_zone
     }
+    /// Sets the event's time zone.
     pub fn set_time_zone(&mut self, zone: Zone) {
         self.event.time_zone = zone;
     }
+    /// The event's location, if any.
     pub fn location(&self) -> Option<&str> {
         self.event.location.as_deref()
     }
+    /// Sets the event's location.
     pub fn set_location(&mut self, location: Option<String>) {
         self.event.location = location;
     }
+    /// The event's notes, if any.
     pub fn notes(&self) -> Option<&str> {
         self.event.notes.as_deref()
     }
+    /// Sets the event's notes.
     pub fn set_notes(&mut self, notes: Option<String>) {
         self.event.notes = notes;
     }
+    /// The event's own URL, if any (not the join link; see `conference_url`).
     pub fn url(&self) -> Option<&UrlString> {
         self.event.url.as_ref()
     }
+    /// Sets the event's URL.
     pub fn set_url(&mut self, url: Option<UrlString>) {
         self.event.url = url;
     }
+    /// The id of the event's calendar within its source.
     pub fn calendar_id(&self) -> &str {
         &self.event.calendar_id
     }
+    /// Sets the id of the event's calendar within its source.
     pub fn set_calendar_id(&mut self, calendar_id: impl Into<String>) {
         self.event.calendar_id = calendar_id.into();
     }
 
+    /// The event's id within its source. Recurring occurrences share it; see `id`.
     pub fn source_event_id(&self) -> &str {
         &self.event.event_id
     }
+    /// The event's iCalendar-style UID as the provider reports it; `None` when there is none.
     pub fn external_uid(&self) -> Option<&str> {
         self.event.uid.as_deref()
     }
@@ -152,6 +177,8 @@ impl TimeTugCalendarEvent {
     pub fn attendees(&self) -> Vec<&Attendee> {
         self.event.attendees.iter().filter(|a| !a.is_self).collect()
     }
+    /// The organizer's email address; `None` when there is no organizer, the organizer is the calendar owner, or the
+    /// provider gives no address.
     pub fn organizer_email(&self) -> Option<&str> {
         self.event
             .organizer
@@ -183,6 +210,7 @@ impl TimeTugCalendarEvent {
             unix_seconds(self.end())
         )
     }
+    /// The key of the event's own calendar (see `CalendarInfo::key`).
     pub fn calendar_key(&self) -> String {
         CalendarInfo::key_for(&self.source_id, self.calendar_id())
     }

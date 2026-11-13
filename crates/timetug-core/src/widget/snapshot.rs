@@ -41,15 +41,22 @@ mod iso8601 {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WidgetEvent {
+    /// The event's id.
     pub id: String,
+    /// The event's title.
     pub title: String,
+    /// Start as shown to the user (for an all-day event, local midnight of its first date).
     #[serde(with = "iso8601")]
     pub start: Timestamp,
+    /// End as shown to the user (for an all-day event, local midnight of the exclusive end date).
     #[serde(with = "iso8601")]
     pub end: Timestamp,
+    /// True for an all-day event.
     pub is_all_day: bool,
+    /// The event's calendar color as `#RRGGBB`; `None` when unknown.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color_hex: Option<String>,
+    /// The URL to join the meeting, when the event has one.
     #[serde(default, rename = "joinURL", skip_serializing_if = "Option::is_none")]
     pub join_url: Option<UrlString>,
 }
@@ -81,8 +88,10 @@ impl WidgetEvent {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WidgetSnapshot {
+    /// When the snapshot was made; see [`WidgetSnapshot::is_stale`].
     #[serde(with = "iso8601")]
     pub generated_at: Timestamp,
+    /// The events of the horizon, sorted by start, then title, then id.
     pub events: Vec<WidgetEvent>,
 }
 
@@ -92,6 +101,7 @@ impl WidgetSnapshot {
     /// A snapshot older than this is treated as missing by widgets.
     pub const MAX_AGE: f64 = 12.0 * 3600.0;
 
+    /// Creates a snapshot made at `generated_at` holding `events` as given.
     pub fn new(generated_at: Timestamp, events: Vec<WidgetEvent>) -> WidgetSnapshot {
         WidgetSnapshot {
             generated_at,
@@ -99,10 +109,14 @@ impl WidgetSnapshot {
         }
     }
 
+    /// True when the snapshot is older than [`WidgetSnapshot::MAX_AGE`] at `now`.
     pub fn is_stale(&self, now: Timestamp) -> bool {
         seconds_between(self.generated_at, now) > WidgetSnapshot::MAX_AGE
     }
 
+    /// Builds the snapshot at `now` in `zone` from merged `events`. Events on hidden calendars and, when
+    /// `skip_all_day_events` is set, all-day events are left out; colors come from `calendars`. Events that
+    /// overlap the next [`WidgetSnapshot::HORIZON_DAYS`] days are kept.
     pub fn make(
         events: &[TimeTugCalendarEvent],
         calendars: &[CalendarInfo],

@@ -6,6 +6,9 @@ use calendar_core::model::ResponseStatus;
 pub enum TakeoverPolicy {}
 
 impl TakeoverPolicy {
+    /// True when `event` may take over the screen under `settings`: takeover is enabled, a calendar the event is on is
+    /// opted in and not hidden, and the event is timed, not declined, has other attendees when
+    /// `require_other_attendees` is set, and has a conference link when `require_conference_link` is set.
     pub fn qualifies(event: &TimeTugCalendarEvent, settings: &TakeoverSettings) -> bool {
         if !settings.enabled {
             return false;

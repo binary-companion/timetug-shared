@@ -1,9 +1,13 @@
 use calendar_core::model::{CalendarDescriptor, CalendarKind, CalendarProvider, CalendarService};
 
+/// What Core knows about one calendar of a source. Identity is the pair (`source_id`, `calendar_id`), see `key`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct CalendarInfo {
+    /// Id of the source the calendar belongs to.
     pub source_id: String,
+    /// The calendar's id within its source.
     pub calendar_id: String,
+    /// The calendar's display title.
     pub title: String,
     /// Owning account (iCloud, Google, ...), for grouping. Not part of `key`.
     pub account_name: Option<String>,
@@ -15,6 +19,7 @@ pub struct CalendarInfo {
     /// The connector the calendar is read through, and who hosts it (`None` when the source cannot tell). Descriptive
     /// only; not part of `key`. Lets Core see which calendars are the same account across sources.
     pub service: Option<CalendarService>,
+    /// The hosting provider of the calendar, when the source can tell.
     pub provider: Option<CalendarProvider>,
 }
 
@@ -44,6 +49,7 @@ impl CalendarInfo {
         self
     }
 
+    /// The normalized color (`#RRGGBB`), or `None` when unknown.
     pub fn color_hex(&self) -> Option<&str> {
         self.color_hex.as_deref()
     }
@@ -54,10 +60,12 @@ impl CalendarInfo {
         CalendarDescriptor::normalized_hex(raw)
     }
 
+    /// The identity of the calendar across sources: `source_id/calendar_id`.
     pub fn key(&self) -> String {
         CalendarInfo::key_for(&self.source_id, &self.calendar_id)
     }
 
+    /// The calendar's id, the same as [`CalendarInfo::key`].
     pub fn id(&self) -> String {
         self.key()
     }

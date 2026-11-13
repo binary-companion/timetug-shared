@@ -13,11 +13,14 @@ pub enum WidgetTimeline {}
 /// `WidgetTimeline.NextUp`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NextUp {
+    /// The timed event under way now, if any (the earliest started when several overlap).
     pub current: Option<WidgetEvent>,
+    /// Timed events that have not started, by start then title, limited to the requested count.
     pub upcoming: Vec<WidgetEvent>,
 }
 
 impl NextUp {
+    /// Creates the value from its parts.
     pub fn new(current: Option<WidgetEvent>, upcoming: Vec<WidgetEvent>) -> NextUp {
         NextUp { current, upcoming }
     }
@@ -26,11 +29,14 @@ impl NextUp {
 /// `WidgetTimeline.TodayRow`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TodayRow {
+    /// The snapshot event shown on this row.
     pub event: WidgetEvent,
+    /// Whether the event is past, current or upcoming at the time asked.
     pub state: State,
 }
 
 impl TodayRow {
+    /// Creates the row from its parts.
     pub fn new(event: WidgetEvent, state: State) -> TodayRow {
         TodayRow { event, state }
     }
@@ -47,6 +53,8 @@ fn count(n: i64) -> usize {
 }
 
 impl WidgetTimeline {
+    /// The instants after `now` at which what a widget shows changes: starts and ends of timed events and the coming
+    /// midnights inside the horizon, ascending, at most `limit`.
     pub fn change_dates(
         snapshot: &WidgetSnapshot,
         now: Timestamp,
@@ -73,6 +81,7 @@ impl WidgetTimeline {
         dates.into_iter().take(count(limit)).collect()
     }
 
+    /// The timed event under way at `now` and up to `upcoming_limit` timed events still to start.
     pub fn next_up(snapshot: &WidgetSnapshot, now: Timestamp, upcoming_limit: i64) -> NextUp {
         let timed: Vec<&WidgetEvent> = snapshot.events.iter().filter(|e| !e.is_all_day).collect();
         // `min(by:)` keeps the first of equal elements, as Iterator::min_by_key does.
@@ -93,6 +102,7 @@ impl WidgetTimeline {
         )
     }
 
+    /// One row for each snapshot event that overlaps the day of `now` in `zone`, in snapshot order.
     pub fn today(snapshot: &WidgetSnapshot, now: Timestamp, zone: &Zone) -> Vec<TodayRow> {
         let day_start = civil::start_of_day(now, zone);
         let next_day_start = next_day(day_start, zone);

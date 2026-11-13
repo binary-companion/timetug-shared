@@ -8,7 +8,9 @@ pub mod agenda;
 pub mod dedup;
 mod fold_table;
 pub mod model;
+/// The calendar-source interface (`CalendarSource`) and its change, status and error types.
 pub mod sources;
+/// `CalendarStore`, which combines the sources, resolves duplicates and publishes snapshots.
 pub mod store;
 pub mod takeover;
 pub mod text;

@@ -18,6 +18,7 @@ pub struct TakeoverSettings {
     pub takeover_calendar_keys: BTreeSet<String>,
     /// `CalendarInfo::key` values hidden from the day list (default: none hidden).
     pub hidden_calendar_keys: BTreeSet<String>,
+    /// When true, only events with a conference link take over.
     pub require_conference_link: bool,
     /// When true, events with no attendees besides the owner never take over. Declined events never do either; that is not a setting.
     pub require_other_attendees: bool,
@@ -140,6 +141,7 @@ impl<'de> Deserialize<'de> for TakeoverSettings {
 }
 
 impl TakeoverSettings {
+    /// True when the calendar `key` is not hidden from the day list.
     pub fn is_shown_in_list(&self, key: &str) -> bool {
         !self.hidden_calendar_keys.contains(key)
     }

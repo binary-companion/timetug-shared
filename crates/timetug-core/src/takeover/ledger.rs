@@ -27,8 +27,13 @@ pub struct TakeoverLedger {
 /// One remembered state of an event (Swift `TakeoverLedger.Entry`, internal there).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Entry {
+    /// The takeover has been shown (or acknowledged) and must not fire again.
     Fired,
-    Snoozed { until: Timestamp },
+    /// The user snoozed the event; it fires again at `until`.
+    Snoozed {
+        /// When the snoozed takeover fires again.
+        until: Timestamp,
+    },
 }
 
 /// Swift `TakeoverLedger.Record`.
@@ -52,6 +57,7 @@ impl TakeoverLedger {
         TakeoverLedger::default()
     }
 
+    /// Records that the event's takeover has fired, so it never fires again (including after a merge or split).
     pub fn mark_fired(&mut self, event: &TimeTugCalendarEvent, now: Timestamp) {
         self.record(Entry::Fired, event, now);
     }

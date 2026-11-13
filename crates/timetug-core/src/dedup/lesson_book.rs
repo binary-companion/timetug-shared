@@ -12,7 +12,9 @@ use crate::model::merge_types::MergedMember;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LessonDecision {
+    /// The user said the two events are the same meeting.
     Same,
+    /// The user said the two events are different meetings.
     Different,
 }
 
@@ -22,14 +24,21 @@ pub enum LessonDecision {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Lesson {
+    /// Normalized title of the first event of the pair (the pair is stored in a fixed order).
     pub title_a: String,
+    /// Normalized title of the second event.
     pub title_b: String,
+    /// Calendar key of the first event.
     pub calendar_key_a: String,
+    /// Calendar key of the second event.
     pub calendar_key_b: String,
     /// Which details each side had ("bare", "location+notes"), for the model's context.
     pub signals_a: String,
+    /// Details the second event had; see `signals_a`.
     pub signals_b: String,
+    /// What the user decided for the pair.
     pub decision: LessonDecision,
+    /// When the lesson was recorded or last used; lessons unused for [`LessonBook::EXPIRY`] are dropped.
     #[serde(with = "calendar_core::json::swift_reference_date")]
     pub last_used: Timestamp,
     /// Set only for two different events on the same calendar: the lesson then covers just those two occurrences
@@ -37,11 +46,13 @@ pub struct Lesson {
     /// existed and in cross-calendar lessons, which match by title and calendar.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_key_a: Option<String>,
+    /// Content key of the second event; see `content_key_a`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub content_key_b: Option<String>,
 }
 
 impl Lesson {
+    /// The pair's order-independent identity, as [`LessonBook::pair_key`] builds it.
     pub fn pair_key(&self) -> String {
         LessonBook::pair_key(
             &self.title_a,
@@ -61,8 +72,11 @@ pub struct LessonBook {
 }
 
 impl LessonBook {
+    /// The most lessons kept; the oldest beyond this are dropped.
     pub const MAX_LESSONS: usize = 300;
+    /// Seconds after which an unused lesson is dropped (182 days).
     pub const EXPIRY: f64 = 182.0 * 24.0 * 60.0 * 60.0;
+    /// The most lessons returned by [`LessonBook::relevant`].
     pub const PROMPT_LIMIT: usize = 5;
 
     /// Swift's `private(set) var lessons`.
@@ -100,6 +114,8 @@ impl LessonBook {
         a.0 == b.0 && a.1 != b.1
     }
 
+    /// Records the user's `decision` for the pair `a`, `b` at `now`, replacing an earlier lesson for the same pair.
+    /// Two different events on one calendar are remembered as those occurrences only. Prunes afterwards.
     pub fn record(
         &mut self,
         a: &MergedMember,
@@ -189,6 +205,7 @@ impl LessonBook {
             .collect()
     }
 
+    /// Marks the lessons with the given pair keys as used at `now`, so they are not expired.
     pub fn touch(&mut self, pair_keys: &BTreeSet<String>, now: Timestamp) {
         for lesson in &mut self.lessons {
             if pair_keys.contains(&lesson.pair_key()) {

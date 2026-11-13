@@ -7,13 +7,20 @@ use crate::model::event::TimeTugCalendarEvent;
 use crate::model::merge_types::MergedMember;
 use crate::text::{fold, graphemes, is_letter_or_number};
 
+/// Why the pair rules merge two events.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MergeReason {
+    /// Same title, start and end (the content key).
     ExactMatch,
+    /// The events share an external UID.
     ExternalUid,
+    /// The events share a conference link.
     ConferenceLink,
+    /// The events share an attendee email and nothing conflicts.
     SharedAttendee,
+    /// The events have the same location and nothing conflicts.
     SameLocation,
+    /// The titles are the same after normalization and nothing conflicts.
     SameTitle,
 }
 
@@ -31,13 +38,20 @@ impl MergeReason {
     }
 }
 
+/// Why the pair rules keep two events apart.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum SeparateReason {
+    /// Both events are on the same calendar.
     SameCalendar,
+    /// At least one event is all-day.
     AllDay,
+    /// The events do not overlap closely enough: see [`DuplicateRules::within_time_gate`].
     OutsideTimeGate,
+    /// The locations differ.
     ConflictingLocation,
+    /// Both have conference links and they share none.
     ConflictingConference,
+    /// Both have attendees and they share none.
     ConflictingAttendees,
 }
 
@@ -55,9 +69,12 @@ impl SeparateReason {
     }
 }
 
+/// What the pair rules decide about two events.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum PairDecision {
+    /// Treat the events as one meeting, for the given reason.
     Merge(MergeReason),
+    /// Keep the events apart, for the given reason.
     Separate(SeparateReason),
     /// Nothing matched and nothing conflicted: the only case a model may be asked about.
     Ambiguous,
@@ -74,7 +91,9 @@ enum LocationRelation {
 }
 
 impl DuplicateRules {
+    /// The widest difference in start times, in seconds, inside the time gate (30 minutes).
     pub const MAX_START_DIFFERENCE: f64 = 30.0 * 60.0;
+    /// The widest difference in end times, in seconds, inside the time gate (60 minutes).
     pub const MAX_END_DIFFERENCE: f64 = 60.0 * 60.0;
     const MIN_CONTAINED_LOCATION_LENGTH: usize = 6;
 
@@ -102,6 +121,9 @@ impl DuplicateRules {
             && seconds_between(b.end(), a.end()).abs() <= Self::MAX_END_DIFFERENCE
     }
 
+    /// Applies the pair rules to `a` and `b` in order: identical content merges, then same calendar, all-day and the
+    /// time gate separate, then shared UID or conference link merge, then conflicts separate, then shared attendee,
+    /// location or title merge. A pair that nothing decides is [`PairDecision::Ambiguous`].
     pub fn decide(a: &TimeTugCalendarEvent, b: &TimeTugCalendarEvent) -> PairDecision {
         if a.content_key() == b.content_key() {
             return PairDecision::Merge(MergeReason::ExactMatch);
@@ -174,6 +196,7 @@ impl DuplicateRules {
             .join(" ")
     }
 
+    /// How many kinds of detail the event has (location, conference, attendees, notes); a higher score is a fuller copy.
     pub fn detail_score(event: &TimeTugCalendarEvent) -> i64 {
         Self::detail_parts(event).len() as i64
     }
