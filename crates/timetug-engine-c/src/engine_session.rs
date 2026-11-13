@@ -45,6 +45,7 @@ use crate::request_table::RequestTable;
 pub enum EngineBuild {}
 
 impl EngineBuild {
+    /// The version string, fixed when the crate is built.
     pub const VERSION: &'static str = env!("TIMETUG_ENGINE_VERSION");
 }
 
@@ -93,12 +94,14 @@ pub struct ZoneOverride {
 }
 
 impl ZoneOverride {
+    /// Creates the override with `zone` (`None` until one is set, so the process zone applies).
     pub fn new(zone: Option<Zone>) -> ZoneOverride {
         ZoneOverride {
             zone: Mutex::new(zone),
         }
     }
 
+    /// The zone in force: the one set, else the process zone.
     pub fn current(&self) -> Zone {
         self.zone
             .lock()
@@ -107,6 +110,7 @@ impl ZoneOverride {
             .unwrap_or_else(current_zone)
     }
 
+    /// Replaces the zone, for example after a `timeZoneChanged` command.
     pub fn set(&self, zone: Zone) {
         *self.zone.lock().unwrap_or_else(PoisonError::into_inner) = Some(zone);
     }
@@ -119,6 +123,7 @@ pub struct Signal {
 }
 
 impl Signal {
+    /// Creates a signal that has not fired.
     pub fn new() -> Signal {
         Signal {
             fired: Mutex::new(false),
@@ -126,6 +131,7 @@ impl Signal {
         }
     }
 
+    /// Fires the signal and wakes every waiter. It stays fired.
     pub fn fire(&self) {
         *self.fired.lock().unwrap_or_else(PoisonError::into_inner) = true;
         self.changed.notify_all();
@@ -201,7 +207,9 @@ struct Shared {
 /// sees every diagnostic, including the persistence stores' that never become `.diagnostic` events; the event pump
 /// skips `.diagnostic` so none is delivered twice.
 pub struct EngineSession {
+    /// The validated config the engine was created with.
     pub config: WireConfig,
+    /// The outstanding host-service requests; `reply` fulfils them.
     pub requests: Arc<RequestTable>,
     shared: Arc<Shared>,
     delivery: Arc<Delivery>,
@@ -355,6 +363,8 @@ impl EngineSession {
         }
     }
 
+    /// Passes the host's answer to service request `request_id` (`tt_engine_reply`). Never blocks; an unknown or
+    /// already resolved id is ignored.
     pub fn reply(&self, request_id: u64, json: &str) {
         self.requests.fulfill(request_id, json);
     }

@@ -12,6 +12,7 @@ pub type HostFunction = unsafe extern "C" fn(*mut c_void, *const c_char);
 
 /// What a message is delivered to. The host's callback is the production sink ([`HostCallback`]); tests record.
 pub trait MessageSink: Send + Sync {
+    /// Delivers one complete JSON message. Called on the delivery thread, one message at a time, in order.
     fn deliver(&self, message: &str);
 }
 
@@ -86,6 +87,7 @@ pub struct Delivery {
 }
 
 impl Delivery {
+    /// Creates a delivery that passes messages to `sink`. No thread runs until [`Delivery::start`].
     pub fn new(sink: Arc<dyn MessageSink>) -> Arc<Delivery> {
         Arc::new(Delivery {
             sink,
@@ -114,6 +116,7 @@ impl Delivery {
             .map(drop)
     }
 
+    /// Queues an event or service request. It is never dropped or reordered; ignored once closed.
     pub fn enqueue(&self, message: String) {
         let mut queue = self.lock();
         if queue.closed {
@@ -123,6 +126,7 @@ impl Delivery {
         self.changed.notify_all();
     }
 
+    /// Queues a state message, replacing a state still waiting (coalescing); ignored once closed.
     pub fn enqueue_state(&self, message: String) {
         let mut queue = self.lock();
         if queue.closed {
@@ -204,6 +208,7 @@ pub struct Outbox {
 }
 
 impl Outbox {
+    /// Creates a closed outbox in front of `delivery`; messages are held until [`Outbox::open_with`].
     pub fn new(delivery: Arc<Delivery>) -> Outbox {
         Outbox {
             delivery,
@@ -218,6 +223,7 @@ impl Outbox {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Sends `message` on in order once the outbox is open; before that it is held.
     pub fn post(&self, message: String) {
         let mut state = self.lock();
         if state.open {

@@ -18,7 +18,9 @@ use tokio::task::JoinHandle;
 /// A `cancelled` reply is [`RequestError::Cancelled`] instead, so the engine treats it as a cancelled operation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ServiceError {
+    /// The reply's error kind (`network` for a timeout).
     pub kind: ReplyErrorKind,
+    /// The host's message; may be empty.
     pub message: String,
 }
 
@@ -36,7 +38,9 @@ impl fmt::Display for ServiceError {
 /// Why a request did not produce a result: Swift's `CancellationError` or its `ServiceError`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RequestError {
+    /// The host answered `cancelled`, or the request was dropped or abandoned before an answer.
     Cancelled,
+    /// The host answered with another error kind, or the request timed out.
     Service(ServiceError),
 }
 
@@ -102,6 +106,7 @@ impl Drop for CallerGuard<'_> {
 }
 
 impl RequestTable {
+    /// Creates a table that sends each request envelope through `send` and times requests on `clock`.
     pub fn new(
         send: Arc<dyn Fn(Envelope) + Send + Sync>,
         clock: Arc<dyn EngineClock>,
@@ -127,6 +132,9 @@ impl RequestTable {
         self.lock().pending.len()
     }
 
+    /// Sends one `message_type` envelope with `payload` and a fresh id and waits for the host's answer. With a
+    /// `timeout` (seconds on the engine clock) it fails with a `network` error when no answer comes in time. Fails
+    /// at once when the table is closed.
     pub async fn request(
         &self,
         message_type: &str,

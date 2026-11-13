@@ -19,6 +19,7 @@ struct Inner<T> {
 }
 
 impl<T> HandleRegistry<T> {
+    /// Creates an empty registry.
     pub const fn new() -> HandleRegistry<T> {
         HandleRegistry {
             inner: Mutex::new(Inner {
@@ -48,6 +49,7 @@ impl<T> HandleRegistry<T> {
         }
     }
 
+    /// The live session for `token`; `None` for 0, an unknown or a removed token.
     pub fn session(&self, token: usize) -> Option<Arc<T>> {
         if token == 0 {
             return None;
@@ -73,6 +75,7 @@ impl<T> HandleRegistry<T> {
         self.lock().sessions.len()
     }
 
+    /// True when no session is alive.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
