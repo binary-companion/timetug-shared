@@ -10,6 +10,7 @@ use crate::service_messages::ServiceMessages;
 pub enum MessageCatalog {}
 
 impl MessageCatalog {
+    /// Message types the host sends to the engine.
     pub const HOST_TO_ENGINE: [&'static str; 20] = [
         "start",
         "refresh",
@@ -33,6 +34,8 @@ impl MessageCatalog {
         "test.advanceClock",
     ];
 
+    /// Message types the engine sends to the host (not the `service.*` requests, which `MessageCatalog::services`
+    /// lists).
     pub const ENGINE_TO_HOST: [&'static str; 7] = [
         "ready",
         "state",
@@ -61,7 +64,9 @@ impl MessageCatalog {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WireReadyCapabilities {
+    /// True when the engine offers the system calendar (EventKit on the Mac) as a source.
     pub system_calendar: bool,
+    /// True when the engine can use a text model to judge duplicates.
     pub text_generation: bool,
     /// True when the engine will ask the host for access tokens (`service.token.*`). Omitted when false, so the `ready`
     /// message of a host that did not opt in is the 1.7.0 text.
@@ -97,9 +102,13 @@ impl WireReadyCapabilities {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WireReady {
+    /// Version of the engine build.
     pub engine_version: String,
+    /// Protocol versions the engine speaks.
     pub protocol_versions: Vec<i64>,
+    /// The platform the engine was created for: `windows`, `linux` or `macos`.
     pub platform: String,
+    /// What this engine instance can do.
     pub capabilities: WireReadyCapabilities,
 }
 

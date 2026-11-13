@@ -13,6 +13,7 @@ use crate::wire_types::WireDates;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConnectorClient {
     #[serde(rename = "clientID")]
+    /// The OAuth client id registered for the app with the provider.
     pub client_id: String,
     /// Google desktop clients also have a secret (not confidential for an installed app); Microsoft has none.
     #[serde(
@@ -24,6 +25,7 @@ pub struct ConnectorClient {
 }
 
 impl ConnectorClient {
+    /// Creates a client entry; Microsoft clients pass no secret.
     pub fn new(client_id: impl Into<String>, client_secret: Option<String>) -> ConnectorClient {
         ConnectorClient {
             client_id: client_id.into(),
@@ -36,16 +38,22 @@ impl ConnectorClient {
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum Invalid {
     #[error("the configuration is not valid JSON of the expected shape")]
+    /// The text is not JSON, or lacks a required member, or a member has the wrong type.
     NotJson,
     #[error("unsupported configuration version {0}")]
+    /// `v` is not a supported protocol version; carries the value found.
     UnsupportedVersion(i64),
     #[error("the data directory is empty")]
+    /// `dataDirectory` is the empty string.
     EmptyDataDirectory,
     #[error("unknown platform {0:?}")]
+    /// `platform` is not one of `WireConfig::PLATFORMS`; carries the value found.
     UnknownPlatform(String),
     #[error("unknown time zone {0:?}")]
+    /// `timeZone` is not a known IANA zone id; carries the value found.
     UnknownTimeZone(String),
     #[error("invalid test clock start {0:?}")]
+    /// `testClockStart` is not a timestamp in the `WireDates` format; carries the value found.
     InvalidTestClockStart(String),
 }
 
@@ -53,12 +61,15 @@ pub enum Invalid {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WireConfig {
+    /// Protocol version of the configuration; must be one of `ProtocolVersion::SUPPORTED`.
     pub v: i64,
+    /// Directory the engine keeps its files in (accounts, ledger, dedup state, settings); must not be empty.
     pub data_directory: String,
     /// `windows`, `linux` or `macos`.
     pub platform: String,
     /// OAuth client ids by kind family (`google`, `microsoft`).
     pub connectors: BTreeMap<String, ConnectorClient>,
+    /// True when the host answers the `service.text.*` requests, which lets the engine use the host's text model.
     pub text_generation: bool,
     /// True when the host answers the `service.token.*` requests (it supplies access tokens from the operating system's
     /// own account service). Absent in the JSON means false; without it the engine offers no brokered kind.
@@ -66,6 +77,7 @@ pub struct WireConfig {
     /// An IANA zone id; `None` means the process zone.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub time_zone: Option<String>,
+    /// Enables the test-only commands and a manual clock instead of the real one.
     pub testing: bool,
     /// With `testing`: the manual clock's first instant (an ISO 8601 UTC string); `None` starts it at the real time.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -89,6 +101,7 @@ struct Raw {
 }
 
 impl WireConfig {
+    /// The accepted values of `platform`.
     pub const PLATFORMS: [&'static str; 3] = ["windows", "linux", "macos"];
 
     /// Swift's `init(v: 1, dataDirectory:, platform:)` with every other argument at its default.

@@ -33,7 +33,9 @@ pub(crate) fn value_as_u64(value: &Value) -> Option<u64> {
 /// A command id chosen by the host (number or string). The engine echoes it on any diagnostic the command causes.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum MessageId {
+    /// A numeric id.
     Number(u64),
+    /// A string id.
     String(String),
 }
 
@@ -68,21 +70,30 @@ impl<'de> Deserialize<'de> for MessageId {
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum EnvelopeError {
     #[error("not JSON")]
+    /// The text is not JSON.
     NotJson,
     #[error("not a JSON object")]
+    /// The JSON is not an object.
     NotAnObject,
     #[error("member `{0}` is missing or has the wrong type")]
+    /// The named member (`v`, `type` or `id`) is missing or has the wrong type.
     Member(&'static str),
 }
 
 /// `{"v":1,"type":...,"id":...,"payload":...}`. Unknown fields are ignored on decode (adding a field is not breaking).
 #[derive(Clone, Debug, PartialEq, Serialize)]
 pub struct Envelope {
+    /// Protocol version of the message.
     pub v: i64,
+    /// Message type from the `MessageCatalog`, for example `start` or `state`.
     pub r#type: String,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// Command or request id. A host command may carry one so a diagnostic about it can echo it; a `service.*`
+    /// request
+    /// carries the id the host passes back to `tt_engine_reply`. Omitted on messages without one.
     pub id: Option<MessageId>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    /// The message body, a JSON value whose shape depends on `type`; omitted when the message has none.
     pub payload: Option<Value>,
 }
 
@@ -98,12 +109,14 @@ impl Envelope {
     }
 
     #[must_use]
+    /// Returns the envelope with `id` set.
     pub fn with_id(mut self, id: MessageId) -> Envelope {
         self.id = Some(id);
         self
     }
 
     #[must_use]
+    /// Returns the envelope with `payload` set.
     pub fn with_payload(mut self, payload: Value) -> Envelope {
         self.payload = Some(payload);
         self
@@ -184,11 +197,14 @@ impl<'de> Deserialize<'de> for Envelope {
     }
 }
 
+/// The versions of the JSON contract this crate speaks.
 pub enum ProtocolVersion {}
 
 impl ProtocolVersion {
+    /// The supported versions (currently only 1).
     pub const SUPPORTED: [i64; 1] = [1];
 
+    /// True when `v` is one of `SUPPORTED`.
     pub fn is_supported(v: i64) -> bool {
         Self::SUPPORTED.contains(&v)
     }
