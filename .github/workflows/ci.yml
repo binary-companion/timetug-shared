@@ -484,6 +484,11 @@ jobs:
           fi
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      # Protects the intra-doc links (the lint missing_docs = "deny" already fails clippy on an undocumented public item).
+      - name: Rustdoc without warnings
+        env:
+          RUSTDOCFLAGS: -D warnings
+        run: cargo doc --no-deps --workspace --locked
       # Keep the version equal to the one in AGENTS.md ("On v2: Rust").
       - name: Cache cargo-deny
         id: cargo-deny-cache
