@@ -160,17 +160,18 @@ sed -E "s@[?](rev|tag)=[^#\"]+#[0-9a-f]+@?tag=$tag#11111111111111111111111111111
 mv Cargo.lock.new Cargo.lock
 SCRIPT
 chmod +x "$T/bin/cargo"
-CURRENT="$("$ROOT/scripts/ci/cargo-dependency-version.py" "$ROOT/Cargo.lock" calendar-connectors 2>/dev/null || true)"
-if [ -z "$CURRENT" ]; then CURRENT=1.0.0; fi   # a revision pin: the first bump is not compared
-case "$CURRENT" in
-  *-alpha.*) NEXT="${CURRENT%.*}.$(( ${CURRENT##*.} + 1 ))" ;;
-  *) NEXT=2.0.0-alpha.1 ;;
-esac
+# The copies of the real manifest and lock start from a fixed pin, 2.0.0-alpha.1, whatever the repository pins today
+# (a stable pin such as 2.0.0 would make every prerelease case below a downgrade).
+START=2.0.0-alpha.1
+NEXT=2.0.0-alpha.2
 fresh_tree() {
   rm -rf "$T/move"
   mkdir -p "$T/move/scripts/ci"
   cp "$ROOT/scripts/ci/bump-cargo-dependency.py" "$ROOT/scripts/ci/cargo-dependency-version.py" "$T/move/scripts/ci/"
-  cp "$ROOT/Cargo.toml" "$ROOT/Cargo.lock" "$T/move/"
+  sed -E "/binary-companion\/calendar-connectors/s@(rev|tag) = \"[^\"]*\"@tag = \"$START\"@" "$ROOT/Cargo.toml" > "$T/move/Cargo.toml"
+  sed -E "s@(calendar-connectors[?])(rev|tag)=[^#\"]+#[0-9a-f]+@\1tag=$START#2222222222222222222222222222222222222222@" "$ROOT/Cargo.lock" > "$T/move/Cargo.lock"
+  [ "$("$T/move/scripts/ci/cargo-dependency-version.py" "$T/move/Cargo.lock" calendar-connectors)" = "$START" ] ||
+    fail "the copied lock does not start at $START"
   cp "$T/move/Cargo.toml" "$T/move.toml.original"; cp "$T/move/Cargo.lock" "$T/move.lock.original"
 }
 # move <version>: sets STATUS; output in $T/move.out, calls in $T/calls.
