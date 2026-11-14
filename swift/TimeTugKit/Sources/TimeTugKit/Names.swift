@@ -8,6 +8,10 @@ public typealias ConnectionID = String
 
 extension RecurrenceRule {
     public typealias End = RuleEnd
+    // The module is named because the nested alias would otherwise resolve to itself.
+    public typealias Frequency = TimeTugKitGenerated.Frequency
+    public typealias Weekday = TimeTugKitGenerated.Weekday
+    public typealias WeekdayOccurrence = TimeTugKitGenerated.WeekdayOccurrence
 }
 
 extension DayAgenda {
