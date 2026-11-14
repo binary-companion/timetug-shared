@@ -290,6 +290,53 @@ async fn a_close_for_another_event_does_not_release_the_guard() {
     assert!(h.engine.current_state().takeover_visible);
 }
 
+// MARK: 3b. The next pending start (Scheduler.next for the menu bar icon, whatever is on screen)
+
+#[tokio::test(flavor = "current_thread", start_paused = true)]
+async fn next_pending_start_follows_the_scheduler_while_a_takeover_is_on_screen() {
+    let h = EngineHarness::new(vec![sample("a", 600.0), sample("b", 900.0)]).await;
+    started(&h).await;
+    let state = h.engine.current_state();
+    assert_eq!(
+        state.next_pending_start,
+        Some(add_seconds(EngineHarness::epoch(), 600.0))
+    );
+    assert!(state.next_takeover.is_some());
+
+    h.clock.advance(540.0).await;
+    h.wait_until("the first takeover", || h.takeover_due_ids() == ids(&["a"]))
+        .await;
+    let a = event(&h, "a").unwrap();
+    h.engine
+        .send(EngineCommand::TakeoverPresented {
+            event_id: a.id(),
+            on_screen: true,
+        })
+        .await;
+    h.settle().await;
+    // While the takeover is on screen nothing is armed, yet the next pending meeting is still reported: `a` is in the
+    // ledger as fired, so it is `b`.
+    let state = h.engine.current_state();
+    assert!(state.takeover_visible);
+    assert!(state.next_takeover.is_none());
+    assert_eq!(
+        state.next_pending_start,
+        Some(add_seconds(EngineHarness::epoch(), 900.0))
+    );
+
+    h.engine
+        .send(EngineCommand::Dismiss { event_id: a.id() })
+        .await;
+    h.clock.advance(300.0).await;
+    h.wait_until("the second takeover", || {
+        h.takeover_due_ids() == ids(&["a", "b"])
+    })
+    .await;
+    h.settle().await;
+    // Nothing is left that qualifies once `b` has fired.
+    assert_eq!(h.engine.current_state().next_pending_start, None);
+}
+
 // MARK: 4. Review Focus 4: wake after sleeping past a meeting's start
 
 #[tokio::test(flavor = "current_thread", start_paused = true)]

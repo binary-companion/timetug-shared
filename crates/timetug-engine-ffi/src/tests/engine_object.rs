@@ -474,6 +474,14 @@ fn a_link_account_shows_its_events_and_a_takeover_comes_due_when_the_clock_gets_
         .fire_at
         .as_second();
     assert_eq!(fire_at, CLOCK_START + 3600 - 60);
+    assert_eq!(
+        fixture
+            .engine
+            .current_summary()
+            .next_pending_start
+            .map(|start| start.as_second()),
+        Some(CLOCK_START + 3600)
+    );
     fixture.engine.advance_manual_clock(3600.0 - 30.0);
     wait_until("takeoverDue", || {
         fixture
@@ -492,6 +500,10 @@ fn a_link_account_shows_its_events_and_a_takeover_comes_due_when_the_clock_gets_
         panic!("not due")
     };
     assert_eq!(request.event.event.title, "Standup");
+    // The takeover is out (nothing is armed); the one event has fired, so nothing else is pending.
+    let summary = fixture.engine.current_summary();
+    assert!(summary.next_takeover.is_none());
+    assert_eq!(summary.next_pending_start, None);
     block_on(fixture.engine.send(EngineCommand::Dismiss {
         event_id: request.event.event.event_id.clone(),
     }));

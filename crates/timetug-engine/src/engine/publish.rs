@@ -81,6 +81,13 @@ impl Engine {
             );
         }
         inner.revision = inner.revision.wrapping_add(1);
+        let next_pending_start = timetug_core::takeover::scheduler::Scheduler::next(
+            &inner.snapshot.events,
+            &inner.settings.takeover,
+            &inner.ledger,
+            self.host.clock.now(),
+        )
+        .map(|next| next.event.start());
         inner.state = EngineState {
             revision: inner.revision,
             agenda: inner.agenda.clone(),
@@ -97,6 +104,7 @@ impl Engine {
             ledger: inner.ledger.clone(),
             next_takeover: inner.next_takeover.clone(),
             takeover_visible: inner.takeover_visible,
+            next_pending_start,
             available_account_kinds: inner.available_account_kinds.clone(),
         };
         if let Some(sender) = &inner.state_tx {
