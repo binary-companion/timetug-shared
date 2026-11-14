@@ -40,12 +40,12 @@ impl From<EngineSourceError> for SourceError {
     fn from(error: EngineSourceError) -> SourceError {
         match error {
             EngineSourceError::AuthExpired => SourceError::AuthExpired,
-            EngineSourceError::Network(message) => SourceError::Network(message),
+            EngineSourceError::Network(detail) => SourceError::Network(detail),
             EngineSourceError::RateLimited { retry_after } => {
                 SourceError::RateLimited { retry_after }
             }
             EngineSourceError::Server { status } => SourceError::Server { status },
-            EngineSourceError::InvalidResponse(message) => SourceError::InvalidResponse(message),
+            EngineSourceError::InvalidResponse(detail) => SourceError::InvalidResponse(detail),
             EngineSourceError::NeedsPermission => SourceError::NeedsPermission,
             EngineSourceError::NotFound => SourceError::NotFound,
         }
@@ -56,12 +56,12 @@ impl From<SourceError> for EngineSourceError {
     fn from(error: SourceError) -> EngineSourceError {
         match error {
             SourceError::AuthExpired => EngineSourceError::AuthExpired,
-            SourceError::Network(message) => EngineSourceError::Network(message),
+            SourceError::Network(detail) => EngineSourceError::Network(detail),
             SourceError::RateLimited { retry_after } => {
                 EngineSourceError::RateLimited { retry_after }
             }
             SourceError::Server { status } => EngineSourceError::Server { status },
-            SourceError::InvalidResponse(message) => EngineSourceError::InvalidResponse(message),
+            SourceError::InvalidResponse(detail) => EngineSourceError::InvalidResponse(detail),
             SourceError::NeedsPermission => EngineSourceError::NeedsPermission,
             SourceError::NotFound => EngineSourceError::NotFound,
         }
@@ -81,10 +81,10 @@ pub enum FfiError {
     #[error("{}", calendar_core::write::types::WriteError::from(.0.clone()))]
     Write(WriteError),
     /// A failure the host reported, as text.
-    #[error("{message}")]
+    #[error("{detail}")]
     Host {
         /// The host's description.
-        message: String,
+        detail: String,
     },
     /// The configuration or an argument the host passed is not acceptable.
     #[error("invalid configuration: {reason}")]
@@ -100,7 +100,7 @@ impl From<Failure> for FfiError {
             Failure::Source(error) => FfiError::Source(error.into()),
             Failure::Write(error) => FfiError::Write(error.to_mirror()),
             Failure::Cancelled => FfiError::Cancelled,
-            Failure::Host(message) => FfiError::Host { message },
+            Failure::Host(detail) => FfiError::Host { detail },
         }
     }
 }
@@ -112,7 +112,7 @@ pub enum HostError {
     #[error("network")]
     Network {
         /// The host's description; may be empty.
-        message: String,
+        detail: String,
     },
     /// The user or the host cancelled.
     #[error("cancelled")]
@@ -127,7 +127,7 @@ pub enum HostError {
     #[error("failed")]
     Failed {
         /// The host's description; may be empty.
-        message: String,
+        detail: String,
     },
 }
 
@@ -135,7 +135,7 @@ pub enum HostError {
 impl From<uniffi::UnexpectedUniFFICallbackError> for HostError {
     fn from(error: uniffi::UnexpectedUniFFICallbackError) -> HostError {
         HostError::Failed {
-            message: error.reason,
+            detail: error.reason,
         }
     }
 }
@@ -153,19 +153,19 @@ pub enum HostService {
 }
 
 impl HostError {
-    /// `ServiceError.description`: the message, or the kind's raw value when there is none, otherwise `kind: message`.
+    /// `ServiceError.description`: the detail, or the kind's raw value when there is none, otherwise `kind: detail`.
     fn description(&self) -> String {
-        let (kind, message) = match self {
-            HostError::Network { message } => ("network", message.as_str()),
+        let (kind, detail) = match self {
+            HostError::Network { detail } => ("network", detail.as_str()),
             HostError::Cancelled => ("cancelled", ""),
             HostError::NotFound => ("notFound", ""),
             HostError::Denied => ("denied", ""),
-            HostError::Failed { message } => ("failed", message.as_str()),
+            HostError::Failed { detail } => ("failed", detail.as_str()),
         };
-        if message.is_empty() {
+        if detail.is_empty() {
             kind.to_string()
         } else {
-            format!("{kind}: {message}")
+            format!("{kind}: {detail}")
         }
     }
 }
