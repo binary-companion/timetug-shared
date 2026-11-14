@@ -15,6 +15,9 @@ crate-type = ["staticlib", "cdylib", "lib"]
 # the generator's own dependencies (clap, cargo_metadata, ...), which are never linked into the library.
 # `uniffi/cargo-metadata` makes the generator find this crate's `uniffi.toml`; without it the file is silently ignored.
 [features]
+# Adds `Engine.newForTesting(..., clockStart:)` and `advanceClock(seconds:)` (a manual clock). Off in every release build; the
+# Swift tests build their own copy of the library with it (scripts/dev/swift-test.sh).
+test-clock = []
 bindgen = ["uniffi/cli", "uniffi/cargo-metadata"]
 
 [[bin]]
@@ -47,6 +50,7 @@ print_stderr = "deny"
 timetug-engine-protocol = { workspace = true }
 timetug-engine = { workspace = true }
 timetug-core = { workspace = true }
+timetug-bridge = { workspace = true }
 calendar-core = { workspace = true }
 calendar-oauth = { workspace = true }
 calendar-ical = { workspace = true }

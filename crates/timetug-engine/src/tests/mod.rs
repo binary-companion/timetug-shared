@@ -24,6 +24,7 @@ mod engine_takeover_tests;
 mod engine_types_tests;
 mod engine_wake_tests;
 mod file_settings_storage_tests;
+mod host_delivery_tests;
 mod inference_prompt_vectors;
 mod launch_acknowledgement_tests;
 mod ledger_store_tests;

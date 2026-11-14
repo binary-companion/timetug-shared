@@ -1065,6 +1065,7 @@ dependencies = [
  "calendar-oauth",
  "jiff",
  "thiserror",
+ "timetug-bridge",
  "timetug-core",
  "timetug-engine",
  "timetug-engine-protocol",

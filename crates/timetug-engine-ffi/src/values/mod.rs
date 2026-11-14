@@ -16,6 +16,7 @@ pub mod host;
 pub mod model;
 pub mod settings;
 pub mod state;
+pub mod summary;
 pub mod widget;
 pub mod write;
 
