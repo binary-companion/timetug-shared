@@ -1,0 +1,11 @@
+// An async foreign method returning another foreign trait object does not compile with uniffi 0.32.2
+// (error: implementation of `FfiConverterArc` is not general enough), with or without `+ 'static`:
+//
+//     #[uniffi::export(foreign)]
+//     #[async_trait::async_trait]
+//     pub trait AuthInteraction: Send + Sync {
+//         async fn begin_redirect(&self) -> Result<Arc<dyn RedirectSession>, HostError>;
+//     }
+//
+// The sync variant `fn begin_redirect_sync(&self) -> Result<Arc<dyn RedirectSession>, HostError>` and the async
+// variant returning a record that holds the `Arc<dyn RedirectSession>` (`RedirectBegun`) compile and run.

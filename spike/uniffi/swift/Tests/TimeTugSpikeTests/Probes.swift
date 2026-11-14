@@ -125,7 +125,7 @@ func makeEngine(store: CredentialStore = FakeStore(), system: SystemSource? = Fa
         let r = try await engine.send(command: .refresh)
         #expect(r == "Some([1, 2, 3]) http://127.0.0.1:1234/cb")
         #expect(obs.states.with { $0 } == [1]); #expect(obs.events.with { $0 } == ["calendars=1"])
-        do { print("EXERCISE", try await engine.exerciseSystem()) } catch { print("EXERCISE-ERR", error) }
+        #expect(try await engine.exerciseSystem() == 100104)   // 1 access + 1 calendar + 2 events + 100 series + 100000 move
         engine.shutdown()
     }
     @Test func hostErrorsMapToRustErrors() async throws {
@@ -143,6 +143,7 @@ func makeEngine(store: CredentialStore = FakeStore(), system: SystemSource? = Fa
         #expect(r == "timed out, future dropped")
         try? await Task.sleep(nanoseconds: 300_000_000)
         print("CANCEL-OBSERVED-BY-SWIFT", store.sawCancel.with { $0 })
+        #expect(store.sawCancel.with { $0 })
         engine.shutdown()
     }
     @Test @MainActor func mainActorFakeDoesNotDeadlock() async throws {
@@ -152,22 +153,27 @@ func makeEngine(store: CredentialStore = FakeStore(), system: SystemSource? = Fa
         #expect(try await engine2.callMainActor() == "main")
     }
     @Test func lifecycleLoop() async throws {
+        let t0 = ContinuousClock.now
+        var failures = 0
         for _ in 0..<500 {
             let obs = FakeObserver(); let engine = try makeEngine(observer: obs)
             async let a = engine.send(command: .refresh)
             engine.shutdown()
-            _ = try? await a
+            do { _ = try await a } catch is SpikeError { } catch { failures += 1 }   // a typed error is fine; anything else is not
             engine.shutdown()
         }
+        print("LIFECYCLE 500 loops", ContinuousClock.now - t0)
+        #expect(failures == 0)
     }
     @Test func perCallOverheadAndStateDelivery() async throws {
         let agenda = makeAgenda(count: 500)
         let t0 = ContinuousClock.now
         for _ in 0..<(ProcessInfo.processInfo.environment["ECHO_N"].flatMap(Int.init) ?? 1000) { _ = echoEvents(e: agenda) }
         let dt = ContinuousClock.now - t0
-        print("ECHO500 x1000 total", dt, "per call ms", Double(dt.components.attoseconds) / 1e15 / 1000 + Double(dt.components.seconds) * 1000 / 1000)
+        let n = ProcessInfo.processInfo.environment["ECHO_N"].flatMap(Int.init) ?? 1000
+        print("ECHO500 total", dt, "calls", n, "per call ms", (Double(dt.components.seconds) * 1e3 + Double(dt.components.attoseconds) / 1e15) / Double(n))
         func ms(_ n: Int, _ f: () -> Void) -> Double { let t = ContinuousClock.now; for _ in 0..<n { f() }; let d = ContinuousClock.now - t; return (Double(d.components.seconds) * 1e3 + Double(d.components.attoseconds) / 1e15) / Double(n) }
-        print("RUST->SWIFT lift 500 (makeAgenda) ms/call", ms(100) { _ = makeAgenda(count: 500) })
+        print("RUST->SWIFT construct-in-Rust + lift 500 (makeAgenda) ms/call", ms(100) { _ = makeAgenda(count: 500) })
         print("SWIFT->RUST lower 500 (countEvents) ms/call", ms(100) { _ = countEvents(e: agenda) })
         print("SUMMARY make ms/call", ms(10000) { _ = makeSummary(r: 1) })
         print("ONE EVENT lift ms/call", ms(10000) { _ = makeAgenda(count: 1) })
@@ -185,7 +191,8 @@ func makeEngine(store: CredentialStore = FakeStore(), system: SystemSource? = Fa
         engine.blastStates(count: 100_000, events: 0)
         while !obs.done.with({ $0 }) { try await Task.sleep(nanoseconds: 1_000_000) }
         let d = ContinuousClock.now - t
-        print("HIGHRATE 100k empty states", d, "count", obs.states.with { $0.count }, "ordered", obs.states.with { $0 == Array(0..<100_000) })
+        print("HIGHRATE 100k empty states", d)
+        #expect(obs.states.with { $0 == Array(0..<100_000) })
         _ = try await engine.exerciseSystem()
         let h = sys.handler.with { $0! }
         h.changed(); h.changed(); h.changed()

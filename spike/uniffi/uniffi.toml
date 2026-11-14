@@ -35,3 +35,7 @@ lower = "{}.toEpochMilli()"
 
 [bindings.swift.rename]
 Calendar = "CalendarRecord"
+
+# Observed (not configured): `"SpikeError.Cancelled" = "cancelled"` under [bindings.swift.rename] was accepted and ignored for an
+# error enum; the Swift case stayed `Cancelled` because error variants are always rendered with class_name (UpperCamel).
+# A plain uniffi::Enum variant (SourceErrorKind::AuthExpired) renders `.authExpired`.
