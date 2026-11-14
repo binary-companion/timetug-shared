@@ -8,6 +8,9 @@
 use calendar_core::failure::Failure;
 use calendar_core::source_types::SourceError as EngineSourceError;
 
+use crate::values::write::WriteError;
+use crate::values::{ToEngine, ToMirror};
+
 /// Mirror of `calendar_core::source_types::SourceError`: what a connector reports. Same cases and payloads.
 #[derive(Clone, Debug, PartialEq, uniffi::Enum)]
 pub enum SourceError {
@@ -74,6 +77,9 @@ pub enum FfiError {
     /// The host cancelled, or the engine did.
     #[error("cancelled")]
     Cancelled,
+    /// A write refused or failed.
+    #[error("{}", calendar_core::write::types::WriteError::from(.0.clone()))]
+    Write(WriteError),
     /// A failure the host reported, as text.
     #[error("{message}")]
     Host {
@@ -92,10 +98,7 @@ impl From<Failure> for FfiError {
     fn from(failure: Failure) -> FfiError {
         match failure {
             Failure::Source(error) => FfiError::Source(error.into()),
-            // The `WriteError` mirror arrives with the value mirrors; until then a write error crosses as its text.
-            Failure::Write(error) => FfiError::Host {
-                message: error.to_string(),
-            },
+            Failure::Write(error) => FfiError::Write(error.to_mirror()),
             Failure::Cancelled => FfiError::Cancelled,
             Failure::Host(message) => FfiError::Host { message },
         }
@@ -189,5 +192,11 @@ pub fn failure_from_host_error(error: HostError, service: HostService) -> Failur
             )),
             HostError::Cancelled => Failure::Cancelled,
         },
+    }
+}
+
+impl From<WriteError> for calendar_core::write::types::WriteError {
+    fn from(error: WriteError) -> calendar_core::write::types::WriteError {
+        error.to_engine()
     }
 }
