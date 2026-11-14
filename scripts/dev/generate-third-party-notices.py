@@ -22,17 +22,21 @@ checker = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(checker)
 
 LICENSE_FILE = re.compile(r'^(licen[cs]e|copying|unlicen[cs]e|notice)([-_.].*)?$', re.IGNORECASE)
-# {(name, version): text} for crates that ship no licence file; none needed so far.
-LICENSE_TEXT_OVERRIDES = {}
+# {(name, version): text} for crates that ship no licence file. The uniffi crates are published without one; their
+# licence is the MPL-2.0 text in the LICENSE file at the root of https://github.com/mozilla/uniffi-rs (tag v0.32.2), kept
+# here byte for byte in scripts/dev/licenses/MPL-2.0.txt.
+MPL_2_0 = (ROOT / 'scripts/dev/licenses/MPL-2.0.txt').read_text(encoding='utf-8')
+LICENSE_TEXT_OVERRIDES = {(name, '0.32.2'): MPL_2_0 for name in (
+    'uniffi', 'uniffi_core', 'uniffi_internal_macros', 'uniffi_macros', 'uniffi_meta', 'uniffi_pipeline')}
 # {(name, version): [file names]} for crates that keep their licence texts in a file with another name. r-efi (UEFI
 # only, linked on no platform the engine ships on) keeps its MIT, Apache-2.0 and LGPL-2.1 texts in AUTHORS.
 EXTRA_LICENSE_FILES = {('r-efi', '6.0.0'): ['AUTHORS']}
 
 HEADER = """# Third-party notices
 
-The TimeTug engine library (`TimeTugEngineC`) is built from the crates below. Each section gives the crate, its
+The TimeTug engine libraries (`TimeTugEngineC`, and the UniFFI bindings library `timetug-engine-ffi` that the Swift package ships) are built from the crates below. Each section gives the crate, its
 version, its licence and the licence text that the crate ships. This file lists the crates of
-`cargo tree -e normal --prefix none -p timetug-engine-c --target all`, that is every crate that can be linked into the
+`cargo tree -e normal --prefix none -p timetug-engine-c -p timetug-engine-ffi --target all`, that is every crate that can be linked into a
 library on any platform, including those that only the Windows build links (the bundled time zone database,
 `jiff-tzdb`); crates that only run while building (proc macros, build scripts) are in that list when `cargo tree`
 shows them and are kept so the list is stable. The crates of this repository are under its own `LICENSE`.

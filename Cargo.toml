@@ -43,6 +43,9 @@ thiserror = { version = "=2.0.21", default-features = false }
 async-trait = { version = "=0.1.92" }
 tokio = { version = "=1.54.1", default-features = false, features = ["rt", "time", "sync", "macros"] }
 base64 = { version = "=0.23.1", default-features = false, features = ["std"] }
+# The bindings generator runtime: only timetug-engine-ffi depends on it (design section 6.2). No `tokio` feature: it would pull
+# `async-compat` and a multi-thread runtime (docs/bindings-spike.md).
+uniffi = { version = "=0.32.2", default-features = false }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

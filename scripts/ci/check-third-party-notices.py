@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Fails when THIRD-PARTY-NOTICES.md and the dependency tree of the engine library disagree.
+"""Fails when THIRD-PARTY-NOTICES.md and the dependency trees of the engine libraries disagree (the C interface
+library and the UniFFI bindings library, which the XCFramework ships).
 Usage: check-third-party-notices.py [--notices FILE] [--tree-file FILE]
 
 Phase 3 task 9: the Windows package ships the Rust library, so the licence of every crate linked into it travels
 with it. THIRD-PARTY-NOTICES.md holds one `## <name> <version>` section per crate in the tree printed by
 
-  cargo tree -e normal --prefix none -p timetug-engine-c --target all
+  cargo tree -e normal --prefix none -p timetug-engine-c -p timetug-engine-ffi --target all
 
 (`--target all`, not the host default: the tree of the host leaves out the crates only another platform links, for
 example the bundled zone database `jiff-tzdb`, which ships in the Windows library). The crates of this workspace
@@ -23,7 +24,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-TREE_COMMAND = ['cargo', 'tree', '-e', 'normal', '--prefix', 'none', '-p', 'timetug-engine-c', '--target', 'all']
+TREE_COMMAND = ['cargo', 'tree', '-e', 'normal', '--prefix', 'none', '-p', 'timetug-engine-c', '-p', 'timetug-engine-ffi', '--target', 'all']
 # A line of `cargo tree --prefix none`: `name vX.Y.Z`, then optionally `(proc-macro)`, `(<path or url>)`, `(*)`.
 TREE_LINE = re.compile(r'^(?P<name>[A-Za-z0-9_.\-]+) v(?P<version>\S+)(?P<rest>.*)$')
 PATH_SOURCE = re.compile(r'\((?:/|[A-Za-z]:[\\/])')
