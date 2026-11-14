@@ -574,15 +574,17 @@ class ReleaseCommitBaseline(unittest.TestCase):
     def test_the_swift_api_check_runs_when_the_baseline_contains_the_package(self):
         with tempfile.TemporaryDirectory() as directory:
             repo = self.release_layout(directory, with_swift=True)
-            result = repo.compat('swift-api', '2.1.0')
-            self.assertIn('run=true', result.stdout)
+            out = repo.root / 'github-output'
+            result = repo.compat('swift-api', '2.1.0', env={'GITHUB_OUTPUT': str(out)})
+            self.assertIn('run=true', out.read_text())
             self.assertIn('Swift API of TimeTugKit with release 2.1.0', result.stdout)
 
     def test_the_swift_api_check_is_skipped_with_a_reason_without_the_package(self):
         with tempfile.TemporaryDirectory() as directory:
             repo = self.release_layout(directory, with_swift=False)
-            result = repo.compat('swift-api', '1.0.0')
-            self.assertIn('run=false', result.stdout)
+            out = repo.root / 'github-output'
+            result = repo.compat('swift-api', '1.0.0', env={'GITHUB_OUTPUT': str(out)})
+            self.assertIn('run=false', out.read_text())
             self.assertIn('does not contain the Swift package', result.stdout)
 
 
