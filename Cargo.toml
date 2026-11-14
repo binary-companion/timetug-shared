@@ -67,3 +67,9 @@ lto = "fat"
 codegen-units = 1
 panic = "abort"
 strip = "symbols"
+
+# The static library inside the XCFramework (scripts/dev/build-xcframework.sh): the release profile, keeping the symbols
+# the final link of an app needs (docs/bindings-spike.md, section 4).
+[profile.release-apple]
+inherits = "release"
+strip = "debuginfo"

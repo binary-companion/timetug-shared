@@ -2,9 +2,8 @@
 
 `timetug-engine-ffi` is the typed front door of the engine for Swift and Kotlin hosts, generated with UniFFI. What UniFFI
 can and cannot express is in [`bindings-spike.md`](bindings-spike.md); the plan is phase 5 of the Rust engine program. This
-page is the reference for what the bindings expose and how their names relate to the Swift names of the 1.x libraries. It is
-completed as the phase lands (host interfaces and configuration in Task 4, the `Engine` object in Task 5, the Swift package
-in Task 6).
+page is the reference for what the bindings expose and how their names relate to the Swift names of the 1.x libraries. The
+generated code is committed; CI fails when regenerating changes it.
 
 ## The surface list
 
@@ -158,3 +157,56 @@ public final class Engine {
   the matching interface is passed, else `InvalidConfig`.
 - Tests of the host can build the library with the cargo feature `test-clock`, which adds `Engine.newForTesting(config:host:observer:clockStart:)`
   and `advanceClock(seconds:)`; it is off in every release build.
+
+## How to regenerate and build
+
+```sh
+scripts/dev/generate-bindings.sh      # Swift into swift/TimeTugKit/Sources/TimeTugKitGenerated, Kotlin into kotlin/generated
+scripts/dev/build-xcframework.sh --release   # build/TimeTugEngineFFI.xcframework: macOS (arm64 + x86_64), iOS, iOS simulator (arm64 only)
+swift build --package-path swift/TimeTugKit
+scripts/dev/swift-test.sh --release   # the Swift tests, on a copy of the package built with the `test-clock` feature
+scripts/dev/swift-test.sh --ios-sim-link   # the same tests built for the iOS simulator, which links the library
+```
+
+`generate-bindings.sh` needs the `bindgen` cargo feature (it builds the two generator binaries) and
+`uniffi/cargo-metadata` (without it `uniffi.toml` is silently ignored). The output does not depend on the profile or the
+target. The tests need `Engine.newForTesting` and `advanceClock`, which the shipped library does not have (`test-clock` is off
+in every release build), so `swift-test.sh` regenerates the Swift into a temporary copy of the package with the feature on.
+
+## The Swift package `TimeTugKit`
+
+Three targets, because the generated file does not compile in Swift 6 language mode (two `Task {}` closures of the async
+foreign-trait glue; `docs/bindings-spike.md`): `TimeTugEngineFFI` (the binary XCFramework), `TimeTugKitGenerated` (the
+generated Swift, built in Swift 5 mode) and `TimeTugKit` (the hand-written layer below, Swift 6 mode, `@_exported import
+TimeTugKitGenerated`). An app depends on the product `TimeTugKit`. Platforms: macOS 14, iOS 17.
+
+Shims (`Sources/TimeTugKit`, each with a test in `Tests/TimeTugKitTests/ShimTests.swift`):
+
+| Shim | What it restores |
+|---|---|
+| `Names.swift` | the name differences above as typealiases; `eventID`, `calendarID`, `sourceID`, `kindID`, `connectionID`, `seriesID`, `joinURL` as computed properties over the generated `...Id` and `...Url` fields (the `ID` and `URL` acronyms UniFFI cannot spell) |
+| `Conformances.swift` | `Identifiable` on `CalendarEvent` (`calendarId/eventId`), `Comparable` on `CalendarDate`, `seriesID`, `originalStart`, `conference`, `myResponse`, `Reminder.minutesBefore`, `accessRole`, `Error` on `SourceError` and `WriteError` |
+| `FieldUpdate.swift` | `FieldUpdate<Value>` as a generic enum with conversions to and from the concrete mirrors |
+| `SettingsPatch.swift` | `SettingsPatch(from:to:)` and `EngineCommand.applySettings(from:_:)`, the closure spelling that diffs into a patch |
+| `ObservedEngine.swift` | `states: AsyncStream<EngineState>` (full states assembled from the summaries, fetching a large part only when its revision changed) and `events: AsyncStream<EngineEvent>`, built on an internal observer, with `start`, `send(_:)`, `applySettings { }` and `shutdown` |
+
+Not restored by a shim (the app changes with the cutover, phase 6): argument labels of the host interfaces (`secrets(connectionId:)`
+instead of `secrets(for:)`), the labels of enum payloads that end in `ID` (`.occurrence(seriesId:originalStart:)`), the cases
+of `FfiError`, `HostError` and the other UniFFI error enums, which are upper camel (`.Source`, `.Denied`).
+
+## Threading rules for host implementors
+
+Every host interface is called from the engine's own thread, concurrently with the others and with the observer.
+
+- Implementations are thread-safe (`Sendable`). A class that needs main-actor or EventKit state hops to its actor or queue
+  inside the method (`await MainActor.run { }`); a main-actor-isolated `async` method may implement an `async` requirement.
+  A host interface implemented on the main actor does not deadlock while the main actor awaits `engine.send`: the engine
+  never waits for the main thread, and `send` suspends instead of blocking (tested).
+- Do not block the engine thread for long. `SettingsStorage`, `OAuthRedirectSession.redirectUri`, `DiagnosticSink`,
+  `EngineObserver` and the capability getters of `SystemCalendarSource` are synchronous and run on the engine or delivery
+  thread: return quickly. Every other method is `async`: suspend, do not block.
+- A call the engine no longer needs is cancelled: the Swift `Task` running it is cancelled, so a cooperative implementation
+  (`Task.sleep`, `URLSession`) stops.
+- Throw `HostError` for failures the engine should treat specially (`Network`, `Cancelled`, `NotFound`, `Denied`, `Failed`);
+  any other error becomes `Failed` with its description. `SystemCalendarSource` throws `FfiError`.
+- After `Engine.shutdown()` returns, no host method starts. A call that was running may still finish.
