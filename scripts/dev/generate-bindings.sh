@@ -21,7 +21,7 @@ while [ $# -gt 0 ]; do
 done
 feature_args=()
 [ -n "$features" ] && feature_args=(--features "$features")
-cargo build --locked -p timetug-engine-ffi "${feature_args[@]}" --lib
+cargo build --locked -p timetug-engine-ffi ${feature_args[@]+"${feature_args[@]}"} --lib
 cargo build --locked -p timetug-engine-ffi --features bindgen --bins
 bin="${CARGO_TARGET_DIR:-$PWD/target}/debug"
 case "$(uname -s)" in

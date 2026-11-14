@@ -206,7 +206,7 @@ impl From<WriteError> for calendar_core::write::types::WriteError {
 impl From<uniffi::UnexpectedUniFFICallbackError> for FfiError {
     fn from(error: uniffi::UnexpectedUniFFICallbackError) -> FfiError {
         FfiError::Host {
-            message: error.reason,
+            detail: error.reason,
         }
     }
 }
@@ -217,7 +217,7 @@ impl From<FfiError> for Failure {
             FfiError::Source(error) => Failure::Source(error.into()),
             FfiError::Write(error) => Failure::Write(error.into()),
             FfiError::Cancelled => Failure::Cancelled,
-            FfiError::Host { message } => Failure::Host(message),
+            FfiError::Host { detail } => Failure::Host(detail),
             FfiError::InvalidConfig { reason } => Failure::Host(reason),
         }
     }

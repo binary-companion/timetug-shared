@@ -2770,9 +2770,9 @@ public protocol OAuthRedirectSession: AnyObject, Sendable {
     func authorize(authorizationUrl: UrlString) async throws  -> UrlString
     
     /**
-     * Releases the redirect listener. Called once, also when the sign-in was cancelled.
+     * Releases the redirect listener (not called `close`: the generated Kotlin class is AutoCloseable and `close` clashes). Called once, also when the sign-in was cancelled.
      */
-    func close() async 
+    func release() async 
     
 }
 /**
@@ -2863,13 +2863,13 @@ open func authorize(authorizationUrl: UrlString)async throws  -> UrlString  {
 }
     
     /**
-     * Releases the redirect listener. Called once, also when the sign-in was cancelled.
+     * Releases the redirect listener (not called `close`: the generated Kotlin class is AutoCloseable and `close` clashes). Called once, also when the sign-in was cancelled.
      */
-open func close()async   {
+open func release()async   {
     return
         try!  await uniffiRustCallAsync(
             rustFutureFunc: {
-                uniffi_timetug_engine_ffi_fn_method_oauthredirectsession_close(
+                uniffi_timetug_engine_ffi_fn_method_oauthredirectsession_release(
                         self.uniffiCloneHandle()
                 )
             },
@@ -2975,7 +2975,7 @@ fileprivate struct UniffiCallbackInterfaceOAuthRedirectSession {
                 droppedCallback: uniffiOutDroppedCallback
             )
         },
-        close: { (
+        release: { (
             uniffiHandle: UInt64,
             uniffiFutureCallback: @escaping UniffiForeignFutureCompleteVoid,
             uniffiCallbackData: UInt64,
@@ -2986,7 +2986,7 @@ fileprivate struct UniffiCallbackInterfaceOAuthRedirectSession {
                 guard let uniffiObj = try? FfiConverterTypeOAuthRedirectSession.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
-                return await uniffiObj.close(
+                return await uniffiObj.release(
                 )
             }
 
@@ -11176,7 +11176,7 @@ enum FfiError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
     case Host(
         /**
          * The host's description.
-         */message: String
+         */detail: String
     )
     /**
      * The configuration or an argument the host passed is not acceptable.
@@ -11223,7 +11223,7 @@ public struct FfiConverterTypeFfiError: FfiConverterRustBuffer {
             try FfiConverterTypeWriteError.read(from: &buf)
             )
         case 4: return .Host(
-            message: try FfiConverterString.read(from: &buf)
+            detail: try FfiConverterString.read(from: &buf)
             )
         case 5: return .InvalidConfig(
             reason: try FfiConverterString.read(from: &buf)
@@ -11254,9 +11254,9 @@ public struct FfiConverterTypeFfiError: FfiConverterRustBuffer {
             FfiConverterTypeWriteError.write(v1, into: &buf)
             
         
-        case let .Host(message):
+        case let .Host(detail):
             writeInt(&buf, Int32(4))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(detail, into: &buf)
             
         
         case let .InvalidConfig(reason):
@@ -11626,7 +11626,7 @@ enum HostError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
     case Network(
         /**
          * The host's description; may be empty.
-         */message: String
+         */detail: String
     )
     /**
      * The user or the host cancelled.
@@ -11646,7 +11646,7 @@ enum HostError: Swift.Error, Equatable, Hashable, Foundation.LocalizedError {
     case Failed(
         /**
          * The host's description; may be empty.
-         */message: String
+         */detail: String
     )
 
     
@@ -11678,13 +11678,13 @@ public struct FfiConverterTypeHostError: FfiConverterRustBuffer {
 
         
         case 1: return .Network(
-            message: try FfiConverterString.read(from: &buf)
+            detail: try FfiConverterString.read(from: &buf)
             )
         case 2: return .Cancelled
         case 3: return .NotFound
         case 4: return .Denied
         case 5: return .Failed(
-            message: try FfiConverterString.read(from: &buf)
+            detail: try FfiConverterString.read(from: &buf)
             )
 
          default: throw UniffiInternalError.unexpectedEnumCase
@@ -11698,9 +11698,9 @@ public struct FfiConverterTypeHostError: FfiConverterRustBuffer {
 
         
         
-        case let .Network(message):
+        case let .Network(detail):
             writeInt(&buf, Int32(1))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(detail, into: &buf)
             
         
         case .Cancelled:
@@ -11715,9 +11715,9 @@ public struct FfiConverterTypeHostError: FfiConverterRustBuffer {
             writeInt(&buf, Int32(4))
         
         
-        case let .Failed(message):
+        case let .Failed(detail):
             writeInt(&buf, Int32(5))
-            FfiConverterString.write(message, into: &buf)
+            FfiConverterString.write(detail, into: &buf)
             
         }
     }
@@ -16280,7 +16280,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_timetug_engine_ffi_checksum_method_oauthredirectsession_authorize() != 34025) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_timetug_engine_ffi_checksum_method_oauthredirectsession_close() != 44191) {
+    if (uniffi_timetug_engine_ffi_checksum_method_oauthredirectsession_release() != 57050) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_timetug_engine_ffi_checksum_method_credentialstore_secrets() != 49760) {

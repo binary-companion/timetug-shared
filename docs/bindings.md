@@ -97,7 +97,7 @@ Swift `Task` is cancelled; a cooperative implementation stops).
 |---|---|---|
 | `CredentialStore` | `secrets`, `setSecrets`, `removeSecrets`, `credentialSnapshot`, `updateRefreshToken` | async; arguments are labelled `connectionId:` (Swift today: `for:`) |
 | `AuthorizationInteraction` | `beginOauthRedirect`, `promptCredentials` | async; `beginOauthRedirect` returns `OAuthRedirectHandle` (a record holding the session: UniFFI cannot return a foreign object from an async foreign method) |
-| `OAuthRedirectSession` | `redirectUri` (sync), `authorize`, `close` | async except the address |
+| `OAuthRedirectSession` | `redirectUri` (sync), `authorize`, `release` | async except the address |
 | `SignInPrompting` | `prepare`, `lastNonSecretValues` | async |
 | `SettingsStorage` | `load`, `save` | **synchronous**, like the engine's seam; return quickly |
 | `HttpTransport` | `send` | async; do not follow redirects; throw `HostError.Network` for a transport failure |
@@ -107,7 +107,7 @@ Swift `Task` is cancelled; a cooperative implementation stops).
 | `EngineObserver` | `stateChanged`, `event` | **synchronous**, called from the delivery thread one call at a time, in order; states are coalesced newest-wins, events are never dropped; nothing after `shutdown()` returns |
 | `DiagnosticSink` | `log` | synchronous |
 
-What a callback throws: `HostError` (`Network(message)`, `Cancelled`, `NotFound`, `Denied`, `Failed(message)`); any other
+What a callback throws: `HostError` (`Network(detail)`, `Cancelled`, `NotFound`, `Denied`, `Failed(detail)`); any other
 Swift error arrives as `Failed` with its description. The engine converts it as the C interface's reply errors are converted
 (general services: `Failure.Host`; HTTP: `SourceError.Network`; external tokens: fixed texts; a cancelled reply is a
 cancellation everywhere).
@@ -224,3 +224,5 @@ Time zones on Android: the workspace enables `jiff` features `tzdb-concatenated`
 documentation, Android reads the platform's concatenated zoneinfo file located through `ANDROID_ROOT` or `ANDROID_DATA`, and the
 bundled database is used on Windows only. This is documentation reading, not a test on a device; a unit test on an emulator is an
 open item.
+
+Names that exist only because of Kotlin (found by `kotlin/compile-check.sh`, 2026-11-14): the generated Kotlin makes every error enum a `Throwable` and every foreign-trait object `AutoCloseable`. So no error-enum variant has a field named `message` (`FfiError.Host`, `HostError.Network` and `HostError.Failed` use `detail`), and no foreign trait has a method named `close` (`OAuthRedirectSession.release`). Rule for new items: do not name an error field `message` or `cause`, and a trait method `close`, `finalize` or `toString`.

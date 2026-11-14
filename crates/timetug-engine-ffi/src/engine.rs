@@ -241,7 +241,7 @@ impl Engine {
             .enable_time()
             .build()
             .map_err(|error| FfiError::Host {
-                message: format!("cannot start the engine runtime: {error}"),
+                detail: format!("cannot start the engine runtime: {error}"),
             })?;
         let delivery: Arc<Delivery<Outgoing>> = Delivery::new(Arc::new(ObserverSink(observer)));
         let (clock, manual_clock): (Arc<dyn EngineClock>, Option<Arc<ManualEngineClock>>) =
@@ -343,7 +343,7 @@ impl Engine {
             shut_down: AtomicBool::new(false),
         });
         delivery.start().map_err(|error| FfiError::Host {
-            message: format!("cannot start the delivery thread: {error}"),
+            detail: format!("cannot start the delivery thread: {error}"),
         })?;
         let thread_session = session.clone();
         let fire = FireOnDrop(stopped_signal);
@@ -357,7 +357,7 @@ impl Engine {
         if let Err(error) = spawned {
             delivery.close(false);
             return Err(FfiError::Host {
-                message: format!("cannot start the engine thread: {error}"),
+                detail: format!("cannot start the engine thread: {error}"),
             });
         }
         Ok(Arc::new(Engine { session }))
