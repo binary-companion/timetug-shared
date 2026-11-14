@@ -1,0 +1,39 @@
+[package]
+name = "timetug-spike"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "timetug_spike"
+crate-type = ["staticlib", "cdylib", "lib"]
+
+[[bin]]
+name = "uniffi-bindgen-swift"
+path = "src/bin/uniffi-bindgen-swift.rs"
+required-features = ["bindgen"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["bindgen"]
+
+[features]
+bindgen = ["uniffi/cli", "uniffi/cargo-metadata"]
+
+[dependencies]
+uniffi = { version = "=0.32.2", default-features = false }
+thiserror = "=2.0.21"
+async-trait = "=0.1.92"
+tokio = { version = "=1.54.1", default-features = false, features = ["rt", "time", "sync", "macros"] }
+
+[profile.release]
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = "debuginfo"
+
+[profile.release-symbols]
+inherits = "release"
+strip = "symbols"
