@@ -781,28 +781,28 @@ internal open class UniffiVTableCallbackInterfaceAuthorizationInteraction(
     }
 
 }
-@Structure.FieldOrder("uniffiFree", "uniffiClone", "redirectUri", "authorize", "close")
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "redirectUri", "authorize", "release")
 internal open class UniffiVTableCallbackInterfaceOAuthRedirectSession(
     @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
     @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
     @JvmField internal var `redirectUri`: UniffiCallbackInterfaceOAuthRedirectSessionMethod0? = null,
     @JvmField internal var `authorize`: UniffiCallbackInterfaceOAuthRedirectSessionMethod1? = null,
-    @JvmField internal var `close`: UniffiCallbackInterfaceOAuthRedirectSessionMethod2? = null,
+    @JvmField internal var `release`: UniffiCallbackInterfaceOAuthRedirectSessionMethod2? = null,
 ) : Structure() {
     class UniffiByValue(
         `uniffiFree`: UniffiCallbackInterfaceFree? = null,
         `uniffiClone`: UniffiCallbackInterfaceClone? = null,
         `redirectUri`: UniffiCallbackInterfaceOAuthRedirectSessionMethod0? = null,
         `authorize`: UniffiCallbackInterfaceOAuthRedirectSessionMethod1? = null,
-        `close`: UniffiCallbackInterfaceOAuthRedirectSessionMethod2? = null,
-    ): UniffiVTableCallbackInterfaceOAuthRedirectSession(`uniffiFree`,`uniffiClone`,`redirectUri`,`authorize`,`close`,), Structure.ByValue
+        `release`: UniffiCallbackInterfaceOAuthRedirectSessionMethod2? = null,
+    ): UniffiVTableCallbackInterfaceOAuthRedirectSession(`uniffiFree`,`uniffiClone`,`redirectUri`,`authorize`,`release`,), Structure.ByValue
 
    internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceOAuthRedirectSession) {
         `uniffiFree` = other.`uniffiFree`
         `uniffiClone` = other.`uniffiClone`
         `redirectUri` = other.`redirectUri`
         `authorize` = other.`authorize`
-        `close` = other.`close`
+        `release` = other.`release`
     }
 
 }
@@ -1112,7 +1112,7 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_method_oauthredirectsession_authorize(
     ): Int
-    external fun uniffi_timetug_engine_ffi_checksum_method_oauthredirectsession_close(
+    external fun uniffi_timetug_engine_ffi_checksum_method_oauthredirectsession_release(
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_method_credentialstore_secrets(
     ): Int
@@ -1255,7 +1255,7 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_timetug_engine_ffi_fn_method_oauthredirectsession_authorize(`ptr`: Long,`authorizationUrl`: RustBuffer.ByValue,
     ): Long
-    external fun uniffi_timetug_engine_ffi_fn_method_oauthredirectsession_close(`ptr`: Long,
+    external fun uniffi_timetug_engine_ffi_fn_method_oauthredirectsession_release(`ptr`: Long,
     ): Long
     external fun uniffi_timetug_engine_ffi_fn_clone_credentialstore(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
@@ -1597,7 +1597,7 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_timetug_engine_ffi_checksum_method_oauthredirectsession_authorize() and 0xFFFF) != 34025) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
-    if ((lib.uniffi_timetug_engine_ffi_checksum_method_oauthredirectsession_close() and 0xFFFF) != 44191) {
+    if ((lib.uniffi_timetug_engine_ffi_checksum_method_oauthredirectsession_release() and 0xFFFF) != 57050) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_timetug_engine_ffi_checksum_method_credentialstore_secrets() and 0xFFFF) != 49760) {
@@ -5302,9 +5302,9 @@ public interface OAuthRedirectSession {
     suspend fun `authorize`(`authorizationUrl`: UrlString): UrlString
     
     /**
-     * Releases the redirect listener. Called once, also when the sign-in was cancelled.
+     * Releases the redirect listener (not called `close`: the generated Kotlin class is AutoCloseable and `close` clashes). Called once, also when the sign-in was cancelled.
      */
-    suspend fun `close`()
+    suspend fun `release`()
     
     companion object
 }
@@ -5456,13 +5456,13 @@ open class OAuthRedirectSessionImpl: Disposable, AutoCloseable, OAuthRedirectSes
 
     
     /**
-     * Releases the redirect listener. Called once, also when the sign-in was cancelled.
+     * Releases the redirect listener (not called `close`: the generated Kotlin class is AutoCloseable and `close` clashes). Called once, also when the sign-in was cancelled.
      */
     @Suppress("ASSIGNED_BUT_NEVER_ACCESSED_VARIABLE")
-    override suspend fun `close`() {
+    override suspend fun `release`() {
         return uniffiRustCallAsync(
         callWithHandle { uniffiHandle ->
-            UniffiLib.uniffi_timetug_engine_ffi_fn_method_oauthredirectsession_close(
+            UniffiLib.uniffi_timetug_engine_ffi_fn_method_oauthredirectsession_release(
                 uniffiHandle,
                 
             )
@@ -5541,11 +5541,11 @@ internal object uniffiCallbackInterfaceOAuthRedirectSession {
             )
         }
     }
-    internal object `close`: UniffiCallbackInterfaceOAuthRedirectSessionMethod2 {
+    internal object `release`: UniffiCallbackInterfaceOAuthRedirectSessionMethod2 {
         override fun callback(`uniffiHandle`: Long,`uniffiFutureCallback`: UniffiForeignFutureCompleteVoid,`uniffiCallbackData`: Long,`uniffiOutDroppedCallback`: UniffiForeignFutureDroppedCallbackStruct,) {
             val uniffiObj = FfiConverterTypeOAuthRedirectSession.handleMap.get(uniffiHandle)
             val makeCall = suspend { ->
-                uniffiObj.`close`(
+                uniffiObj.`release`(
                 )
             }
             val uniffiHandleSuccess = { _: Unit ->
@@ -5589,7 +5589,7 @@ internal object uniffiCallbackInterfaceOAuthRedirectSession {
         uniffiClone,
         `redirectUri`,
         `authorize`,
-        `close`,
+        `release`,
     )
 
     // Registers the foreign callback with the Rust side.
@@ -13156,10 +13156,10 @@ sealed class FfiException: kotlin.Exception() {
         /**
          * The host's description.
          */
-        val `message`: kotlin.String
+        val `detail`: kotlin.String
         ) : FfiException() {
         override val message
-            get() = "message=${ `message` }"
+            get() = "detail=${ `detail` }"
     }
     
     /**
@@ -13231,7 +13231,7 @@ public object FfiConverterTypeFfiError : FfiConverterRustBuffer<FfiException> {
             is FfiException.Host -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`detail`)
             )
             is FfiException.InvalidConfig -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
@@ -13259,7 +13259,7 @@ public object FfiConverterTypeFfiError : FfiConverterRustBuffer<FfiException> {
             }
             is FfiException.Host -> {
                 buf.putInt(4)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`detail`, buf)
                 Unit
             }
             is FfiException.InvalidConfig -> {
@@ -13589,10 +13589,10 @@ sealed class HostException: kotlin.Exception() {
         /**
          * The host's description; may be empty.
          */
-        val `message`: kotlin.String
+        val `detail`: kotlin.String
         ) : HostException() {
         override val message
-            get() = "message=${ `message` }"
+            get() = "detail=${ `detail` }"
     }
     
     /**
@@ -13630,10 +13630,10 @@ sealed class HostException: kotlin.Exception() {
         /**
          * The host's description; may be empty.
          */
-        val `message`: kotlin.String
+        val `detail`: kotlin.String
         ) : HostException() {
         override val message
-            get() = "message=${ `message` }"
+            get() = "detail=${ `detail` }"
     }
     
 
@@ -13673,7 +13673,7 @@ public object FfiConverterTypeHostError : FfiConverterRustBuffer<HostException> 
             is HostException.Network -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`detail`)
             )
             is HostException.Cancelled -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
@@ -13690,7 +13690,7 @@ public object FfiConverterTypeHostError : FfiConverterRustBuffer<HostException> 
             is HostException.Failed -> (
                 // Add the size for the Int that specifies the variant plus the size needed for all fields
                 4UL
-                + FfiConverterString.allocationSize(value.`message`)
+                + FfiConverterString.allocationSize(value.`detail`)
             )
         }
     }
@@ -13699,7 +13699,7 @@ public object FfiConverterTypeHostError : FfiConverterRustBuffer<HostException> 
         when(value) {
             is HostException.Network -> {
                 buf.putInt(1)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`detail`, buf)
                 Unit
             }
             is HostException.Cancelled -> {
@@ -13716,7 +13716,7 @@ public object FfiConverterTypeHostError : FfiConverterRustBuffer<HostException> 
             }
             is HostException.Failed -> {
                 buf.putInt(5)
-                FfiConverterString.write(value.`message`, buf)
+                FfiConverterString.write(value.`detail`, buf)
                 Unit
             }
         }.let { /* this makes the `when` an expression, which ensures it is exhaustive */ }
