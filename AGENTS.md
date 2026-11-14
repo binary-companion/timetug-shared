@@ -51,6 +51,10 @@ The Mac app (and any Swift host) depends on this repository by URL and tag: the 
 
 "The latest release of a branch" is defined by `scripts/release/release-tags.py` and nowhere else: a strict `X.Y.Z` tag belongs to a ref when its commit is an ancestor of the ref, or when it is a release commit (one parent, the only changed file is `Package.swift`) whose parent is an ancestor. `release.yml` (the latest version, the "already tagged" guard, the label walk) and `scripts/ci/compat/compat.py` (the baseline) call it. Never use `git tag --merged` or `git describe` to find the latest release: they cannot see release commits. Dry run: `gh workflow run Release --ref <branch> -f publish=false` builds the XCFramework and the rewritten `Package.swift` and uploads them as the artifact `swift-package-<version>`, without any tag or release.
 
+### Release checklist for the API documentation
+
+Before publishing a release (the owner or an agent), check `docs/api.md`: the install lines name the newest tag; the sizes in section 6.5 equal `docs/rust-port/size.md`; the supported platforms equal the CI jobs; `RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --locked` passes (CI runs it in `rust-lint`); the Swift status line is still true (section 7 says "not available" until a release contains `TimeTugKit`; after the first such release it must show the real install snippet and a complete example that the `swift-bindings` job builds). A Rust API diff (`cargo semver-checks`) starts with the first stable 2.x tag; until then section 2 says there is none.
+
 ## Dependents and the bump chain
 
 The chain is live and was proven by a drill on 2026-10-15: a `calendar-connectors` release dispatched to `timetug` and to this repository; this repository's bump pull request ("Bump calendar-connectors to X.Y.Z", from `.github/workflows/bump-dependencies.yml`) was merged and released a new `timetug-shared`; `timetug` then opened its own "Bump timetug-shared to X.Y.Z", which moved both pins and closed the two older bump pull requests as superseded.
