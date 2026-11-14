@@ -76,24 +76,24 @@ pub struct EngineStateSummary {
 impl EngineStateSummary {
     /// The summary of `state`, published with the part revisions `revisions`.
     pub fn of(state: &EngineEngineState, revisions: PartRevisions) -> EngineStateSummary {
-        let state = state.clone();
+        // Clones only what the summary carries: the three large parts stay where they are.
         EngineStateSummary {
             revision: state.revision,
             events_revision: revisions.events,
             agenda_revision: revisions.agenda,
             candidates_revision: revisions.candidates,
-            calendars: state.calendars.to_mirror(),
-            statuses: state.statuses.to_mirror(),
-            notices: state.notices.to_mirror(),
-            source_names: state.source_names.to_mirror(),
-            accounts: state.accounts.to_mirror(),
-            account_status: state.account_status.to_mirror(),
-            settings: state.settings.to_mirror(),
-            inference_status: state.inference_status.to_mirror(),
-            ledger: state.ledger.to_mirror(),
-            next_takeover: state.next_takeover.to_mirror(),
+            calendars: state.calendars.clone().to_mirror(),
+            statuses: state.statuses.clone().to_mirror(),
+            notices: state.notices.clone().to_mirror(),
+            source_names: state.source_names.clone().to_mirror(),
+            accounts: state.accounts.clone().to_mirror(),
+            account_status: state.account_status.clone().to_mirror(),
+            settings: state.settings.clone().to_mirror(),
+            inference_status: state.inference_status.clone().to_mirror(),
+            ledger: state.ledger.clone().to_mirror(),
+            next_takeover: state.next_takeover.clone().to_mirror(),
             takeover_visible: state.takeover_visible,
-            available_account_kinds: state.available_account_kinds.to_mirror(),
+            available_account_kinds: state.available_account_kinds.clone().to_mirror(),
         }
     }
 }
