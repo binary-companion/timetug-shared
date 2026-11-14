@@ -62,6 +62,12 @@ Measured 2026-11-14 on Apple Silicon with `scripts/dev/build-xcframework.sh --re
 | iOS simulator slice (arm64) | 76,139,144 bytes |
 
 These are static archives (object files with symbol tables, not stripped of dead code); the size a host adds is what the linker
-keeps. The size added to a linked executable and the Android `libtimetug_engine_ffi.so` (arm64-v8a, release) are not measured
-here: the second is printed by the `kotlin-bindings` CI job in its step summary, the first is measured in phase 5 Task 9. No
-size gate applies to the bindings.
+keeps. Measured the same day:
+
+| What | Size |
+|---|---|
+| A Swift command-line tool that links `TimeTugKit` and calls one engine function (`swift build -c release`, arm64), compared with an empty tool | 9,805,384 bytes against 51,720 bytes: the library adds about 9.75 MB (8.2 MB after `strip -x`) |
+| Android `libtimetug_engine_ffi.so` (arm64-v8a, `cargo ndk -t arm64-v8a build --release`, NDK 30.0.16248370 of the CI runner image, job `kotlin-bindings` of PR 75) | 4,131,632 bytes |
+
+No size gate applies to the bindings. The numbers are for the record; the Windows native payload budget (8 MB) is a separate
+gate on `timetug-engine-c`.
