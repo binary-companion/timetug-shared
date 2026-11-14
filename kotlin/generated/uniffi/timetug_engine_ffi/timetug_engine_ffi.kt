@@ -690,6 +690,9 @@ internal interface UniffiCallbackInterfaceCredentialStoreMethod4 : com.sun.jna.C
 internal interface UniffiCallbackInterfaceDiagnosticSinkMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`diagnostic`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
+internal interface UniffiCallbackInterfaceDiagnosticSinkMethod1 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`event`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
 internal interface UniffiCallbackInterfaceExternalTokenSourceMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`account`: RustBuffer.ByValue,`scopes`: RustBuffer.ByValue,`forceRefresh`: Byte,`uniffiFutureCallback`: UniffiForeignFutureCompleteRustBuffer,`uniffiCallbackData`: Long,`uniffiOutDroppedCallback`: UniffiForeignFutureDroppedCallbackStruct,)
 }
@@ -837,22 +840,25 @@ internal open class UniffiVTableCallbackInterfaceCredentialStore(
     }
 
 }
-@Structure.FieldOrder("uniffiFree", "uniffiClone", "log")
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "log", "record")
 internal open class UniffiVTableCallbackInterfaceDiagnosticSink(
     @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
     @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
     @JvmField internal var `log`: UniffiCallbackInterfaceDiagnosticSinkMethod0? = null,
+    @JvmField internal var `record`: UniffiCallbackInterfaceDiagnosticSinkMethod1? = null,
 ) : Structure() {
     class UniffiByValue(
         `uniffiFree`: UniffiCallbackInterfaceFree? = null,
         `uniffiClone`: UniffiCallbackInterfaceClone? = null,
         `log`: UniffiCallbackInterfaceDiagnosticSinkMethod0? = null,
-    ): UniffiVTableCallbackInterfaceDiagnosticSink(`uniffiFree`,`uniffiClone`,`log`,), Structure.ByValue
+        `record`: UniffiCallbackInterfaceDiagnosticSinkMethod1? = null,
+    ): UniffiVTableCallbackInterfaceDiagnosticSink(`uniffiFree`,`uniffiClone`,`log`,`record`,), Structure.ByValue
 
    internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceDiagnosticSink) {
         `uniffiFree` = other.`uniffiFree`
         `uniffiClone` = other.`uniffiClone`
         `log` = other.`log`
+        `record` = other.`record`
     }
 
 }
@@ -1076,7 +1082,11 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_func_detect_conferences(
     ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_func_event_draft_used_fields(
+    ): Int
     external fun uniffi_timetug_engine_ffi_checksum_func_event_patch_diff(
+    ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_func_event_patch_touched_fields(
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_func_event_ref_from_event(
     ): Int
@@ -1085,6 +1095,12 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_timetug_engine_ffi_checksum_func_patch_merge_conflicts(
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_func_require_writable(
+    ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_func_validate_event_draft(
+    ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_func_validate_event_timing(
+    ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_func_validate_recurrence_rule(
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_method_engine_current_agenda(
     ): Int
@@ -1125,6 +1141,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_timetug_engine_ffi_checksum_method_credentialstore_update_refresh_token(
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_log(
+    ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_record(
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_method_externaltokensource_access_token(
     ): Int
@@ -1281,6 +1299,8 @@ internal object UniffiLib {
     ): Unit
     external fun uniffi_timetug_engine_ffi_fn_method_diagnosticsink_log(`ptr`: Long,`diagnostic`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    external fun uniffi_timetug_engine_ffi_fn_method_diagnosticsink_record(`ptr`: Long,`event`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     external fun uniffi_timetug_engine_ffi_fn_clone_externaltokensource(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
     external fun uniffi_timetug_engine_ffi_fn_free_externaltokensource(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1393,7 +1413,11 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_timetug_engine_ffi_fn_func_detect_conferences(`structured`: RustBuffer.ByValue,`location`: RustBuffer.ByValue,`url`: RustBuffer.ByValue,`notes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_timetug_engine_ffi_fn_func_event_draft_used_fields(`draft`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_timetug_engine_ffi_fn_func_event_patch_diff(`original`: RustBuffer.ByValue,`edited`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_timetug_engine_ffi_fn_func_event_patch_touched_fields(`patch`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_timetug_engine_ffi_fn_func_event_ref_from_event(`event`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1402,6 +1426,12 @@ internal object UniffiLib {
     external fun uniffi_timetug_engine_ffi_fn_func_patch_merge_conflicts(`patch`: RustBuffer.ByValue,`current`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_timetug_engine_ffi_fn_func_require_writable(`fields`: RustBuffer.ByValue,`capabilities`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_timetug_engine_ffi_fn_func_validate_event_draft(`draft`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_timetug_engine_ffi_fn_func_validate_event_timing(`timing`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_timetug_engine_ffi_fn_func_validate_recurrence_rule(`rule`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun ffi_timetug_engine_ffi_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1543,7 +1573,13 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_timetug_engine_ffi_checksum_func_detect_conferences() and 0xFFFF) != 16167) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_func_event_draft_used_fields() and 0xFFFF) != 6955) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_timetug_engine_ffi_checksum_func_event_patch_diff() and 0xFFFF) != 40856) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_func_event_patch_touched_fields() and 0xFFFF) != 32248) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_timetug_engine_ffi_checksum_func_event_ref_from_event() and 0xFFFF) != 2106) {
@@ -1556,6 +1592,15 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_timetug_engine_ffi_checksum_func_require_writable() and 0xFFFF) != 22143) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_func_validate_event_draft() and 0xFFFF) != 42935) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_func_validate_event_timing() and 0xFFFF) != 17207) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_func_validate_recurrence_rule() and 0xFFFF) != 62181) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_timetug_engine_ffi_checksum_method_engine_current_agenda() and 0xFFFF) != 32976) {
@@ -1616,6 +1661,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_log() and 0xFFFF) != 2374) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_record() and 0xFFFF) != 56010) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_timetug_engine_ffi_checksum_method_externaltokensource_access_token() and 0xFFFF) != 52861) {
@@ -3339,8 +3387,10 @@ public object FfiConverterTypeCredentialStore: FfiConverter<CredentialStore, Lon
 
 
 /**
- * Receives the engine's diagnostics. Called from the engine thread; return quickly. Diagnostics never contain tokens,
- * passwords, addresses or feed links.
+ * Receives the engine's diagnostics (`log`) and the structured events its connectors report (`record`). Called from the
+ * engine thread; return quickly. Diagnostics never contain tokens, passwords, addresses or feed links; a string field of a
+ * connector event is private (`isPrivate`) unless the connector marked it public, and a host's report shows private values
+ * as a placeholder by default.
  */
 public interface DiagnosticSink {
     
@@ -3349,12 +3399,21 @@ public interface DiagnosticSink {
      */
     fun `log`(`diagnostic`: EngineDiagnostic)
     
+    /**
+     * Records one structured event of a connector (for example the iCalendar subscription's `fetchCompleted`), as the
+     * connector library's `DiagnosticLog.record` reported it: level, category, name, fields with their privacy flag, and
+     * the engine clock's time. Added in 2.1.0; the Swift package gives it an empty default.
+     */
+    fun `record`(`event`: DiagnosticEvent)
+    
     companion object
 }
 
 /**
- * Receives the engine's diagnostics. Called from the engine thread; return quickly. Diagnostics never contain tokens,
- * passwords, addresses or feed links.
+ * Receives the engine's diagnostics (`log`) and the structured events its connectors report (`record`). Called from the
+ * engine thread; return quickly. Diagnostics never contain tokens, passwords, addresses or feed links; a string field of a
+ * connector event is private (`isPrivate`) unless the connector marked it public, and a host's report shows private values
+ * as a placeholder by default.
  */
 open class DiagnosticSinkImpl: Disposable, AutoCloseable, DiagnosticSink
 {
@@ -3474,6 +3533,24 @@ open class DiagnosticSinkImpl: Disposable, AutoCloseable, DiagnosticSink
     
 
     
+    /**
+     * Records one structured event of a connector (for example the iCalendar subscription's `fetchCompleted`), as the
+     * connector library's `DiagnosticLog.record` reported it: level, category, name, fields with their privacy flag, and
+     * the engine clock's time. Added in 2.1.0; the Swift package gives it an empty default.
+     */override fun `record`(`event`: DiagnosticEvent)
+        = 
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_method_diagnosticsink_record(
+        it,
+        
+        FfiConverterTypeDiagnosticEvent.lower(`event`),_status)
+}
+    }
+    
+    
+
+    
 
     
 
@@ -3503,6 +3580,18 @@ internal object uniffiCallbackInterfaceDiagnosticSink {
             uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
         }
     }
+    internal object `record`: UniffiCallbackInterfaceDiagnosticSinkMethod1 {
+        override fun callback(`uniffiHandle`: Long,`event`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeDiagnosticSink.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`record`(
+                    FfiConverterTypeDiagnosticEvent.lift(`event`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
 
     internal object uniffiFree: UniffiCallbackInterfaceFree {
         override fun callback(handle: Long) {
@@ -3520,6 +3609,7 @@ internal object uniffiCallbackInterfaceDiagnosticSink {
         uniffiFree,
         uniffiClone,
         `log`,
+        `record`,
     )
 
     // Registers the foreign callback with the Rust side.
@@ -9743,6 +9833,8 @@ data class EngineState (
     , 
     var `takeoverVisible`: kotlin.Boolean
     , 
+    var `nextPendingStart`: Timestamp?
+    , 
     var `availableAccountKinds`: List<AccountKindInfo>
     
 ){
@@ -9775,6 +9867,7 @@ public object FfiConverterTypeEngineState: FfiConverterRustBuffer<EngineState> {
             FfiConverterTypeTakeoverLedger.read(buf),
             FfiConverterOptionalTypeScheduledTakeover.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterOptionalTypeTimestamp.read(buf),
             FfiConverterSequenceTypeAccountKindInfo.read(buf),
         )
     }
@@ -9795,6 +9888,7 @@ public object FfiConverterTypeEngineState: FfiConverterRustBuffer<EngineState> {
             FfiConverterTypeTakeoverLedger.allocationSize(value.`ledger`) +
             FfiConverterOptionalTypeScheduledTakeover.allocationSize(value.`nextTakeover`) +
             FfiConverterBoolean.allocationSize(value.`takeoverVisible`) +
+            FfiConverterOptionalTypeTimestamp.allocationSize(value.`nextPendingStart`) +
             FfiConverterSequenceTypeAccountKindInfo.allocationSize(value.`availableAccountKinds`)
     )
 
@@ -9814,6 +9908,7 @@ public object FfiConverterTypeEngineState: FfiConverterRustBuffer<EngineState> {
             FfiConverterTypeTakeoverLedger.write(value.`ledger`, buf)
             FfiConverterOptionalTypeScheduledTakeover.write(value.`nextTakeover`, buf)
             FfiConverterBoolean.write(value.`takeoverVisible`, buf)
+            FfiConverterOptionalTypeTimestamp.write(value.`nextPendingStart`, buf)
             FfiConverterSequenceTypeAccountKindInfo.write(value.`availableAccountKinds`, buf)
     }
 }
@@ -9855,6 +9950,12 @@ data class EngineStateSummary (
     , 
     var `takeoverVisible`: kotlin.Boolean
     , 
+    /**
+     * The start of the next meeting that still qualifies for a takeover, whether or not one is on screen (`next_takeover`
+     * is `None` while one is). A menu bar icon that turns "soon" ten minutes ahead reads this one.
+     */
+    var `nextPendingStart`: Timestamp?
+    , 
     var `availableAccountKinds`: List<AccountKindInfo>
     
 ){
@@ -9887,6 +9988,7 @@ public object FfiConverterTypeEngineStateSummary: FfiConverterRustBuffer<EngineS
             FfiConverterTypeTakeoverLedger.read(buf),
             FfiConverterOptionalTypeScheduledTakeover.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterOptionalTypeTimestamp.read(buf),
             FfiConverterSequenceTypeAccountKindInfo.read(buf),
         )
     }
@@ -9907,6 +10009,7 @@ public object FfiConverterTypeEngineStateSummary: FfiConverterRustBuffer<EngineS
             FfiConverterTypeTakeoverLedger.allocationSize(value.`ledger`) +
             FfiConverterOptionalTypeScheduledTakeover.allocationSize(value.`nextTakeover`) +
             FfiConverterBoolean.allocationSize(value.`takeoverVisible`) +
+            FfiConverterOptionalTypeTimestamp.allocationSize(value.`nextPendingStart`) +
             FfiConverterSequenceTypeAccountKindInfo.allocationSize(value.`availableAccountKinds`)
     )
 
@@ -9926,6 +10029,7 @@ public object FfiConverterTypeEngineStateSummary: FfiConverterRustBuffer<EngineS
             FfiConverterTypeTakeoverLedger.write(value.`ledger`, buf)
             FfiConverterOptionalTypeScheduledTakeover.write(value.`nextTakeover`, buf)
             FfiConverterBoolean.write(value.`takeoverVisible`, buf)
+            FfiConverterOptionalTypeTimestamp.write(value.`nextPendingStart`, buf)
             FfiConverterSequenceTypeAccountKindInfo.write(value.`availableAccountKinds`, buf)
     }
 }
@@ -18056,6 +18160,21 @@ public typealias FfiConverterTypeZone = FfiConverterString
     
 
         /**
+         * `EventDraft.usedFields`: the fields the draft sets beyond their defaults (title and timing always), which a connector
+         * checks against its writable fields (`require_writable`).
+         */ fun `eventDraftUsedFields`(`draft`: EventDraft): Set<EventField> {
+            return FfiConverterSetTypeEventField.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_func_event_draft_used_fields(
+    
+        
+        FfiConverterTypeEventDraft.lower(`draft`),_status)
+}
+    )
+    }
+    
+
+        /**
          * The two copies of an event compared as a patch that carries the first as its base (`EventPatch(from:to:)`).
          */ fun `eventPatchDiff`(`original`: CalendarEvent, `edited`: CalendarEvent): EventPatch {
             return FfiConverterTypeEventPatch.lift(
@@ -18065,6 +18184,21 @@ public typealias FfiConverterTypeZone = FfiConverterString
         
         FfiConverterTypeCalendarEvent.lower(`original`),
         FfiConverterTypeCalendarEvent.lower(`edited`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * `EventPatch.touchedFields`: the fields the patch changes. A patch with a base counts the fields that differ from it
+         * (`event_patch_diff`), so a field set to the value the base already has is not touched.
+         */ fun `eventPatchTouchedFields`(`patch`: EventPatch): Set<EventField> {
+            return FfiConverterSetTypeEventField.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_func_event_patch_touched_fields(
+    
+        
+        FfiConverterTypeEventPatch.lower(`patch`),_status)
 }
     )
     }
@@ -18124,6 +18258,51 @@ public typealias FfiConverterTypeZone = FfiConverterString
         
         FfiConverterSetTypeEventField.lower(`fields`),
         FfiConverterTypeSourceCapabilities.lower(`capabilities`),_status)
+}
+    
+    
+
+        /**
+         * `EventDraft.validate()`: the timing, the recurrence rule, the attendee addresses and the reminders. Throws
+         * `FfiError.Write` (`WriteError.Invalid` or `.Unsupported`) before any request or store change.
+         */
+    @Throws(FfiException::class) fun `validateEventDraft`(`draft`: EventDraft)
+        = 
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_func_validate_event_draft(
+    
+        
+        FfiConverterTypeEventDraft.lower(`draft`),_status)
+}
+    
+    
+
+        /**
+         * `EventTiming.validate()`: the end is after the start, and an all-day timing has a zone and starts and ends at midnight
+         * in it.
+         */
+    @Throws(FfiException::class) fun `validateEventTiming`(`timing`: EventTiming)
+        = 
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_func_validate_event_timing(
+    
+        
+        FfiConverterTypeEventTiming.lower(`timing`),_status)
+}
+    
+    
+
+        /**
+         * `RecurrenceRule.validate()`: `Invalid` for an interval or a count below 1 or a part out of range, `Unsupported` for a
+         * rule the writers cannot store.
+         */
+    @Throws(FfiException::class) fun `validateRecurrenceRule`(`rule`: RecurrenceRule)
+        = 
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_func_validate_recurrence_rule(
+    
+        
+        FfiConverterTypeRecurrenceRule.lower(`rule`),_status)
 }
     
     

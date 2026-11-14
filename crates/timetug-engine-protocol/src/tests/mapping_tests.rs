@@ -50,6 +50,8 @@ fn every_engine_state_property_has_a_wire_field() {
         ledger: _,
         next_takeover: _,
         takeover_visible: _,
+        // Added for the bindings (phase 6) and deliberately not on the wire: the wire contract is frozen.
+        next_pending_start: _,
         available_account_kinds: _,
     } = EngineState::empty();
     let engine: BTreeSet<&str> = [

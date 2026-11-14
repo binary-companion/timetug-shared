@@ -143,6 +143,7 @@ private final class StreamHub: EngineObserver, @unchecked Sendable {
             candidates: parts.candidates, accounts: summary.accounts, accountStatus: summary.accountStatus,
             settings: summary.settings, inferenceStatus: summary.inferenceStatus, ledger: summary.ledger,
             nextTakeover: summary.nextTakeover, takeoverVisible: summary.takeoverVisible,
+            nextPendingStart: summary.nextPendingStart,
             availableAccountKinds: summary.availableAccountKinds)
         lock.lock()
         self.parts = parts

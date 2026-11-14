@@ -1432,8 +1432,10 @@ public func FfiConverterTypeCredentialStore_lower(_ value: CredentialStore) -> U
 
 
 /**
- * Receives the engine's diagnostics. Called from the engine thread; return quickly. Diagnostics never contain tokens,
- * passwords, addresses or feed links.
+ * Receives the engine's diagnostics (`log`) and the structured events its connectors report (`record`). Called from the
+ * engine thread; return quickly. Diagnostics never contain tokens, passwords, addresses or feed links; a string field of a
+ * connector event is private (`isPrivate`) unless the connector marked it public, and a host's report shows private values
+ * as a placeholder by default.
  */
 public protocol DiagnosticSink: AnyObject, Sendable {
     
@@ -1442,10 +1444,19 @@ public protocol DiagnosticSink: AnyObject, Sendable {
      */
     func log(diagnostic: EngineDiagnostic) 
     
+    /**
+     * Records one structured event of a connector (for example the iCalendar subscription's `fetchCompleted`), as the
+     * connector library's `DiagnosticLog.record` reported it: level, category, name, fields with their privacy flag, and
+     * the engine clock's time. Added in 2.1.0; the Swift package gives it an empty default.
+     */
+    func record(event: DiagnosticEvent) 
+    
 }
 /**
- * Receives the engine's diagnostics. Called from the engine thread; return quickly. Diagnostics never contain tokens,
- * passwords, addresses or feed links.
+ * Receives the engine's diagnostics (`log`) and the structured events its connectors report (`record`). Called from the
+ * engine thread; return quickly. Diagnostics never contain tokens, passwords, addresses or feed links; a string field of a
+ * connector event is private (`isPrivate`) unless the connector marked it public, and a host's report shows private values
+ * as a placeholder by default.
  */
 open class DiagnosticSinkImpl: DiagnosticSink, @unchecked Sendable {
     fileprivate let handle: UInt64
@@ -1512,6 +1523,20 @@ open func log(diagnostic: EngineDiagnostic)  {try! rustCall() {
 }
 }
     
+    /**
+     * Records one structured event of a connector (for example the iCalendar subscription's `fetchCompleted`), as the
+     * connector library's `DiagnosticLog.record` reported it: level, category, name, fields with their privacy flag, and
+     * the engine clock's time. Added in 2.1.0; the Swift package gives it an empty default.
+     */
+open func record(event: DiagnosticEvent)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_timetug_engine_ffi_fn_method_diagnosticsink_record(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeDiagnosticEvent_lower(event),uniffiCallStatus
+    )
+}
+}
+    
 
     
 }
@@ -1553,6 +1578,30 @@ fileprivate struct UniffiCallbackInterfaceDiagnosticSink {
                 }
                 return uniffiObj.log(
                      diagnostic: try FfiConverterTypeEngineDiagnostic_lift(diagnostic)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        record: { (
+            uniffiHandle: UInt64,
+            event: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterTypeDiagnosticSink.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.record(
+                     event: try FfiConverterTypeDiagnosticEvent_lift(event)
                 )
             }
 
@@ -7029,11 +7078,12 @@ public struct EngineState: Equatable, Hashable {
     public var ledger: TakeoverLedger
     public var nextTakeover: ScheduledTakeover?
     public var takeoverVisible: Bool
+    public var nextPendingStart: Timestamp?
     public var availableAccountKinds: [AccountKindInfo]
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(revision: UInt64, agenda: DayAgenda, events: [TimeTugCalendarEvent], calendars: [CalendarInfo], statuses: [String: SourceStatus], notices: [String: [SourceNotice]], sourceNames: [String: String], candidates: [String: [TimeTugCalendarEvent]], accounts: [Connection], accountStatus: AccountStatus, settings: EngineSettings, inferenceStatus: InferenceStatus, ledger: TakeoverLedger, nextTakeover: ScheduledTakeover?, takeoverVisible: Bool, availableAccountKinds: [AccountKindInfo]) {
+    public init(revision: UInt64, agenda: DayAgenda, events: [TimeTugCalendarEvent], calendars: [CalendarInfo], statuses: [String: SourceStatus], notices: [String: [SourceNotice]], sourceNames: [String: String], candidates: [String: [TimeTugCalendarEvent]], accounts: [Connection], accountStatus: AccountStatus, settings: EngineSettings, inferenceStatus: InferenceStatus, ledger: TakeoverLedger, nextTakeover: ScheduledTakeover?, takeoverVisible: Bool, nextPendingStart: Timestamp?, availableAccountKinds: [AccountKindInfo]) {
         self.revision = revision
         self.agenda = agenda
         self.events = events
@@ -7049,6 +7099,7 @@ public struct EngineState: Equatable, Hashable {
         self.ledger = ledger
         self.nextTakeover = nextTakeover
         self.takeoverVisible = takeoverVisible
+        self.nextPendingStart = nextPendingStart
         self.availableAccountKinds = availableAccountKinds
     }
 
@@ -7083,6 +7134,7 @@ public struct FfiConverterTypeEngineState: FfiConverterRustBuffer {
                 ledger: FfiConverterTypeTakeoverLedger.read(from: &buf), 
                 nextTakeover: FfiConverterOptionTypeScheduledTakeover.read(from: &buf), 
                 takeoverVisible: FfiConverterBool.read(from: &buf), 
+                nextPendingStart: FfiConverterOptionTypeTimestamp.read(from: &buf), 
                 availableAccountKinds: FfiConverterSequenceTypeAccountKindInfo.read(from: &buf)
         )
     }
@@ -7103,6 +7155,7 @@ public struct FfiConverterTypeEngineState: FfiConverterRustBuffer {
         FfiConverterTypeTakeoverLedger.write(value.ledger, into: &buf)
         FfiConverterOptionTypeScheduledTakeover.write(value.nextTakeover, into: &buf)
         FfiConverterBool.write(value.takeoverVisible, into: &buf)
+        FfiConverterOptionTypeTimestamp.write(value.nextPendingStart, into: &buf)
         FfiConverterSequenceTypeAccountKindInfo.write(value.availableAccountKinds, into: &buf)
     }
 }
@@ -7143,11 +7196,20 @@ public struct EngineStateSummary: Equatable, Hashable {
     public var ledger: TakeoverLedger
     public var nextTakeover: ScheduledTakeover?
     public var takeoverVisible: Bool
+    /**
+     * The start of the next meeting that still qualifies for a takeover, whether or not one is on screen (`next_takeover`
+     * is `None` while one is). A menu bar icon that turns "soon" ten minutes ahead reads this one.
+     */
+    public var nextPendingStart: Timestamp?
     public var availableAccountKinds: [AccountKindInfo]
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    public init(revision: UInt64, eventsRevision: UInt64, agendaRevision: UInt64, candidatesRevision: UInt64, calendars: [CalendarInfo], statuses: [String: SourceStatus], notices: [String: [SourceNotice]], sourceNames: [String: String], accounts: [Connection], accountStatus: AccountStatus, settings: EngineSettings, inferenceStatus: InferenceStatus, ledger: TakeoverLedger, nextTakeover: ScheduledTakeover?, takeoverVisible: Bool, availableAccountKinds: [AccountKindInfo]) {
+    public init(revision: UInt64, eventsRevision: UInt64, agendaRevision: UInt64, candidatesRevision: UInt64, calendars: [CalendarInfo], statuses: [String: SourceStatus], notices: [String: [SourceNotice]], sourceNames: [String: String], accounts: [Connection], accountStatus: AccountStatus, settings: EngineSettings, inferenceStatus: InferenceStatus, ledger: TakeoverLedger, nextTakeover: ScheduledTakeover?, takeoverVisible: Bool, 
+        /**
+         * The start of the next meeting that still qualifies for a takeover, whether or not one is on screen (`next_takeover`
+         * is `None` while one is). A menu bar icon that turns "soon" ten minutes ahead reads this one.
+         */nextPendingStart: Timestamp?, availableAccountKinds: [AccountKindInfo]) {
         self.revision = revision
         self.eventsRevision = eventsRevision
         self.agendaRevision = agendaRevision
@@ -7163,6 +7225,7 @@ public struct EngineStateSummary: Equatable, Hashable {
         self.ledger = ledger
         self.nextTakeover = nextTakeover
         self.takeoverVisible = takeoverVisible
+        self.nextPendingStart = nextPendingStart
         self.availableAccountKinds = availableAccountKinds
     }
 
@@ -7197,6 +7260,7 @@ public struct FfiConverterTypeEngineStateSummary: FfiConverterRustBuffer {
                 ledger: FfiConverterTypeTakeoverLedger.read(from: &buf), 
                 nextTakeover: FfiConverterOptionTypeScheduledTakeover.read(from: &buf), 
                 takeoverVisible: FfiConverterBool.read(from: &buf), 
+                nextPendingStart: FfiConverterOptionTypeTimestamp.read(from: &buf), 
                 availableAccountKinds: FfiConverterSequenceTypeAccountKindInfo.read(from: &buf)
         )
     }
@@ -7217,6 +7281,7 @@ public struct FfiConverterTypeEngineStateSummary: FfiConverterRustBuffer {
         FfiConverterTypeTakeoverLedger.write(value.ledger, into: &buf)
         FfiConverterOptionTypeScheduledTakeover.write(value.nextTakeover, into: &buf)
         FfiConverterBool.write(value.takeoverVisible, into: &buf)
+        FfiConverterOptionTypeTimestamp.write(value.nextPendingStart, into: &buf)
         FfiConverterSequenceTypeAccountKindInfo.write(value.availableAccountKinds, into: &buf)
     }
 }
@@ -16133,6 +16198,18 @@ public func detectConferences(structured: [ConferenceInfo], location: String?, u
 })
 }
 /**
+ * `EventDraft.usedFields`: the fields the draft sets beyond their defaults (title and timing always), which a connector
+ * checks against its writable fields (`require_writable`).
+ */
+public func eventDraftUsedFields(draft: EventDraft) -> Set<EventField>  {
+    return try!  FfiConverterSetTypeEventField.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_timetug_engine_ffi_fn_func_event_draft_used_fields(
+        FfiConverterTypeEventDraft_lower(draft),uniffiCallStatus
+    )
+})
+}
+/**
  * The two copies of an event compared as a patch that carries the first as its base (`EventPatch(from:to:)`).
  */
 public func eventPatchDiff(original: CalendarEvent, edited: CalendarEvent) -> EventPatch  {
@@ -16141,6 +16218,18 @@ public func eventPatchDiff(original: CalendarEvent, edited: CalendarEvent) -> Ev
     uniffi_timetug_engine_ffi_fn_func_event_patch_diff(
         FfiConverterTypeCalendarEvent_lower(original),
         FfiConverterTypeCalendarEvent_lower(edited),uniffiCallStatus
+    )
+})
+}
+/**
+ * `EventPatch.touchedFields`: the fields the patch changes. A patch with a base counts the fields that differ from it
+ * (`event_patch_diff`), so a field set to the value the base already has is not touched.
+ */
+public func eventPatchTouchedFields(patch: EventPatch) -> Set<EventField>  {
+    return try!  FfiConverterSetTypeEventField.lift(try! rustCall() {
+        uniffiCallStatus in
+    uniffi_timetug_engine_ffi_fn_func_event_patch_touched_fields(
+        FfiConverterTypeEventPatch_lower(patch),uniffiCallStatus
     )
 })
 }
@@ -16189,6 +16278,39 @@ public func requireWritable(fields: Set<EventField>, capabilities: SourceCapabil
     )
 }
 }
+/**
+ * `EventDraft.validate()`: the timing, the recurrence rule, the attendee addresses and the reminders. Throws
+ * `FfiError.Write` (`WriteError.Invalid` or `.Unsupported`) before any request or store change.
+ */
+public func validateEventDraft(draft: EventDraft)throws   {try rustCallWithError(FfiConverterTypeFfiError_lift) {
+        uniffiCallStatus in
+    uniffi_timetug_engine_ffi_fn_func_validate_event_draft(
+        FfiConverterTypeEventDraft_lower(draft),uniffiCallStatus
+    )
+}
+}
+/**
+ * `EventTiming.validate()`: the end is after the start, and an all-day timing has a zone and starts and ends at midnight
+ * in it.
+ */
+public func validateEventTiming(timing: EventTiming)throws   {try rustCallWithError(FfiConverterTypeFfiError_lift) {
+        uniffiCallStatus in
+    uniffi_timetug_engine_ffi_fn_func_validate_event_timing(
+        FfiConverterTypeEventTiming_lower(timing),uniffiCallStatus
+    )
+}
+}
+/**
+ * `RecurrenceRule.validate()`: `Invalid` for an interval or a count below 1 or a part out of range, `Unsupported` for a
+ * rule the writers cannot store.
+ */
+public func validateRecurrenceRule(rule: RecurrenceRule)throws   {try rustCallWithError(FfiConverterTypeFfiError_lift) {
+        uniffiCallStatus in
+    uniffi_timetug_engine_ffi_fn_func_validate_recurrence_rule(
+        FfiConverterTypeRecurrenceRule_lower(rule),uniffiCallStatus
+    )
+}
+}
 
 private enum InitializationResult {
     case ok
@@ -16226,7 +16348,13 @@ private let initializationResult: InitializationResult = {
     if (uniffi_timetug_engine_ffi_checksum_func_detect_conferences() != 16167) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_timetug_engine_ffi_checksum_func_event_draft_used_fields() != 6955) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_timetug_engine_ffi_checksum_func_event_patch_diff() != 40856) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_timetug_engine_ffi_checksum_func_event_patch_touched_fields() != 32248) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_timetug_engine_ffi_checksum_func_event_ref_from_event() != 2106) {
@@ -16239,6 +16367,15 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_timetug_engine_ffi_checksum_func_require_writable() != 22143) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_timetug_engine_ffi_checksum_func_validate_event_draft() != 42935) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_timetug_engine_ffi_checksum_func_validate_event_timing() != 17207) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_timetug_engine_ffi_checksum_func_validate_recurrence_rule() != 62181) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_timetug_engine_ffi_checksum_method_engine_current_agenda() != 32976) {
@@ -16299,6 +16436,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_log() != 2374) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_record() != 56010) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_timetug_engine_ffi_checksum_method_externaltokensource_access_token() != 52861) {

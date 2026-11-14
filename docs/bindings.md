@@ -50,6 +50,18 @@ same behaviour.
 | `JoinURLPolicy` | `join_url_is_allowed` |
 | `WriteValidation` | `require_writable` |
 | `PatchMerge` | `patch_merge_conflicts`, `event_patch_diff` |
+| `EventDraft.usedFields` | `event_draft_used_fields` |
+| `EventPatch.touchedFields` | `event_patch_touched_fields` |
+| `EventDraft.validate` | `validate_event_draft` |
+| `EventTiming.validate` | `validate_event_timing` |
+| `RecurrenceRule.validate` | `validate_recurrence_rule` |
+
+The last five (2.1.0, the write checks the EventKit adapter runs before it touches the store) wrap the `calendar-core` methods
+of the same name, so a rule stays in one place. The three `validate_*` functions throw `FfiError.Write` carrying
+`WriteError.invalid(reason)` or `.unsupported(fields)`, the same case `require_writable` throws; `event_draft_used_fields` and
+`event_patch_touched_fields` return what `require_writable` takes as its first argument. A patch with a base counts the fields that
+differ from the base (it is rebuilt from the comparison on the way in), so a field set to the value the base already has is not
+touched.
 
 `PatchMerge.apply` (the retry loop around a host write, generic over two host closures) is not exported: the EventKit adapter
 keeps the loop (about ten lines) and calls `patch_merge_conflicts` for the field comparison. A patch made with
@@ -68,15 +80,22 @@ keeps the loop (about ten lines) and calls `patch_merge_conflicts` for the field
 | `CalendarSnapshot` | The engine's `EngineState` carries the same data. |
 | `CalendarSource`, `SeriesSource`, `WritableCalendarSource`, `ConnectedSource`, `SyncStateStore` | The source seam stays inside the engine; the host implements `SystemCalendarSource`. |
 | `SHA256Hashing` | Removed: the engine hashes with `sha2`. |
-| `Scheduler` | The engine computes the next takeover: the app reads `EngineState.nextTakeover`. Phase 6 verifies that `MenuBarIconState` can use it (it is `nil` while a takeover is on screen). |
+| `Scheduler` | The engine computes the next takeover: the app reads `EngineState.nextTakeover` (it is `nil` while a takeover is on screen) and, for the menu bar icon, `EngineStateSummary.nextPendingStart`: the start of what `Scheduler.next` over the events, the settings and the ledger returns at the time of the state, whether or not a takeover is out (2.1.0). The icon is "soon" when `nextPendingStart - now <= 10 minutes`. |
 | `WidgetTimeline`, `NextUp`, `TodayRow` | App code: widgets do not link the engine (design 6.6); `WidgetSnapshot` is the contract. |
-| `DiagnosticLog`, `FanOutDiagnosticLog`, `NullDiagnosticLog`, `RingBufferDiagnosticLog`, `EngineDiagnosticSink` | The engine reports diagnostics through the `DiagnosticSink` host interface; the app keeps its own log collection in Swift. |
+| `DiagnosticLog`, `FanOutDiagnosticLog`, `NullDiagnosticLog`, `RingBufferDiagnosticLog`, `EngineDiagnosticSink` | The engine reports its own lines through `DiagnosticSink.log` and the connectors' structured events (`DiagnosticEvent`, with the private flag of each field) through `DiagnosticSink.record` (2.1.0); the app keeps its own log collection (ring buffer, fan-out, redaction) in Swift. |
 | `Value` | The generic parameter of `FieldUpdate<Value>`, not a type; `FieldUpdate` has one mirror per instantiation (`FieldUpdateString`, `FieldUpdateReminders`, `FieldUpdateRecurrenceRule`). |
 
 ## Planned
 
 | Swift name | Task |
 |---|---|
+
+## The state summary
+
+`EngineStateSummary` carries `nextPendingStart` (2.1.0, additive): the start of the next meeting that still qualifies for a takeover,
+computed as `Scheduler.next` over the events, the settings and the ledger each time the engine publishes a state. It is not part of the
+wire contract of the C interface. See "Not exposed" (`Scheduler`) for how the Mac app uses it. A host that builds an `EngineState` by hand
+(the Swift package's `ObservedEngine` does) passes it.
 
 ## Mirrors that differ from the engine type
 
@@ -105,7 +124,7 @@ Swift `Task` is cancelled; a cooperative implementation stops).
 | `ExternalTokenSource` | `accessToken`, `signIn` | async |
 | `SystemCalendarSource` | `id`, `displayName`, `capabilities` (sync); `requestAccess`, `calendars`, `eventsIn(start:end:)`, `series`, `create`, `update`, `delete`, `respond`, `setChangeHandler` | async; errors are `FfiError` (`.Source(.needsPermission)`, `.Write(.forbidden(nil))`); the engine calls `setChangeHandler` once, before the first read, and the host calls `eventsChanged`, `calendarsChanged` or `sourceFailed` on the handler it was given |
 | `EngineObserver` | `stateChanged`, `event` | **synchronous**, called from the delivery thread one call at a time, in order; states are coalesced newest-wins, events are never dropped; nothing after `shutdown()` returns |
-| `DiagnosticSink` | `log` | synchronous |
+| `DiagnosticSink` | `log`, `record` | synchronous; `record(event:)` (2.1.0) gets each structured event of a connector (today the iCalendar subscription's), with its privacy flags and the engine clock's time, in order; an engine without a sink drops them. A Swift sink that only needs `log` keeps compiling (the package gives `record` an empty default); a Kotlin implementor must add `record`, since UniFFI has no default methods for foreign traits |
 
 What a callback throws: `HostError` (`Network(detail)`, `Cancelled`, `NotFound`, `Denied`, `Failed(detail)`); any other
 Swift error arrives as `Failed` with its description. The engine converts it as the C interface's reply errors are converted
@@ -151,8 +170,8 @@ public final class Engine {
 - **Commands**: those of one kind of work (accounts, settings, takeovers, ...) run one after another in send order; kinds do
   not wait for each other, so a sign-in waiting for a person never holds up a takeover. `send` returns when the engine
   finished the command, and at once after `shutdown()`.
-- **Diagnostics** go to `EngineHostInterfaces.diagnostics` when the host gave one, otherwise they arrive as
-  `EngineEvent.diagnostic`.
+- **Diagnostics** go to `EngineHostInterfaces.diagnostics` when the host gave one (`log` for the engine's lines, `record` for the
+  connectors' events), otherwise the engine's lines arrive as `EngineEvent.diagnostic` and the connectors' events are dropped.
 - `EngineConfig` flags and interfaces must agree: `textGeneration`, `externalTokens` and `systemCalendar` are on exactly when
   the matching interface is passed, else `InvalidConfig`.
 - Tests of the host can build the library with the cargo feature `test-clock`, which adds `Engine.newForTesting(config:host:observer:clockStart:)`
@@ -184,8 +203,10 @@ Shims (`Sources/TimeTugKit`, each with a test in `Tests/TimeTugKitTests/ShimTest
 
 | Shim | What it restores |
 |---|---|
-| `Names.swift` | the name differences above as typealiases; `eventID`, `calendarID`, `sourceID`, `kindID`, `connectionID`, `seriesID`, `joinURL` as computed properties over the generated `...Id` and `...Url` fields (the `ID` and `URL` acronyms UniFFI cannot spell) |
-| `Conformances.swift` | `Identifiable` on `CalendarEvent` (`calendarId/eventId`), `Comparable` on `CalendarDate`, `seriesID`, `originalStart`, `conference`, `myResponse`, `Reminder.minutesBefore`, `accessRole`, `Error` on `SourceError` and `WriteError` |
+| `Names.swift` | the name differences above as typealiases, and the nested `RecurrenceRule.Frequency`, `.Weekday` and `.WeekdayOccurrence` (2.1.0); `eventID`, `calendarID`, `sourceID`, `kindID`, `connectionID`, `seriesID`, `joinURL` as computed properties over the generated `...Id` and `...Url` fields (the `ID` and `URL` acronyms UniFFI cannot spell) |
+| `Conformances.swift` | `Identifiable` on `CalendarEvent` (`calendarId/eventId`), `Comparable` on `CalendarDate`, `seriesID`, `originalStart`, `conference`, `myResponse`, `Reminder.minutesBefore`, `accessRole`, `Error` on `SourceError` and `WriteError`; (2.1.0) on `TimeTugCalendarEvent` `init(event:sourceID:)` with the 1.x derived fields, the forwarded accessors (`title`, `start`, `end`, `isAllDay`, `timeZone`, `location`, `notes`, `url`, `calendarID`), `conferenceURL`, `shownStart`, `Identifiable` with `id` (`sourceId/eventId/<start seconds>`, the engine's formula), `contentKey`, `calendarKey`, `allCalendarKeys`; on `CalendarInfo` `init(sourceID:calendarID:title:...)` with defaults, `key`, `id`, `key(sourceID:calendarID:)`; on `Connection` `init(kindID:connectionID:displayName:config:)`, `sourceID` (`kindId-connectionId`) and `id`; `RawRepresentable` and the static values of `CalendarService` (`eventKit`, `google`, `microsoft`, `calDAV`, `iCalSubscription`) and `CalendarProvider` (`iCloud`, `google`, `microsoft`, `local`, `subscription`, `calDAV`), with the 1.x raw strings; the empty default of `DiagnosticSink.record` |
+| `TakeoverSettings.swift` | (2.1.0) `TakeoverSettings()` with the 1.x defaults (60 s, all-day events skipped, enabled), `Codable` with the 1.x lenient decoder and encoder (the JSON the Mac app keeps in UserDefaults, including the keys of earlier versions `disabled` and `skipSoloEvents`), `isShownInList`, `setTakeover(_:forCalendar:)` and `(_:forCalendars:)`, `setShownInList(_:forCalendar:)`, `removeCalendars(...)` |
+| `Initializers.swift` | (2.1.0) the convenience initialisers with the 1.x defaults and labels: `CalendarEvent(eventID:calendarID:title:start:end:...)`, `CalendarDescriptor(id:title:service:...)` (the colour is normalised), `CalendarPermissions`, `SourceCapabilities`, `Reminder(trigger:type:...)` and `Reminder.before(minutes:)` (the field is `kind`, with a `type` alias), `Attendee` (the address is trimmed and lowercased), `ConferenceInfo(url:provider:)`, `WeekdayOccurrence(_:ordinal:)`. Where the 1.x labels equal the generated ones the initialiser has a last unlabelled `_: Void = ()` parameter (a same-signature initialiser would shadow the generated one and call itself); naming every field reaches the generated initialiser, which does not normalise an `Attendee`'s address |
 | `FieldUpdate.swift` | `FieldUpdate<Value>` as a generic enum with conversions to and from the concrete mirrors |
 | `SettingsPatch.swift` | `SettingsPatch(from:to:)` and `EngineCommand.applySettings(from:_:)`, the closure spelling that diffs into a patch |
 | `ObservedEngine.swift` | `states: AsyncStream<EngineState>` (full states assembled from the summaries, fetching a large part only when its revision changed) and `events: AsyncStream<EngineEvent>`, built on an internal observer, with `start`, `send(_:)`, `applySettings { }` and `shutdown` |

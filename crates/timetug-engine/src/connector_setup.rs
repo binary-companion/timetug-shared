@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use calendar_caldav::{CalDavConnectorKind, ICloudConnectorKind};
 use calendar_core::connection::ConnectorRegistry;
+use calendar_core::diagnostic_log::DiagnosticLog;
 use calendar_core::external_tokens::ExternalTokenSource;
 use calendar_core::http::HttpTransport;
 use calendar_core::time::{Now, Sleeper, Zone, add_seconds};
@@ -63,6 +64,20 @@ pub fn make(
     default_zone: Zone,
     token_source: Option<Arc<dyn ExternalTokenSource>>,
 ) -> ConnectorSetupResult {
+    make_with_diagnostics(config, transport, clock, default_zone, token_source, None)
+}
+
+/// [`make`] with a log for the connectors' structured events: the iCalendar subscription kind (the only kind of the
+/// connector library that reports through one) sends them to `diagnostics`; `None` drops them, as `make` does. The Mac
+/// app's `AppConnectors` passed its diagnostics log the same way.
+pub fn make_with_diagnostics(
+    config: &ConnectorSetupConfig,
+    transport: Arc<dyn HttpTransport>,
+    clock: Arc<dyn EngineClock>,
+    default_zone: Zone,
+    token_source: Option<Arc<dyn ExternalTokenSource>>,
+    diagnostics: Option<Arc<dyn DiagnosticLog>>,
+) -> ConnectorSetupResult {
     let now_clock = clock.clone();
     let now: Now = Arc::new(move || now_clock.now());
     let sleep_clock = clock;
@@ -88,13 +103,16 @@ pub fn make(
         sleep.clone(),
         current_zone(),
     )));
-    registry.register(Arc::new(
+    let mut ical =
         ICalSubscriptionKind::new(transport.clone(), now.clone(), sleep.clone(), default_zone)
             .with_retention(RetentionWindow::new(
                 config.ical_days_back,
                 config.ical_days_ahead,
-            )),
-    ));
+            ));
+    if let Some(diagnostics) = diagnostics {
+        ical = ical.with_diagnostics(diagnostics);
+    }
+    registry.register(Arc::new(ical));
     // Google's desktop client has a secret as well as an id; both are needed for the token exchange.
     let google = config.google.as_ref().and_then(|(client_id, secret)| {
         (!client_id.is_empty() && !secret.is_empty()).then(|| (client_id.clone(), secret.clone()))

@@ -577,6 +577,7 @@ fn state_values_convert_forward() {
             fire_at: at(11),
         }),
         takeover_visible: true,
+        next_pending_start: Some(at(12)),
         available_account_kinds: vec![AccountKindInfo::new(
             "google",
             "Google",
@@ -601,6 +602,7 @@ fn state_values_convert_forward() {
     );
     assert!(!mirrored.available_account_kinds[0].is_configured);
     assert!(mirrored.takeover_visible);
+    assert_eq!(mirrored.next_pending_start, Some(at(12)));
     assert!(mirrored.settings.system_calendar_enabled);
     assert_eq!(
         mirrored.settings.takeover.lead_time,
