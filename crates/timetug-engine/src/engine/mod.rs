@@ -474,8 +474,11 @@ impl Engine {
                 diagnostic_post.post(AccountMessage::Diagnostic(diagnostic));
             })),
         );
-        let available_account_kinds =
-            AccountManager::kind_infos(&host.registry, &host.unconfigured_kind_ids);
+        let available_account_kinds = AccountManager::kind_infos_on(
+            &host.registry,
+            &host.unconfigured_kind_ids,
+            host.platform,
+        );
 
         let consumer_weak = weak.clone();
         let consumer_activity = activity.clone();

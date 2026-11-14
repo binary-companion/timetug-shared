@@ -65,11 +65,13 @@ mirror_record!(CredentialSnapshot <=> conn::CredentialSnapshot {
     revision: uuid::Uuid,
 });
 
-/// The platforms a connector kind supports and a host runs on (the engine's option set, one at a time here).
+/// The platform a host runs on (one member of the engine's option set). `Android` has no flag in the connector library
+/// yet (it has none until the library adds it), so on Android no kind is offered.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, uniffi::Enum)]
 pub enum Platform {
     Macos,
     Ios,
+    Android,
     Linux,
     Windows,
 }
@@ -79,6 +81,8 @@ impl Platform {
         match self {
             Platform::Macos => EnginePlatform::MACOS,
             Platform::Ios => EnginePlatform::IOS,
+            // Bit 4: the flag the connector library adds for Android (docs/bindings.md). No kind lists it yet.
+            Platform::Android => EnginePlatform::from_raw_value(1 << 4),
             Platform::Linux => EnginePlatform::LINUX,
             Platform::Windows => EnginePlatform::WINDOWS,
         }

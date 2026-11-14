@@ -52,7 +52,7 @@ impl ToMirror for EngineTakeoverLedger {
     }
 }
 
-mirror_record!(forward_only EngineInfo <=> EngineEngineInfo {
+mirror_record!(EngineInfo <=> EngineEngineInfo {
     id: String,
     display_name: String,
     is_on_device: bool,

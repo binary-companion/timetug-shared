@@ -103,6 +103,8 @@ def problems(names, exposed, docs_text, functions=frozenset()):
     for swift, reason in sorted(not_exposed.items()):
         if not reason:
             found.append(f'"Not exposed": {swift} has no reason')
+    for name in sorted(planned_names & exposed):
+        found.append(f'"Planned": {name} is a type of the bindings now; remove its row')
     for name in names:
         if name in exposed or name in renamed or name in not_exposed or name in as_functions:
             continue

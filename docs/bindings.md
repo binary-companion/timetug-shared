@@ -44,7 +44,7 @@ same behaviour.
 
 | Swift name | Functions |
 |---|---|
-| `AllDay` | `all_day_dates`, `all_day_start_of_day`, `all_day_date_of`, `all_day_end_exclusive_after_last` |
+| `AllDay` | `all_day_dates`, `all_day_start_of_day`, `all_day_date_of`, `all_day_end_exclusive_after_last`, `calendar_date_adding_days` |
 | `CalendarUserAddress` | `calendar_user_address_email` |
 | `ConferenceDetector` | `detect_conferences` |
 | `JoinURLPolicy` | `join_url_is_allowed` |
@@ -61,16 +61,16 @@ keeps the loop (about ten lines) and calls `patch_merge_conflicts` for the field
 |---|---|
 | `AccountManager` | Internal to the engine; the app reads `EngineState.accountStatus` and sends account commands. |
 | `Attempt` | Only the argument type of `PatchMerge.apply`, which is not exported (above). |
-| `CalDAVConnectorKind`, `GoogleConnectorKind`, `ICalSubscriptionKind`, `ICloudConnectorKind`, `MicrosoftConnectorKind` | Hosts do not construct connector kinds; `EngineConfig` (Task 4) enables them. |
-| `GoogleOAuthConfig`, `MicrosoftOAuthConfig` | Replaced by the client fields of `EngineConfig` (Task 4). |
-| `RetentionWindow` | Replaced by `EngineConfig.icalRetention` (Task 4). |
+| `CalDAVConnectorKind`, `GoogleConnectorKind`, `ICalSubscriptionKind`, `ICloudConnectorKind`, `MicrosoftConnectorKind` | Hosts do not construct connector kinds; `EngineConfig` (`EngineConfig`) enables them. |
+| `GoogleOAuthConfig`, `MicrosoftOAuthConfig` | Replaced by the client fields of `EngineConfig` (`EngineConfig`). |
+| `RetentionWindow` | Replaced by `EngineConfig.icalRetention` (`EngineConfig`). |
 | `ConnectorKind`, `ConnectorRegistry` | Connector registration is configuration (`EngineConfig`, Task 4). |
 | `CalendarSnapshot` | The engine's `EngineState` carries the same data. |
-| `CalendarSource`, `SeriesSource`, `WritableCalendarSource`, `ConnectedSource`, `SyncStateStore` | The source seam stays inside the engine; the host implements `SystemCalendarSource` (Task 4). |
+| `CalendarSource`, `SeriesSource`, `WritableCalendarSource`, `ConnectedSource`, `SyncStateStore` | The source seam stays inside the engine; the host implements `SystemCalendarSource`. |
 | `SHA256Hashing` | Removed: the engine hashes with `sha2`. |
 | `Scheduler` | The engine computes the next takeover: the app reads `EngineState.nextTakeover`. Phase 6 verifies that `MenuBarIconState` can use it (it is `nil` while a takeover is on screen). |
 | `WidgetTimeline`, `NextUp`, `TodayRow` | App code: widgets do not link the engine (design 6.6); `WidgetSnapshot` is the contract. |
-| `DiagnosticLog`, `FanOutDiagnosticLog`, `NullDiagnosticLog`, `RingBufferDiagnosticLog`, `EngineDiagnosticSink` | The engine reports diagnostics through the `DiagnosticSink` host interface (Task 4); the app keeps its own log collection in Swift. |
+| `DiagnosticLog`, `FanOutDiagnosticLog`, `NullDiagnosticLog`, `RingBufferDiagnosticLog`, `EngineDiagnosticSink` | The engine reports diagnostics through the `DiagnosticSink` host interface; the app keeps its own log collection in Swift. |
 | `Value` | The generic parameter of `FieldUpdate<Value>`, not a type; `FieldUpdate` has one mirror per instantiation (`FieldUpdateString`, `FieldUpdateReminders`, `FieldUpdateRecurrenceRule`). |
 
 ## Planned
@@ -78,13 +78,48 @@ keeps the loop (about ten lines) and calls `patch_merge_conflicts` for the field
 | Swift name | Task |
 |---|---|
 | `Engine` | Task 5 |
-| `EngineHost` | Task 4 (`EngineHostInterfaces` and `EngineConfig`) |
-| `AuthorizationInteraction`, `OAuthRedirectSession`, `CredentialStore`, `SettingsStorage`, `SignInPrompting`, `TextGenerator`, `TextGeneratorAvailability` | Task 4 |
+| `EngineHost` | Task 5 (`EngineHostInterfaces`; `EngineConfig` exists since Task 4) |
 
 ## Mirrors that differ from the engine type
 
 - `TakeoverLedger` is a read-only view (`keyCount`): the engine owns the ledger and its file.
 - `EventPatch` has one concrete `FieldUpdate` mirror per field type, and a `base`.
 - `Platform` is one platform (`macos`, `ios`, `linux`, `windows`), not the engine's option set; `android` arrives with the
-  connector library change that adds the flag (Task 4).
+  connector library change that adds the flag (`EngineConfig`).
 - `BTreeSet` and `BTreeMap` fields cross as `Set` and `Dictionary`; `Date` fields cross as milliseconds since 1970.
+
+## Host interfaces
+
+The app implements these (foreign UniFFI traits). Every method may be called from the engine thread concurrently with the
+others, so an implementor is thread-safe (`Sendable`), does not block for long, and hops to its own actor or queue inside the
+method when it touches main-actor or EventKit state. A call that never returns is cancelled when the engine drops it (the
+Swift `Task` is cancelled; a cooperative implementation stops).
+
+| Interface | Methods | Notes |
+|---|---|---|
+| `CredentialStore` | `secrets`, `setSecrets`, `removeSecrets`, `credentialSnapshot`, `updateRefreshToken` | async; arguments are labelled `connectionId:` (Swift today: `for:`) |
+| `AuthorizationInteraction` | `beginOauthRedirect`, `promptCredentials` | async; `beginOauthRedirect` returns `OAuthRedirectHandle` (a record holding the session: UniFFI cannot return a foreign object from an async foreign method) |
+| `OAuthRedirectSession` | `redirectUri` (sync), `authorize`, `close` | async except the address |
+| `SignInPrompting` | `prepare`, `lastNonSecretValues` | async |
+| `SettingsStorage` | `load`, `save` | **synchronous**, like the engine's seam; return quickly |
+| `HttpTransport` | `send` | async; do not follow redirects; throw `HostError.Network` for a transport failure |
+| `TextGenerator` | `availability`, `generate` | async |
+| `ExternalTokenSource` | `accessToken`, `signIn` | async |
+| `SystemCalendarSource` | `id`, `displayName`, `capabilities` (sync); `requestAccess`, `calendars`, `eventsIn(start:end:)`, `series`, `create`, `update`, `delete`, `respond`, `setChangeHandler` | async; errors are `FfiError` (`.Source(.needsPermission)`, `.Write(.forbidden(nil))`); the engine calls `setChangeHandler` once, before the first read, and the host calls `eventsChanged`, `calendarsChanged` or `sourceFailed` on the handler it was given |
+| `EngineObserver` | `stateChanged`, `event` | **synchronous**, called from the delivery thread one call at a time, in order; states are coalesced newest-wins, events are never dropped; nothing after `shutdown()` returns |
+| `DiagnosticSink` | `log` | synchronous |
+
+What a callback throws: `HostError` (`Network(message)`, `Cancelled`, `NotFound`, `Denied`, `Failed(message)`); any other
+Swift error arrives as `Failed` with its description. The engine converts it as the C interface's reply errors are converted
+(general services: `Failure.Host`; HTTP: `SourceError.Network`; external tokens: fixed texts; a cancelled reply is a
+cancellation everywhere).
+
+## Configuration
+
+`EngineConfig` (a record): `dataDirectory`, `platform` (`macos`, `ios`, `android`, `linux`, `windows`), `googleClient`
+(`id` and `secret`), `microsoftClient` (`id`), `textGeneration`, `externalTokens`, `systemCalendar`, `timeZone`
+(identifier), `icalDaysBack` (3) and `icalDaysAhead` (7). The plan's single `icalRetention` field is two flat fields
+here, so each has a default in Swift. `platform` decides the account kinds offered; `android` offers none until the
+connector library gains the flag (`Platform::ANDROID`, a `calendar-connectors` change). An invalid configuration is
+`FfiError.InvalidConfig(reason:)` from `Engine(config:...)` (empty data directory, unknown time zone, a client with an empty
+id or secret, a retention above 3650 days).

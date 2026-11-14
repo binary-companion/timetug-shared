@@ -112,6 +112,13 @@ class CheckBindingsSurface(unittest.TestCase):
         result = run('GoogleConnectorKind\nIcalKind\n', docs=docs)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_a_planned_row_for_a_type_that_now_exists_must_be_removed(self):
+        docs = DOCS.replace('| `TextGenerator` | Task 4 |', '| `TextGenerator` | Task 4 |\n| `CalendarEvent` | Task 3 |')
+        result = run('TextGenerator\n', docs=docs)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('CalendarEvent', result.stderr)
+        self.assertIn('remove', result.stderr)
+
     def test_comments_and_blank_lines_in_the_list_are_ignored(self):
         result = run('# the names the Mac app uses\n\nCalendarEvent\n')
         self.assertEqual(result.returncode, 0, result.stderr)

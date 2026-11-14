@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use calendar_core::connection::{
-    AuthorizationInteraction, ConnectorRegistry, CredentialHelp, CredentialStore,
+    AuthorizationInteraction, ConnectorRegistry, CredentialHelp, CredentialStore, Platform,
 };
 use calendar_core::time::Zone;
 
@@ -78,6 +78,10 @@ pub struct EngineHost {
     pub clock: Arc<dyn EngineClock>,
     /// Returns the current time zone whenever the engine needs the calendar.
     pub zone: ZoneProvider,
+    /// The platform the host runs on, which decides the account kinds offered: `Platform::current()` unless the host
+    /// says otherwise (the bindings pass it in their configuration; a front end for a platform without a compile-time
+    /// target of its own, such as Android, needs it).
+    pub platform: Platform,
 }
 
 impl EngineHost {
@@ -106,6 +110,7 @@ impl EngineHost {
             diagnostics: ignore_diagnostics(),
             clock: Arc::new(SystemClock),
             zone: Arc::new(current_zone),
+            platform: Platform::current(),
         }
     }
 }

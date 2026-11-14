@@ -9,6 +9,7 @@ pub mod accounts;
 pub mod activity;
 pub mod clock;
 pub mod command;
+pub mod connector_setup;
 pub mod diagnostic;
 pub mod engine;
 pub mod event;

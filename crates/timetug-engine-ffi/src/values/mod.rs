@@ -12,6 +12,7 @@ pub mod accounts;
 pub mod commands;
 pub mod diagnostics;
 pub mod events;
+pub mod host;
 pub mod model;
 pub mod settings;
 pub mod state;
