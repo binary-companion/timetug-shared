@@ -546,5 +546,45 @@ class Workflow(unittest.TestCase):
         self.assertIn('semver:major', agents)
 
 
+class ReleaseCommitBaseline(unittest.TestCase):
+    """The latest release of a branch includes a release commit made from it (scripts/release/release-tags.py)."""
+
+    def release_layout(self, directory, with_swift):
+        repo = Repo(directory)  # main at C0, tagged 1.0.0
+        repo.write('Package.swift', 'path\n')
+        if with_swift:
+            repo.write('swift/TimeTugKit/Sources/TimeTugKit/Names.swift', '// shims\n')
+        repo.commit('c1')
+        c1 = repo.git('rev-parse', 'HEAD').strip()
+        repo.git('checkout', '-q', '--detach', c1)
+        repo.write('Package.swift', 'url\n')
+        repo.commit('release 2.1.0')
+        repo.git('tag', '2.1.0')
+        repo.git('checkout', '-q', 'main')
+        repo.write('later.txt', 'x\n')
+        repo.commit('c2')
+        return repo
+
+    def test_the_baseline_is_a_release_commit_made_from_the_branch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = self.release_layout(directory, with_swift=True)
+            result = repo.compat('baseline', '--ref', 'main')
+            self.assertEqual(result.stdout.strip(), '2.1.0', result.stderr)
+
+    def test_the_swift_api_check_runs_when_the_baseline_contains_the_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = self.release_layout(directory, with_swift=True)
+            result = repo.compat('swift-api', '2.1.0')
+            self.assertIn('run=true', result.stdout)
+            self.assertIn('Swift API of TimeTugKit with release 2.1.0', result.stdout)
+
+    def test_the_swift_api_check_is_skipped_with_a_reason_without_the_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = self.release_layout(directory, with_swift=False)
+            result = repo.compat('swift-api', '1.0.0')
+            self.assertIn('run=false', result.stdout)
+            self.assertIn('does not contain the Swift package', result.stdout)
+
+
 if __name__ == '__main__':
     unittest.main()

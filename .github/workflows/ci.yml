@@ -30,6 +30,8 @@
 #                  the current code, and the baseline's tt_engine_* exports. Skipped with a notice for the label
 #                  semver:major, and when no X.Y.Z tag exists. scripts/ci/compat/ holds the logic; its tests run in the
 #                  architecture job.
+#   compat-swift   the Swift API of TimeTugKit (swift package diagnose-api-breaking-changes) against the latest release that
+#                  contains the package; skipped with a notice until the first such release.
 #   compat-dotnet  the same rule for the managed wrapper: dotnet pack with package validation against the latest
 #                  TimeTug.Engine on nuget.org (skipped for semver:major, and when nothing is published).
 #   rust-lint      rustfmt, clippy, cargo-deny, the crate architecture, tokio feature and no-clock checks, and their tests.
@@ -314,6 +316,7 @@ jobs:
       - name: Tests of the checks, of the release script and of the bump workflow
         run: |
           scripts/release/tests/test-next-version.sh
+          build/venv/bin/python -m unittest discover -s scripts/release/tests -p 'test_*.py'
           PYTHON="$PWD/build/venv/bin/python" scripts/release/tests/test-release-version-step.sh
           # The steps of bump-dependencies.yml, run against the real bump-cargo-dependency.py and stub git and gh.
           PYTHON="$PWD/build/venv/bin/python" scripts/ci/tests/test-bump-workflow-step.sh
@@ -388,6 +391,40 @@ jobs:
           set -euo pipefail
           cargo build --release --locked -p timetug-engine-c
           python3 scripts/ci/compat/compat.py exports "$BASELINE" include/timetug_engine.h target/release/libTimeTugEngineC.so
+
+  # The Swift API of TimeTugKit against the latest release that contains the package (skipped before the first one).
+  compat-swift:
+    runs-on: macos-26
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Decide whether the checks apply
+        id: gate
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python3 scripts/ci/compat/compat.py gate --base-ref "origin/${BASE_REF:-main}"
+      - name: Does the baseline contain the Swift package
+        id: swift
+        if: steps.gate.outputs.run == 'true'
+        env:
+          BASELINE: ${{ steps.gate.outputs.baseline }}
+        run: python3 scripts/ci/compat/compat.py swift-api "$BASELINE"
+      - name: Install the pinned Rust toolchain
+        if: steps.swift.outputs.run == 'true'
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: Build the XCFramework
+        if: steps.swift.outputs.run == 'true'
+        run: scripts/dev/build-xcframework.sh --release
+      - name: Swift API breaking changes since the baseline
+        if: steps.swift.outputs.run == 'true'
+        env:
+          BASELINE: ${{ steps.gate.outputs.baseline }}
+        run: swift package diagnose-api-breaking-changes "$BASELINE" --products TimeTugKit
 
   compat-dotnet:
     runs-on: ubuntu-latest

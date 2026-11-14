@@ -7,7 +7,10 @@ Usage (from the repository root; the CI jobs `compat` and `compat-dotnet` run th
   compat.py gate [--base-ref REF]            decide whether the checks run: writes run=true|false and baseline=TAG
                                              to $GITHUB_OUTPUT (pull requests only; skipped with a notice for
                                              semver:major, other events and when no X.Y.Z tag exists)
-  compat.py baseline [--ref REF]             print the highest X.Y.Z tag reachable from REF (default origin/main)
+  compat.py baseline [--ref REF]             print the latest release of REF (default origin/main): the highest X.Y.Z tag
+                                             on it or on a release commit made from it (scripts/release/release-tags.py)
+  compat.py swift-api BASELINE               write run=true|false to $GITHUB_OUTPUT: whether the Swift bindings API check
+                                             applies (BASELINE contains swift/TimeTugKit; earlier releases do not)
   compat.py frozen BASELINE [--strict PATH...] [--additive PATH...] [--appendable PATH...]
                                              fail if a file under PATH that exists in BASELINE was deleted or
                                              changed in a way its kind does not allow:
@@ -30,12 +33,14 @@ Usage (from the repository root; the CI jobs `compat` and `compat-dotnet` run th
 
 The pull request's labels come from the event payload at $GITHUB_EVENT_PATH; the event name from $GITHUB_EVENT_NAME.
 Exit status: 0 pass or skip, 1 a compatibility break, 2 a usage or environment error."""
+import importlib.util
 import json
 import os
 import re
 import subprocess
 import sys
 import urllib.request
+from pathlib import Path
 
 MAJOR_LABEL = 'semver:major'
 RELEASE_TAG = re.compile(r'^(\d+)\.(\d+)\.(\d+)$')
@@ -60,8 +65,33 @@ def highest_release(names):
     return '.'.join(map(str, max(releases))) if releases else None
 
 
+def release_tags():
+    """scripts/release/release-tags.py as a module: the one place that decides which release tags belong to a branch."""
+    path = Path(__file__).resolve().parents[2] / 'release' / 'release-tags.py'
+    spec = importlib.util.spec_from_file_location('release_tags', path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def baseline_tag(ref):
-    return highest_release(git('tag', '--merged', ref, '--sort=-v:refname').split())
+    """The latest release of the branch: a tag on it or a release commit made from it (never `git tag --merged`)."""
+    return release_tags().belonging_latest(ref) or None
+
+
+SWIFT_SOURCES = 'swift/TimeTugKit/Sources/TimeTugKit'
+
+
+def swift_decision(baseline, has_package):
+    """(run, reason) for the Swift bindings API check, given that the other checks run against baseline."""
+    if not has_package:
+        return False, (f'release {baseline} does not contain the Swift package (swift/TimeTugKit): the Swift API check '
+                       'starts with the first release that does')
+    return True, f'comparing the Swift API of TimeTugKit with release {baseline}'
+
+
+def baseline_has_swift_package(baseline):
+    return subprocess.run(['git', 'cat-file', '-e', f'{baseline}:{SWIFT_SOURCES}'], capture_output=True).returncode == 0
 
 
 def labels(event):
@@ -303,6 +333,11 @@ def main(argv):
         else:
             notice(reason)
         write_outputs(run='true' if run else 'false', baseline=baseline or '')
+        return 0
+    if command == 'swift-api' and len(args) == 1:
+        run, reason = swift_decision(args[0], baseline_has_swift_package(args[0]))
+        notice(reason) if not run else print(reason)
+        write_outputs(run='true' if run else 'false')
         return 0
     if command == 'baseline':
         ref = args[args.index('--ref') + 1] if '--ref' in args else 'origin/main'

@@ -9,3 +9,4 @@ dotnet/**/TestResults/
 /swift/TimeTugKit/.build/
 /swift/TimeTugKit/.swiftpm/
 /swift/TimeTugKit/Package.resolved
+/.build/
