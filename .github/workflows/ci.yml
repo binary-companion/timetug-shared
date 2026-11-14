@@ -424,7 +424,16 @@ jobs:
         if: steps.swift.outputs.run == 'true'
         env:
           BASELINE: ${{ steps.gate.outputs.baseline }}
-        run: swift package diagnose-api-breaking-changes "$BASELINE" --products TimeTugKit
+        # On a fresh runner the first run's API digester cannot load the binary target's C module ("missing required module
+        # 'TimeTugEngineFFI'") and reports no baseline symbols; every later run passes (seen on every Xcode of macos-26, Swift 6.2
+        # to 6.3.3). So that one error, and only that one, gets a single second run.
+        run: |
+          set -o pipefail
+          log="$RUNNER_TEMP/api-diff.txt"
+          if swift package diagnose-api-breaking-changes "$BASELINE" --products TimeTugKit 2>&1 | tee "$log"; then exit 0; fi
+          if ! grep -q "missing required module 'TimeTugEngineFFI'" "$log"; then exit 1; fi
+          echo "::notice::the first API digester run could not load TimeTugEngineFFI; running it once more"
+          swift package diagnose-api-breaking-changes "$BASELINE" --products TimeTugKit
 
   compat-dotnet:
     runs-on: ubuntu-latest
