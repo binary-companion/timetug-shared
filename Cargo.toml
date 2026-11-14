@@ -20,14 +20,14 @@ timetug-engine-protocol = { path = "crates/timetug-engine-protocol" }
 # The connector library, by released git tag (2.0.0 since the phase 4 cutover; scripts/ci/bump-cargo-dependency.py
 # moves it, and the bump workflow runs that script for every connector release). To build against a local checkout instead,
 # run scripts/dev/use-local-connectors.sh <path> (it writes a git-ignored cargo config; never commit a [patch]).
-calendar-core = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0" }
-calendar-oauth = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0" }
-calendar-ical = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0" }
-calendar-google = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0" }
-calendar-microsoft = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0" }
-calendar-caldav = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0" }
-calendar-ical-subscription = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0" }
-calendar-test-support = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.0" }
+calendar-core = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.1" }
+calendar-oauth = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.1" }
+calendar-ical = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.1" }
+calendar-google = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.1" }
+calendar-microsoft = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.1" }
+calendar-caldav = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.1" }
+calendar-ical-subscription = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.1" }
+calendar-test-support = { git = "https://github.com/binary-companion/calendar-connectors", tag = "2.0.1" }
 
 serde = { version = "=1.0.229", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }

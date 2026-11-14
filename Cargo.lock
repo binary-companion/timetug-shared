@@ -123,7 +123,7 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 [[package]]
 name = "calendar-caldav"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.0#b70b1b9eed6e8637ad9b9ec3305572e58218af50"
+source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.1#53354bbc90d0db4ba0ce0554f2909df247e194eb"
 dependencies = [
  "async-trait",
  "base64",
@@ -138,7 +138,7 @@ dependencies = [
 [[package]]
 name = "calendar-core"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.0#b70b1b9eed6e8637ad9b9ec3305572e58218af50"
+source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.1#53354bbc90d0db4ba0ce0554f2909df247e194eb"
 dependencies = [
  "async-trait",
  "getrandom",
@@ -154,7 +154,7 @@ dependencies = [
 [[package]]
 name = "calendar-google"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.0#b70b1b9eed6e8637ad9b9ec3305572e58218af50"
+source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.1#53354bbc90d0db4ba0ce0554f2909df247e194eb"
 dependencies = [
  "async-trait",
  "calendar-core",
@@ -170,7 +170,7 @@ dependencies = [
 [[package]]
 name = "calendar-ical"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.0#b70b1b9eed6e8637ad9b9ec3305572e58218af50"
+source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.1#53354bbc90d0db4ba0ce0554f2909df247e194eb"
 dependencies = [
  "calendar-core",
  "jiff",
@@ -180,7 +180,7 @@ dependencies = [
 [[package]]
 name = "calendar-ical-subscription"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.0#b70b1b9eed6e8637ad9b9ec3305572e58218af50"
+source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.1#53354bbc90d0db4ba0ce0554f2909df247e194eb"
 dependencies = [
  "async-trait",
  "calendar-core",
@@ -194,7 +194,7 @@ dependencies = [
 [[package]]
 name = "calendar-microsoft"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.0#b70b1b9eed6e8637ad9b9ec3305572e58218af50"
+source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.1#53354bbc90d0db4ba0ce0554f2909df247e194eb"
 dependencies = [
  "async-trait",
  "calendar-core",
@@ -210,7 +210,7 @@ dependencies = [
 [[package]]
 name = "calendar-oauth"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.0#b70b1b9eed6e8637ad9b9ec3305572e58218af50"
+source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.1#53354bbc90d0db4ba0ce0554f2909df247e194eb"
 dependencies = [
  "async-trait",
  "base64",
@@ -229,7 +229,7 @@ dependencies = [
 [[package]]
 name = "calendar-test-support"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.0#b70b1b9eed6e8637ad9b9ec3305572e58218af50"
+source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.1#53354bbc90d0db4ba0ce0554f2909df247e194eb"
 dependencies = [
  "async-trait",
  "calendar-core",
