@@ -234,15 +234,13 @@ async fn a_credential_host_that_throws_becomes_a_failure_for_every_method() {
     for (error, expected) in [
         (HostError::Denied, Failure::Host("denied".into())),
         (
-            HostError::Network {
-                message: "x".into(),
-            },
+            HostError::Network { detail: "x".into() },
             Failure::Host("network: x".into()),
         ),
         (HostError::Cancelled, Failure::Cancelled),
         (
             HostError::Failed {
-                message: String::new(),
+                detail: String::new(),
             },
             Failure::Host("failed".into()),
         ),
@@ -307,7 +305,7 @@ impl OAuthRedirectSession for FakeSession {
         })
         .await
     }
-    async fn close(&self) {
+    async fn release(&self) {
         self.closed.fetch_add(1, Ordering::SeqCst);
     }
 }
@@ -617,7 +615,7 @@ async fn http_failures_are_network_errors_and_a_never_returning_send_is_dropped(
     for (error, expected) in [
         (
             HostError::Network {
-                message: "offline".into(),
+                detail: "offline".into(),
             },
             Failure::Source(EngineSourceError::Network("network: offline".into())),
         ),
@@ -686,7 +684,7 @@ async fn the_text_adapter_forwards_availability_and_generation() {
     assert_eq!(adapter.generate("i", "p").await.unwrap(), "i|p");
     let failing = TextGeneratorAdapter::new(Arc::new(FakeText {
         behaviour: Behaviour::Fail(HostError::Failed {
-            message: "no".into(),
+            detail: "no".into(),
         }),
         probe: Arc::default(),
     }));

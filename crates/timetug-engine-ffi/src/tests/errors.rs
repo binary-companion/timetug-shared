@@ -65,7 +65,7 @@ fn every_failure_maps_to_the_error_thrown_to_the_host() {
     assert_eq!(
         FfiError::from(Failure::Host("boom".into())),
         FfiError::Host {
-            message: "boom".into()
+            detail: "boom".into()
         }
     );
 }
@@ -75,7 +75,7 @@ fn the_error_has_a_readable_description() {
     assert_eq!(FfiError::Cancelled.to_string(), "cancelled");
     assert_eq!(
         FfiError::Host {
-            message: "boom".into()
+            detail: "boom".into()
         }
         .to_string(),
         "boom"
@@ -99,7 +99,7 @@ fn a_host_error_becomes_a_failure_the_way_the_c_interface_reply_errors_do() {
     let table: Vec<(HostError, Failure, Failure, Failure)> = vec![
         (
             HostError::Network {
-                message: String::new(),
+                detail: String::new(),
             },
             Failure::Host("network".into()),
             Failure::Source(EngineSourceError::Network("network".into())),
@@ -109,7 +109,7 @@ fn a_host_error_becomes_a_failure_the_way_the_c_interface_reply_errors_do() {
         ),
         (
             HostError::Network {
-                message: "offline".into(),
+                detail: "offline".into(),
             },
             Failure::Host("network: offline".into()),
             Failure::Source(EngineSourceError::Network("network: offline".into())),
@@ -141,7 +141,7 @@ fn a_host_error_becomes_a_failure_the_way_the_c_interface_reply_errors_do() {
         ),
         (
             HostError::Failed {
-                message: String::new(),
+                detail: String::new(),
             },
             Failure::Host("failed".into()),
             Failure::Source(EngineSourceError::Network("failed".into())),
@@ -150,9 +150,7 @@ fn a_host_error_becomes_a_failure_the_way_the_c_interface_reply_errors_do() {
             )),
         ),
         (
-            HostError::Failed {
-                message: "x".into(),
-            },
+            HostError::Failed { detail: "x".into() },
             Failure::Host("failed: x".into()),
             Failure::Source(EngineSourceError::Network("failed: x".into())),
             Failure::Source(EngineSourceError::InvalidResponse(
@@ -185,7 +183,7 @@ fn a_swift_error_that_is_not_a_host_error_arrives_as_a_failed_host_error() {
     assert_eq!(
         HostError::from(unexpected),
         HostError::Failed {
-            message: "Boom.x".into()
+            detail: "Boom.x".into()
         }
     );
 }

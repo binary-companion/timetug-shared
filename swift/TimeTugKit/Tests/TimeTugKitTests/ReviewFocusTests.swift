@@ -36,7 +36,7 @@ final class MainActorAuthorization: AuthorizationInteraction {
 
     @Test func aTransportFailureIsAFailedSignInNotACrash() async throws {
         let host = Host()
-        host.http.mode.set(.throwing(.Network(message: "offline")))
+        host.http.mode.set(.throwing(.Network(detail: "offline")))
         let engine = try makeEngine(host, directory: temporaryDirectory("network"))
         await engine.start()
         await engine.send(command: .addAccount(kindId: "icalsub"))

@@ -22,8 +22,8 @@ pub trait OAuthRedirectSession: Send + Sync {
     fn redirect_uri(&self) -> UrlString;
     /// Opens the authorization page and waits for the browser to come back; returns the URL it came back with.
     async fn authorize(&self, authorization_url: UrlString) -> Result<UrlString, HostError>;
-    /// Releases the redirect listener. Called once, also when the sign-in was cancelled.
-    async fn close(&self);
+    /// Releases the redirect listener (not called `close`: the generated Kotlin class is AutoCloseable and `close` clashes). Called once, also when the sign-in was cancelled.
+    async fn release(&self);
 }
 
 /// What `begin_oauth_redirect` returns: UniFFI cannot return a foreign trait object from an async foreign method directly
@@ -66,7 +66,7 @@ impl EngineSession for SessionAdapter {
     }
 
     async fn close(&self) {
-        self.host.close().await;
+        self.host.release().await;
     }
 }
 
