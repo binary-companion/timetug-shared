@@ -28,6 +28,10 @@ class WriteSwiftPackageTests(unittest.TestCase):
         out = module.rewrite(self.text(), '2.0.0-alpha.3', SUM)
         self.assertIn('/download/2.0.0-alpha.3/TimeTugEngineFFI-2.0.0-alpha.3.xcframework.zip', out)
 
+    def test_the_dry_run_version_is_accepted(self):
+        out = module.rewrite(self.text(), '0.0.0-dryrun.38', SUM)
+        self.assertIn('/download/0.0.0-dryrun.38/TimeTugEngineFFI-0.0.0-dryrun.38.xcframework.zip', out)
+
     def test_it_is_idempotent_and_updates_in_place(self):
         once = module.rewrite(self.text(), '2.1.0', SUM)
         self.assertEqual(module.rewrite(once, '2.1.0', SUM), once)
