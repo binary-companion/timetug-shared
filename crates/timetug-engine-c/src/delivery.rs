@@ -2,10 +2,9 @@
 //! contain `unsafe`: the call of the host's callback.
 #![allow(unsafe_code)]
 
-use std::collections::VecDeque;
 use std::ffi::{CString, c_char, c_void};
-use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
-use std::thread::ThreadId;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
+use timetug_engine::host_delivery::{self, DeliverySink};
 
 /// The host's `tt_message_fn`: `void (*)(void *context, const char *message_json)`.
 pub type HostFunction = unsafe extern "C" fn(*mut c_void, *const c_char);
@@ -56,141 +55,53 @@ impl MessageSink for HostCallback {
     }
 }
 
-enum Item {
-    Message(String),
-    State,
+/// Adapts a text sink to the shared queue's sink.
+struct TextSink(Arc<dyn MessageSink>);
+
+impl DeliverySink<String> for TextSink {
+    fn deliver(&self, message: String) {
+        self.0.deliver(&message);
+    }
 }
 
-struct Queue {
-    items: VecDeque<Item>,
-    pending_state: Option<String>,
-    closed: bool,
-    in_callback: bool,
-    thread: Option<ThreadId>,
-}
-
-/// Delivers messages to the host on one dedicated thread, one at a time, in order.
-///
-/// - Events and service requests are queued without limit and never dropped or reordered.
-/// - States coalesce: a new state replaces the one still waiting (if any) and moves to the back of the queue, so the
-///   host always gets the newest state, never a state older than an event queued before it.
-/// - `close` stops delivery. Called from outside a callback with `wait_for_callback`, it returns only when no callback
-///   is running, and none starts after it. Called from inside a callback, no further callback starts after the current
-///   one returns.
-///
-/// A thread (not a task) carries the callbacks, so a slow host blocks only its own engine's delivery and never the
-/// engine thread.
+/// Delivers messages to the host on one dedicated thread, one at a time, in order: the shared queue
+/// (`timetug_engine::host_delivery::Delivery`, whose documentation has the rules) carrying JSON text.
 pub struct Delivery {
-    sink: Arc<dyn MessageSink>,
-    queue: Mutex<Queue>,
-    changed: Condvar,
+    inner: Arc<host_delivery::Delivery<String>>,
 }
 
 impl Delivery {
     /// Creates a delivery that passes messages to `sink`. No thread runs until [`Delivery::start`].
     pub fn new(sink: Arc<dyn MessageSink>) -> Arc<Delivery> {
         Arc::new(Delivery {
-            sink,
-            queue: Mutex::new(Queue {
-                items: VecDeque::new(),
-                pending_state: None,
-                closed: false,
-                in_callback: false,
-                thread: None,
-            }),
-            changed: Condvar::new(),
+            inner: host_delivery::Delivery::new(Arc::new(TextSink(sink))),
         })
-    }
-
-    fn lock(&self) -> MutexGuard<'_, Queue> {
-        self.queue.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Starts the delivery thread. Called once, after the session is fully built. Fails when the system cannot start a
     /// thread.
     pub fn start(self: &Arc<Delivery>) -> std::io::Result<()> {
-        let delivery = self.clone();
-        std::thread::Builder::new()
-            .name("TimeTug engine delivery".to_string())
-            .spawn(move || delivery.run())
-            .map(drop)
+        self.inner.start()
     }
 
     /// Queues an event or service request. It is never dropped or reordered; ignored once closed.
     pub fn enqueue(&self, message: String) {
-        let mut queue = self.lock();
-        if queue.closed {
-            return;
-        }
-        queue.items.push_back(Item::Message(message));
-        self.changed.notify_all();
+        self.inner.enqueue(message);
     }
 
     /// Queues a state message, replacing a state still waiting (coalescing); ignored once closed.
     pub fn enqueue_state(&self, message: String) {
-        let mut queue = self.lock();
-        if queue.closed {
-            return;
-        }
-        if queue.pending_state.is_some() {
-            queue.items.retain(|item| !matches!(item, Item::State));
-        }
-        queue.pending_state = Some(message);
-        queue.items.push_back(Item::State);
-        self.changed.notify_all();
+        self.inner.enqueue_state(message);
     }
 
     /// True on the delivery thread, that is inside one of this engine's callbacks.
     pub fn is_delivery_thread(&self) -> bool {
-        self.lock().thread == Some(std::thread::current().id())
+        self.inner.is_delivery_thread()
     }
 
-    /// Stops delivery; see the type's documentation. Idempotent.
+    /// Stops delivery; see the shared queue's documentation. Idempotent.
     pub fn close(&self, wait_for_callback: bool) {
-        let mut queue = self.lock();
-        queue.closed = true;
-        queue.items.clear();
-        queue.pending_state = None;
-        self.changed.notify_all();
-        if wait_for_callback {
-            while queue.in_callback {
-                queue = self
-                    .changed
-                    .wait(queue)
-                    .unwrap_or_else(PoisonError::into_inner);
-            }
-        }
-    }
-
-    fn run(&self) {
-        let mut queue = self.lock();
-        queue.thread = Some(std::thread::current().id());
-        loop {
-            while queue.items.is_empty() && !queue.closed {
-                queue = self
-                    .changed
-                    .wait(queue)
-                    .unwrap_or_else(PoisonError::into_inner);
-            }
-            if queue.closed {
-                break;
-            }
-            let message = match queue.items.pop_front() {
-                Some(Item::Message(text)) => text,
-                Some(Item::State) => match queue.pending_state.take() {
-                    Some(state) => state,
-                    None => continue,
-                },
-                None => continue,
-            };
-            queue.in_callback = true;
-            drop(queue);
-            self.sink.deliver(&message);
-            queue = self.lock();
-            queue.in_callback = false;
-            self.changed.notify_all();
-        }
-        queue.thread = None;
+        self.inner.close(wait_for_callback);
     }
 }
 

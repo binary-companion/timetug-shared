@@ -36,6 +36,7 @@ computed properties and extensions.
 | `AccountManager.Status` | `AccountStatus` | typealias |
 | `EngineDiagnostic.Level` | `EngineDiagnosticLevel` | typealias |
 | `ConnectionID` | `ConnectionId` | typealias |
+| `EngineHost` | `EngineHostInterfaces` | the host objects are one record; the settings are `EngineConfig` |
 
 ## Exposed as functions
 
@@ -77,8 +78,6 @@ keeps the loop (about ten lines) and calls `patch_merge_conflicts` for the field
 
 | Swift name | Task |
 |---|---|
-| `Engine` | Task 5 |
-| `EngineHost` | Task 5 (`EngineHostInterfaces`; `EngineConfig` exists since Task 4) |
 
 ## Mirrors that differ from the engine type
 
@@ -123,3 +122,39 @@ here, so each has a default in Swift. `platform` decides the account kinds offer
 connector library gains the flag (`Platform::ANDROID`, a `calendar-connectors` change). An invalid configuration is
 `FfiError.InvalidConfig(reason:)` from `Engine(config:...)` (empty data directory, unknown time zone, a client with an empty
 id or secret, a retention above 3650 days).
+
+## The `Engine` object
+
+```swift
+public final class Engine {
+    public init(config: EngineConfig, host: EngineHostInterfaces, observer: EngineObserver) throws   // FfiError.InvalidConfig
+    public func start() async
+    public func send(_ command: EngineCommand) async          // returns when the engine finished the command
+    public func currentSummary() -> EngineStateSummary
+    public func currentState() -> EngineState                 // full: summary plus events, agenda, candidates
+    public func currentEvents() -> [TimeTugCalendarEvent]
+    public func currentAgenda() -> DayAgenda
+    public func currentCandidates() -> [String: [TimeTugCalendarEvent]]
+    public func setTimeZone(_ identifier: String) throws      // then send(.system(.timeZoneChanged))
+    public func shutdown()                                    // idempotent
+}
+```
+
+- **State arrives as a summary.** `EngineObserver.stateChanged` gets an `EngineStateSummary`: the state without its three large
+  parts (events, agenda, merge candidates), which carry a revision each (`eventsRevision`, `agendaRevision`,
+  `candidatesRevision`: the revision of the state in which that part last changed). A host that renders events fetches
+  `currentEvents()` only when `eventsRevision` changed. The reason is measured: delivering 500 full events to a Swift observer
+  took 24 ms (budget 5 ms; `bindings-spike.md`). The Swift package (Task 6) offers `engine.states` as a stream of full
+  `EngineState`s built the same way.
+- **Delivery**: the first observer call after `start()` is a state; summaries coalesce (newest wins), events are never
+  dropped, calls are serialised and ordered, nothing is delivered after `shutdown()` returns; `shutdown()` inside an observer
+  call returns at once.
+- **Commands**: those of one kind of work (accounts, settings, takeovers, ...) run one after another in send order; kinds do
+  not wait for each other, so a sign-in waiting for a person never holds up a takeover. `send` returns when the engine
+  finished the command, and at once after `shutdown()`.
+- **Diagnostics** go to `EngineHostInterfaces.diagnostics` when the host gave one, otherwise they arrive as
+  `EngineEvent.diagnostic`.
+- `EngineConfig` flags and interfaces must agree: `textGeneration`, `externalTokens` and `systemCalendar` are on exactly when
+  the matching interface is passed, else `InvalidConfig`.
+- Tests of the host can build the library with the cargo feature `test-clock`, which adds `Engine.newForTesting(config:host:observer:clockStart:)`
+  and `advanceClock(seconds:)`; it is off in every release build.
