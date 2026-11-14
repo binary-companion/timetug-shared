@@ -78,26 +78,28 @@ pub fn event_ref_from_event(event: CalendarEvent) -> EventRef {
     calendar_core::write::types::EventRef::from_event(&event.to_engine()).to_mirror()
 }
 
-/// The first and last day of an all-day span (`AllDay.dates`; the last day is inclusive).
+/// The first day of an all-day span and the day after its last day (`AllDay.dates`: `first` and `endExclusive`).
 #[derive(Clone, Debug, PartialEq, uniffi::Record)]
 pub struct AllDayDates {
     /// First day.
     pub first: CalendarDate,
-    /// Day the span ends, exclusive end converted back.
-    pub last: CalendarDate,
+    /// The day after the last day covered: a one-day event on 14 November has `first` 14 and `end_exclusive` 15.
+    pub end_exclusive: CalendarDate,
 }
 
 /// `AllDay.dates(start:end:in:)`.
 #[uniffi::export]
 pub fn all_day_dates(start: Timestamp, end: Timestamp, zone: Zone) -> AllDayDates {
-    let (first, last) = AllDay::dates(start, end, &zone);
+    let (first, end_exclusive) = AllDay::dates(start, end, &zone);
     AllDayDates {
         first: first.to_mirror(),
-        last: last.to_mirror(),
+        end_exclusive: end_exclusive.to_mirror(),
     }
 }
 
-/// `AllDay.startOfDay(_:in:)`; `None` for a date that does not exist.
+/// `AllDay.startOfDay(_:in:)`: the first instant of the day in the zone. A day that does not exist (31 February) resolves
+/// forward, as Foundation does (3 March); `None` is for a value the calendar arithmetic rejects (a year beyond about
+/// ±9999).
 #[uniffi::export]
 pub fn all_day_start_of_day(date: CalendarDate, zone: Zone) -> Option<Timestamp> {
     AllDay::start_of_day(&date.to_engine(), &zone)
@@ -114,4 +116,12 @@ pub fn all_day_date_of(instant: Timestamp, zone: Zone) -> CalendarDate {
 pub fn all_day_end_exclusive_after_last(last: CalendarDate) -> CalendarDate {
     let last: EngineCalendarDate = last.to_engine();
     AllDay::end_exclusive_after_last(&last).to_mirror()
+}
+
+/// `CalendarDate.adding(days:)`: the day `days` after (or, when negative, before) `date`, computed from noon UTC as the
+/// Swift code does. A result outside the supported range leaves the date unchanged.
+#[uniffi::export]
+pub fn calendar_date_adding_days(date: CalendarDate, days: i64) -> CalendarDate {
+    let date: EngineCalendarDate = date.to_engine();
+    date.adding_days(days).to_mirror()
 }

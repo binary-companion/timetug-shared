@@ -44,7 +44,7 @@ same behaviour.
 
 | Swift name | Functions |
 |---|---|
-| `AllDay` | `all_day_dates`, `all_day_start_of_day`, `all_day_date_of`, `all_day_end_exclusive_after_last` |
+| `AllDay` | `all_day_dates`, `all_day_start_of_day`, `all_day_date_of`, `all_day_end_exclusive_after_last`, `calendar_date_adding_days` |
 | `CalendarUserAddress` | `calendar_user_address_email` |
 | `ConferenceDetector` | `detect_conferences` |
 | `JoinURLPolicy` | `join_url_is_allowed` |

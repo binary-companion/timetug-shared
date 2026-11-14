@@ -137,6 +137,14 @@ fn an_event_reference_is_built_from_the_event_as_read() {
     assert_eq!(reference.version.as_deref(), Some("etag"));
 }
 
+fn next_day() -> CalendarDate {
+    CalendarDate {
+        year: 2026,
+        month: 11,
+        day: 15,
+    }
+}
+
 #[test]
 fn all_day_helpers_agree_with_the_zone() {
     let zone = Zone::named("Pacific/Auckland").unwrap();
@@ -159,6 +167,24 @@ fn all_day_helpers_agree_with_the_zone() {
     let end = all_day_start_of_day(next, zone.clone()).unwrap();
     let dates = all_day_dates(start, end, zone);
     assert_eq!(dates.first, day);
+    assert_eq!(dates.end_exclusive, next_day());
+    assert_eq!(calendar_date_adding_days(dates.end_exclusive, -1), day);
+    assert_eq!(
+        calendar_date_adding_days(
+            CalendarDate {
+                year: 2026,
+                month: 12,
+                day: 31
+            },
+            1
+        ),
+        CalendarDate {
+            year: 2027,
+            month: 1,
+            day: 1
+        }
+    );
+    // The span's first day is the day it starts on; its end is the day after (one-day event: 14 to 15 November).
     // Foundation resolves a day that does not exist (31 February) forward, as the engine does.
     assert_eq!(
         all_day_date_of(
