@@ -150,9 +150,7 @@ fn a_host_error_becomes_a_failure_the_way_the_c_interface_reply_errors_do() {
             )),
         ),
         (
-            HostError::Failed {
-                detail: "x".into(),
-            },
+            HostError::Failed { detail: "x".into() },
             Failure::Host("failed: x".into()),
             Failure::Source(EngineSourceError::Network("failed: x".into())),
             Failure::Source(EngineSourceError::InvalidResponse(

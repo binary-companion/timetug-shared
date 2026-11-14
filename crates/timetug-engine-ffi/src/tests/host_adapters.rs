@@ -234,9 +234,7 @@ async fn a_credential_host_that_throws_becomes_a_failure_for_every_method() {
     for (error, expected) in [
         (HostError::Denied, Failure::Host("denied".into())),
         (
-            HostError::Network {
-                detail: "x".into(),
-            },
+            HostError::Network { detail: "x".into() },
             Failure::Host("network: x".into()),
         ),
         (HostError::Cancelled, Failure::Cancelled),
