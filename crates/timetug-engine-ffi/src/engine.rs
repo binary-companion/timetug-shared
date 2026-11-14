@@ -272,12 +272,18 @@ impl Engine {
             });
         let transport: Arc<dyn EngineTransport> =
             Arc::new(HttpTransportAdapter::new(host.http.clone()));
-        let connectors = connector_setup::make(
+        // The connectors' structured events reach the host's sink as `record`; without a sink they are dropped, as before.
+        let connector_diagnostics = host
+            .diagnostics
+            .clone()
+            .map(crate::host::diagnostics::connector_log);
+        let connectors = connector_setup::make_with_diagnostics(
             &valid.connectors,
             transport,
             clock.clone(),
             zone.current(),
             token_source,
+            connector_diagnostics,
         );
         let zone_for_host = zone.clone();
         let mut engine_host = EngineHost::new(
