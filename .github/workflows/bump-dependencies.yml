@@ -4,8 +4,8 @@
 # releases a patch version. A newer bump closes the open bump pull requests for older versions.
 # The connector git dependency of Cargo.toml (and Cargo.lock) is edited by scripts/ci/bump-cargo-dependency.py,
 # which validates the version (X.Y.Z or X.Y.Z-alpha.N) and refuses a downgrade; CI builds and tests with it.
-# The pull request goes to the branch the workflow runs on: a dispatch on v2 (workflow_dispatch with the
-# version input; repository_dispatch always runs the default branch's copy of this file) bumps v2.
+# The pull request goes to the branch the workflow runs on (repository_dispatch always runs the default branch's copy
+# of this file, so a release bumps main; a workflow_dispatch on another branch bumps that branch).
 name: Bump dependencies
 
 on:
