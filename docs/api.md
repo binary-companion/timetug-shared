@@ -19,7 +19,7 @@ Contents: 1 What exists for which language. 2 Versions. 3 Rust API. 4 The engine
 | Rust | the crates `timetug-core`, `timetug-bridge`, `timetug-engine`, `timetug-engine-protocol`, `timetug-engine-c` by git tag | Available. Prerelease tag `2.0.0-alpha.1`; no crates.io release. Section 3. |
 | C, C++ or anything with a C FFI | the library `TimeTugEngineC` and `include/timetug_engine.h` (four functions, JSON messages) | Available. Section 5. |
 | C# on Windows (x64, ARM64) | NuGet package `TimeTug.Engine` | Available. `2.0.0-alpha.1` is a prerelease on nuget.org; `1.8.x` are the earlier Swift-engine releases of the same C# API. Section 6. |
-| Swift on macOS | the `1.x` SwiftPM libraries (`TimeTugCore`, `TimeTugEngine`, ...) | Available as the **1.x Swift line only**. Swift bindings to the Rust 2.x engine are **not available yet**; they are planned for phase 5 of the Rust engine program (UniFFI). Section 7. |
+| Swift on macOS | the SwiftPM product `TimeTugKit` of the 2.x tags (UniFFI bindings to the Rust engine), or the `1.x` SwiftPM libraries (`TimeTugCore`, `TimeTugEngine`, ...) | `TimeTugKit` is available from `2.0.0` (macOS 14 and iOS 17); the 1.x Swift line is the earlier engine. Section 7. |
 
 Nothing in this document is implemented that is not listed as available above.
 
@@ -67,7 +67,7 @@ calendar-core = { git = "https://github.com/binary-companion/calendar-connectors
 | `timetug-engine` | The engine: accounts, settings, persistence, takeover timing, the command and event model | `Engine`, `EngineHost`, `EngineCommand`, `EngineEvent`, `EngineState`, `EngineSettings`, `EngineClock`, `SystemClock`, `SettingsStorage`, `TextGenerator` | A Tokio runtime provided by the caller (it owns no thread) |
 | `timetug-engine-protocol` | The JSON contract v1 as types: envelopes, configuration, wire DTOs, command decoding, service messages | `Envelope`, `MessageCatalog`, `ProtocolVersion`, `WireConfig`, `CommandDecoder`, `ServiceMessages`, `wire_types` | None |
 | `timetug-engine-c` | The C interface (section 5): builds the `TimeTugEngineC` library | the four `tt_engine_*` exports | Creates its own threads |
-| `timetug-engine-ffi` | Reserved for the generated Swift and Kotlin bindings (phase 5); **empty today** | nothing | |
+| `timetug-engine-ffi` | The UniFFI crate behind the Swift package `TimeTugKit` and the generated Kotlin (`docs/bindings.md`); not published as a Rust API | the typed `Engine` object, host interfaces, value mirrors and pure functions of the bindings | Creates its own runtime and threads |
 
 Rules shared by all crates: `unsafe` is forbidden except in `timetug-engine-c` (the FFI layer, two files, each block
 has a `SAFETY` comment); parsers return errors and never panic; no crate reads the clock except `timetug-engine`'s
@@ -809,8 +809,8 @@ never go there: the engine asks your `ICredentialStore`, which should use the Wi
 
 ## 7. Swift on macOS
 
-**Swift bindings to the Rust 2.x engine are not available.** There is no Swift package, no XCFramework and no
-generated Swift API for 2.x today, and none of the Swift names below exist in the 2.x line.
+Two Swift front doors exist: `TimeTugKit` (2.x, the Rust engine through generated UniFFI bindings, 7.2) and the `1.x` Swift
+libraries (the earlier Swift engine, 7.1). New work uses `TimeTugKit`.
 
 ### 7.1 What exists today: the 1.x Swift libraries
 
@@ -865,21 +865,47 @@ To run the 1.x engine you build an `EngineHost` with your implementations of the
 repository are the reference. This page does not provide a runnable end-to-end Swift example for 1.x; none is
 maintained here.
 
-### 7.2 What is planned (not available, not final)
+### 7.2 `TimeTugKit` (2.x)
 
-Phase 5 of the Rust engine program plans a Swift package, `TimeTugKit`, made of an XCFramework (macOS, iOS and the iOS
-simulator) built from a `timetug-engine-ffi` crate with UniFFI, plus generated Swift. The plan's intended shape is an
-`Engine` object that takes a typed configuration, host objects that the app implements in Swift (credentials, sign-in,
-HTTP, settings storage, text generation, a system calendar source such as EventKit) and an observer for state and
-events, with typed values instead of JSON. The plan makes its first task a spike that decides what UniFFI can express,
-and later tasks follow its findings, so **names and shapes can change**. The plan is
-`docs/superpowers/plans/2026-11-10-rust-phase-5-bindings.md` in the `timetug` repository. Until that phase ships and
-this section is filled in, a Swift program that needs the Rust engine has only the C interface (section 5) as a
-supported front door; calling it from Swift has not been verified here.
+`TimeTugKit` is a SwiftPM product of this repository's `2.x` tags (macOS 14 and iOS 17, Swift 6). Its package is a binary target
+(the XCFramework attached to the release: macOS arm64 and x86_64, iOS, iOS simulator) under the generated Swift
+(`TimeTugKitGenerated`) and a hand-written layer (`TimeTugKit`) that an app imports:
+
+```swift
+// Package.swift
+dependencies: [
+    .package(url: "https://github.com/binary-companion/timetug-shared", from: "2.0.0"),
+],
+targets: [
+    .target(name: "MyApp", dependencies: [.product(name: "TimeTugKit", package: "timetug-shared")]),
+]
+```
+
+(The additions below need `2.1.0` or newer. The install line is checked at release time, not in CI.) The reference for names, host interfaces,
+configuration, delivery rules and threading is [`bindings.md`](bindings.md); what UniFFI could not express is in
+[`bindings-spike.md`](bindings-spike.md). The shape: an `Engine` object built from an `EngineConfig`, the host objects the app
+implements in Swift (`EngineHostInterfaces`: credentials, sign-in, HTTP, settings storage, and optionally text generation, external
+tokens, a system calendar source such as EventKit and a diagnostics sink), and an observer that receives state summaries and events.
+`ObservedEngine` offers the full state and the events as `AsyncStream`s. The `swift-bindings` CI job builds the package and runs
+its Swift tests against the real engine on a manual clock.
+
+Added in `2.1.0` for the Mac app (all additive; the C interface, the wire contract and the persisted-data fixtures are unchanged):
+
+- Swift shims that restore the 1.x spelling of the model: `TimeTugCalendarEvent` accessors, `id`, `calendarKey`, `contentKey` and
+  `init(event:sourceID:)`; `CalendarInfo.key`; `TakeoverSettings` with its 1.x defaults, `Codable` form and mutators;
+  `Connection.sourceID`; the `CalendarService` and `CalendarProvider` values; the nested `RecurrenceRule` names; convenience
+  initialisers with 1.x defaults (`bindings.md`, "The Swift package").
+- Functions for the write checks of an EventKit-style adapter: `eventDraftUsedFields(draft:)`, `eventPatchTouchedFields(patch:)`,
+  `validateEventDraft(draft:)`, `validateEventTiming(timing:)` and `validateRecurrenceRule(rule:)` (the last three throw
+  `FfiError.Write`).
+- `EngineStateSummary.nextPendingStart` (and `EngineState.nextPendingStart`): the start of the next meeting that still qualifies for a
+  takeover, also while one is on screen.
+- `DiagnosticSink.record(event:)`: the connectors' structured diagnostic events, with their private flags (a Swift sink that only
+  implements `log` keeps compiling; a Kotlin one adds `record`).
 
 ## 8. Staying current
 
 This page is part of the release checklist: the C and C# sections are proven by tests (the C example is built and run by
 `c-smoke/run.sh`; the C# example is run by `ExampleTests`; the Rust example by `cargo test`), and the Swift section is
-filled in when the bindings ship. The numbers in section 6.5 come from `docs/rust-port/size.md`; update them when it
+summarised from `bindings.md` (the Swift package is built and tested by the `swift-bindings` job). The numbers in section 6.5 come from `docs/rust-port/size.md`; update them when it
 changes.
