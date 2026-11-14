@@ -191,12 +191,50 @@ fn a_swift_error_that_is_not_a_host_error_arrives_as_a_failed_host_error() {
 }
 
 #[test]
-fn a_write_error_crosses_as_text_until_its_mirror_exists() {
-    use calendar_core::write::types::WriteError;
-    assert_eq!(
-        FfiError::from(Failure::Write(WriteError::NotFound)),
-        FfiError::Host {
-            message: "not found".into()
-        }
-    );
+fn every_write_error_crosses_as_its_mirror() {
+    use crate::values::write::{EventField, WriteError as Mirror};
+    use calendar_core::write::types::{EventField as Field, WriteError};
+    let cases = vec![
+        (
+            WriteError::Unsupported {
+                fields: [Field::Title, Field::Timing].into(),
+            },
+            Mirror::Unsupported {
+                fields: [EventField::Title, EventField::Timing].into(),
+            },
+        ),
+        (
+            WriteError::Conflict {
+                fields: [Field::Notes].into(),
+            },
+            Mirror::Conflict {
+                fields: [EventField::Notes].into(),
+            },
+        ),
+        (WriteError::NotFound, Mirror::NotFound),
+        (
+            WriteError::Forbidden(Some("read only".into())),
+            Mirror::Forbidden(Some("read only".into())),
+        ),
+        (WriteError::Forbidden(None), Mirror::Forbidden(None)),
+        (
+            WriteError::Invalid("end before start".into()),
+            Mirror::Invalid("end before start".into()),
+        ),
+        (
+            WriteError::Partial("stopped".into()),
+            Mirror::Partial("stopped".into()),
+        ),
+    ];
+    for (engine, mirror) in cases {
+        assert_eq!(
+            FfiError::from(Failure::Write(engine.clone())),
+            FfiError::Write(mirror.clone()),
+            "{engine:?}"
+        );
+        assert_eq!(
+            calendar_core::write::types::WriteError::from(mirror),
+            engine
+        );
+    }
 }

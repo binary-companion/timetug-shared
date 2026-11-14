@@ -461,6 +461,7 @@ jobs:
         run: |
           python3 scripts/ci/check-crate-architecture.py
           python3 scripts/ci/check-tokio-features.py
+          python3 scripts/ci/check-bindings-surface.py
       - name: The pure crates and the engine read no clock and no environment (SystemClock excepted)
         run: python3 scripts/ci/check-no-clock.py
       - name: Every test of the Swift baseline has a Rust counterpart
@@ -472,6 +473,7 @@ jobs:
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_crate_architecture.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_tokio_features.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_no_clock.py'
+          python3 -m unittest discover -s scripts/ci/tests -p 'test_check_bindings_surface.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_test_parity.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_check_third_party_notices.py'
           python3 -m unittest discover -s scripts/ci/tests -p 'test_use_local_connectors.py'

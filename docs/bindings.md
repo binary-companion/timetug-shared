@@ -1,0 +1,90 @@
+# Generated bindings (Swift and Kotlin)
+
+`timetug-engine-ffi` is the typed front door of the engine for Swift and Kotlin hosts, generated with UniFFI. What UniFFI
+can and cannot express is in [`bindings-spike.md`](bindings-spike.md); the plan is phase 5 of the Rust engine program. This
+page is the reference for what the bindings expose and how their names relate to the Swift names of the 1.x libraries. It is
+completed as the phase lands (host interfaces and configuration in Task 4, the `Engine` object in Task 5, the Swift package
+in Task 6).
+
+## The surface list
+
+`docs/bindings-surface.txt` is the list of public types of the 1.x Swift libraries that the Mac app and its packages use
+(non-test sources). Regenerate it with
+
+```sh
+python3 scripts/dev/list-app-types.py \
+  --libraries <calendar-connectors 1.x>/Sources <timetug-shared 1.x>/Sources --app <timetug> --output docs/bindings-surface.txt
+```
+
+`scripts/ci/check-bindings-surface.py` (job `architecture`) fails for a name that is none of: a type, host interface or
+custom type of the crate with that name; a row of "Names that differ"; a row of "Exposed as functions"; a row of "Not
+exposed" (with a reason); or a row of "Planned" (reported, not a failure; the task named in the row removes it).
+
+## Names that differ
+
+Two rules apply to every generated name and are not repeated in the table: a record field or argument whose Swift name ends in `ID`
+or `URL` is generated as `...Id` or `...Url` (`eventID` is `eventId`, `joinURL` is `joinUrl`; UniFFI lower-camel-cases acronyms and no
+rename can restore them), and a plain enum loses its Swift `rawValue`. The Swift package (Task 6) adds the old spellings as
+computed properties and extensions.
+
+| Swift name | Generated name | Shim |
+|---|---|---|
+| `UIDScope` | `UidScope` | typealias |
+| `RecurrenceRule.End` | `RuleEnd` | typealias |
+| `DayAgenda.Item` | `DayAgendaItem` | typealias |
+| `DayAgenda.Item.State` | `DayAgendaItemState` | typealias |
+| `AccountManager.Status` | `AccountStatus` | typealias |
+| `EngineDiagnostic.Level` | `EngineDiagnosticLevel` | typealias |
+| `ConnectionID` | `ConnectionId` | typealias |
+
+## Exposed as functions
+
+The Mac app (mainly its EventKit adapter) calls these pure helpers of the 1.x libraries; they are exported as functions of the
+same behaviour.
+
+| Swift name | Functions |
+|---|---|
+| `AllDay` | `all_day_dates`, `all_day_start_of_day`, `all_day_date_of`, `all_day_end_exclusive_after_last`, `calendar_date_adding_days` |
+| `CalendarUserAddress` | `calendar_user_address_email` |
+| `ConferenceDetector` | `detect_conferences` |
+| `JoinURLPolicy` | `join_url_is_allowed` |
+| `WriteValidation` | `require_writable` |
+| `PatchMerge` | `patch_merge_conflicts`, `event_patch_diff` |
+
+`PatchMerge.apply` (the retry loop around a host write, generic over two host closures) is not exported: the EventKit adapter
+keeps the loop (about ten lines) and calls `patch_merge_conflicts` for the field comparison. A patch made with
+`event_patch_diff` carries its base event across the boundary (`EventPatch.base`).
+
+## Not exposed
+
+| Swift name | Reason |
+|---|---|
+| `AccountManager` | Internal to the engine; the app reads `EngineState.accountStatus` and sends account commands. |
+| `Attempt` | Only the argument type of `PatchMerge.apply`, which is not exported (above). |
+| `CalDAVConnectorKind`, `GoogleConnectorKind`, `ICalSubscriptionKind`, `ICloudConnectorKind`, `MicrosoftConnectorKind` | Hosts do not construct connector kinds; `EngineConfig` (Task 4) enables them. |
+| `GoogleOAuthConfig`, `MicrosoftOAuthConfig` | Replaced by the client fields of `EngineConfig` (Task 4). |
+| `RetentionWindow` | Replaced by `EngineConfig.icalRetention` (Task 4). |
+| `ConnectorKind`, `ConnectorRegistry` | Connector registration is configuration (`EngineConfig`, Task 4). |
+| `CalendarSnapshot` | The engine's `EngineState` carries the same data. |
+| `CalendarSource`, `SeriesSource`, `WritableCalendarSource`, `ConnectedSource`, `SyncStateStore` | The source seam stays inside the engine; the host implements `SystemCalendarSource` (Task 4). |
+| `SHA256Hashing` | Removed: the engine hashes with `sha2`. |
+| `Scheduler` | The engine computes the next takeover: the app reads `EngineState.nextTakeover`. Phase 6 verifies that `MenuBarIconState` can use it (it is `nil` while a takeover is on screen). |
+| `WidgetTimeline`, `NextUp`, `TodayRow` | App code: widgets do not link the engine (design 6.6); `WidgetSnapshot` is the contract. |
+| `DiagnosticLog`, `FanOutDiagnosticLog`, `NullDiagnosticLog`, `RingBufferDiagnosticLog`, `EngineDiagnosticSink` | The engine reports diagnostics through the `DiagnosticSink` host interface (Task 4); the app keeps its own log collection in Swift. |
+| `Value` | The generic parameter of `FieldUpdate<Value>`, not a type; `FieldUpdate` has one mirror per instantiation (`FieldUpdateString`, `FieldUpdateReminders`, `FieldUpdateRecurrenceRule`). |
+
+## Planned
+
+| Swift name | Task |
+|---|---|
+| `Engine` | Task 5 |
+| `EngineHost` | Task 4 (`EngineHostInterfaces` and `EngineConfig`) |
+| `AuthorizationInteraction`, `OAuthRedirectSession`, `CredentialStore`, `SettingsStorage`, `SignInPrompting`, `TextGenerator`, `TextGeneratorAvailability` | Task 4 |
+
+## Mirrors that differ from the engine type
+
+- `TakeoverLedger` is a read-only view (`keyCount`): the engine owns the ledger and its file.
+- `EventPatch` has one concrete `FieldUpdate` mirror per field type, and a `base`.
+- `Platform` is one platform (`macos`, `ios`, `linux`, `windows`), not the engine's option set; `android` arrives with the
+  connector library change that adds the flag (Task 4).
+- `BTreeSet` and `BTreeMap` fields cross as `Set` and `Dictionary`; `Date` fields cross as milliseconds since 1970.
