@@ -51,9 +51,9 @@ def check(condition, message):
         sys.exit(f'FAIL: {workflow}: notify: {message}')
 check('notify' in jobs, "job notify must exist")
 job = jobs['notify']
-check(job.get('needs') in ('publish', ['publish']), "job notify must need exactly publish")
-check(job.get('if') == "needs.publish.outputs.created == 'true' && needs.publish.outputs.prerelease != 'true'",
-      "job notify must run only when publish created a release (a re-run of an existing version must not announce it again) and never for a prerelease (no dependent follows a prerelease)")
+check(job.get('needs') == ['publish', 'release-swift'], "job notify must need exactly publish and release-swift (the release is published and tagged)")
+check(job.get('if') == "needs.release-swift.result == 'success' && needs.publish.outputs.created == 'true' && needs.publish.outputs.prerelease != 'true'",
+      "job notify must run only when publish created a release and release-swift published it (a re-run of an existing version must not announce it again) and never for a prerelease (no dependent follows a prerelease)")
 check(job.get('environment') == 'bump', "job notify must use the bump environment")
 check(job.get('runs-on') == 'ubuntu-latest', "job notify must run on ubuntu-latest")
 check('continue-on-error' not in job, "job notify must not set continue-on-error (a failed dispatch must fail the run)")
@@ -108,7 +108,7 @@ def check(condition, message):
         sys.exit(f'FAIL: {workflow}: connector notes: {message}')
 steps = job['steps']
 names = [s.get('name', '') for s in steps]
-create = [i for i, n in enumerate(names) if n == 'Create the tag and the release']
+create = [i for i, n in enumerate(names) if n == 'Create the draft release']
 notes = [i for i, n in enumerate(names) if n.startswith('Record the connector version')]
 check(len(create) == 1 and len(notes) == 1, "publish must have one create step and one connector-version step")
 check(notes[0] == create[0] + 1, "the connector-version step must come right after the release is created")
@@ -191,7 +191,7 @@ new_repo() {
   for kv in user.name=t user.email=t@example.com commit.gpgsign=false tag.gpgsign=false; do
     git -C "$R" config "${kv%%=*}" "${kv#*=}"
   done
-  cp "$ROOT/scripts/release/next-version.sh" "$R/scripts/release/"
+  cp "$ROOT/scripts/release/next-version.sh" "$ROOT/scripts/release/release-tags.py" "$R/scripts/release/"
   commit base
 }
 commit() { echo "$1" >> "$R/file"; git -C "$R" add -A; git -C "$R" commit -q -m "$1"; }
