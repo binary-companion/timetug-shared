@@ -516,3 +516,28 @@ jobs:
         run: scripts/dev/swift-test.sh --release
       - name: The iOS simulator slice links
         run: scripts/dev/swift-test.sh --ios-sim-link
+
+  kotlin-bindings:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: The generated Kotlin compiles (pinned kotlinc, JNA, kotlinx-coroutines)
+        run: kotlin/compile-check.sh
+      - name: Android library (arm64-v8a)
+        env:
+          CARGO_NDK_VERSION: 4.1.2
+        run: |
+          rustup target add aarch64-linux-android
+          cargo install cargo-ndk --version "$CARGO_NDK_VERSION" --locked
+          # The runner image ships the NDK; cargo-ndk finds it through ANDROID_NDK_HOME.
+          export ANDROID_NDK_HOME="${ANDROID_NDK_LATEST_HOME:-$ANDROID_NDK_HOME}"
+          echo "NDK: $ANDROID_NDK_HOME"
+          cargo ndk -t arm64-v8a build --release --locked -p timetug-engine-ffi
+          so=target/aarch64-linux-android/release/libtimetug_engine_ffi.so
+          ls -l "$so"
+          echo "libtimetug_engine_ffi.so (arm64-v8a, release): $(stat -c %s "$so") bytes" >> "$GITHUB_STEP_SUMMARY"

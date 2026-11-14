@@ -49,3 +49,19 @@ In this order (phase 3 plan, task 9, step 9). Never raise the limit.
 3. Try `opt-level = "z"` and compare the benchmark (`scripts/benchmarks/run-engine-bench.*`).
 4. **Never drop the bundled zone database on Windows** (`jiff-tzdb`, feature `tzdb-bundle-platform`): Windows has no
    system database, and the engine's local-time behaviour depends on it.
+
+## Bindings (phase 5)
+
+Measured 2026-11-14 on Apple Silicon with `scripts/dev/build-xcframework.sh --release` (profile `release-apple`,
+`strip = "debuginfo"`), crate `timetug-engine-ffi`:
+
+| Artifact | Size |
+|---|---|
+| macOS slice `libtimetug_engine_ffi.a` (arm64 and x86_64 fat archive) | 153,196,424 bytes (arm64 part 76,398,720) |
+| iOS device slice | 76,173,656 bytes |
+| iOS simulator slice (arm64) | 76,139,144 bytes |
+
+These are static archives (object files with symbol tables, not stripped of dead code); the size a host adds is what the linker
+keeps. The size added to a linked executable and the Android `libtimetug_engine_ffi.so` (arm64-v8a, release) are not measured
+here: the second is printed by the `kotlin-bindings` CI job in its step summary, the first is measured in phase 5 Task 9. No
+size gate applies to the bindings.
