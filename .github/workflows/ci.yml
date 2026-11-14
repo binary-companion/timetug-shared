@@ -1,6 +1,6 @@
-# Continuous integration for the library (the Rust workspace). Runs on pull requests and on every push to main and v2.
-# The job ids are the required status checks of the Protect main and Protect v2 rulesets; renaming one breaks every
-# merge. scripts/ci/check-repository-contracts.py fails when one of them is missing.
+# Continuous integration for the library (the Rust workspace; the Swift line is on branch 1.x, which has its own copy).
+# Runs on pull requests and on every push to main. The job ids are the required status checks of the Protect main
+# ruleset; renaming one breaks every merge. scripts/ci/check-repository-contracts.py fails when one of them is missing.
 #   macos, linux, windows-x64, windows-arm64
 #                  the Rust workspace on each platform (the toolchain is pinned in rust-toolchain.toml): cargo test, a
 #                  release build, a check that the C interface library has the file name the C# wrapper loads
@@ -43,7 +43,7 @@ name: CI
 
 on:
   push:
-    branches: [main, v2]
+    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
 
