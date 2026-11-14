@@ -1011,7 +1011,11 @@ name = "timetug-engine"
 version = "0.0.0"
 dependencies = [
  "async-trait",
+ "calendar-caldav",
  "calendar-core",
+ "calendar-google",
+ "calendar-ical-subscription",
+ "calendar-microsoft",
  "calendar-test-support",
  "jiff",
  "serde",

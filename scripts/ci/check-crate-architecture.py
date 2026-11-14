@@ -27,7 +27,7 @@ CONNECTORS = [
 ALLOWED = {
     'timetug-core': {'calendar-core'},
     'timetug-bridge': {'timetug-core', 'calendar-core'},
-    'timetug-engine': {'timetug-core', 'timetug-bridge', 'calendar-core'},
+    'timetug-engine': {'timetug-core', 'timetug-bridge', 'calendar-core', 'calendar-caldav', 'calendar-google', 'calendar-ical-subscription', 'calendar-microsoft'},
     'timetug-engine-protocol': {'timetug-engine', 'timetug-core', 'timetug-bridge', 'calendar-core'},
     'timetug-engine-c': {'timetug-engine-protocol', 'timetug-engine', 'timetug-core', *CONNECTORS},
     'timetug-engine-ffi': {'timetug-engine-protocol', 'timetug-engine', 'timetug-core', *CONNECTORS},

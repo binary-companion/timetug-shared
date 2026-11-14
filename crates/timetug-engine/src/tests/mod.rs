@@ -9,6 +9,7 @@ pub(crate) mod support;
 
 mod account_manager_tests;
 mod conformance_tests;
+mod connector_setup_tests;
 mod dedup_state_store_tests;
 mod engine_clock_tests;
 mod engine_host_tests;

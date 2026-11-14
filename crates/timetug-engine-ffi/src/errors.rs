@@ -200,3 +200,25 @@ impl From<WriteError> for calendar_core::write::types::WriteError {
         error.to_engine()
     }
 }
+
+/// What a host callback that may report a connector or write error throws (the system calendar source): the engine's
+/// own error type, so the Swift side throws `FfiError.Source(.needsPermission)` or `FfiError.Write(.forbidden(nil))`.
+impl From<uniffi::UnexpectedUniFFICallbackError> for FfiError {
+    fn from(error: uniffi::UnexpectedUniFFICallbackError) -> FfiError {
+        FfiError::Host {
+            message: error.reason,
+        }
+    }
+}
+
+impl From<FfiError> for Failure {
+    fn from(error: FfiError) -> Failure {
+        match error {
+            FfiError::Source(error) => Failure::Source(error.into()),
+            FfiError::Write(error) => Failure::Write(error.into()),
+            FfiError::Cancelled => Failure::Cancelled,
+            FfiError::Host { message } => Failure::Host(message),
+            FfiError::InvalidConfig { reason } => Failure::Host(reason),
+        }
+    }
+}

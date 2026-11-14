@@ -304,8 +304,17 @@ impl AccountManager {
         registry: &ConnectorRegistry,
         unconfigured: &[String],
     ) -> Vec<AccountKindInfo> {
+        AccountManager::kind_infos_on(registry, unconfigured, Platform::current())
+    }
+
+    /// `kind_infos` for the platform the host runs on, which the bindings take from their configuration.
+    pub fn kind_infos_on(
+        registry: &ConnectorRegistry,
+        unconfigured: &[String],
+        platform: Platform,
+    ) -> Vec<AccountKindInfo> {
         let mut infos: BTreeMap<String, AccountKindInfo> = BTreeMap::new();
-        for kind in AccountManager::available_kinds_in(registry) {
+        for kind in AccountManager::available_kinds_on(registry, platform) {
             let authorization = match kind.authorization() {
                 AuthorizationMethod::Oauth => Authorization::Oauth,
                 AuthorizationMethod::Password { .. } => Authorization::Password,
@@ -931,12 +940,15 @@ impl AccountManager {
     }
 
     fn available_kinds(&self) -> Vec<Arc<dyn ConnectorKind>> {
-        AccountManager::available_kinds_in(&self.host.registry)
+        AccountManager::available_kinds_on(&self.host.registry, self.host.platform)
     }
 
-    fn available_kinds_in(registry: &ConnectorRegistry) -> Vec<Arc<dyn ConnectorKind>> {
+    fn available_kinds_on(
+        registry: &ConnectorRegistry,
+        platform: Platform,
+    ) -> Vec<Arc<dyn ConnectorKind>> {
         let kinds: Vec<Arc<dyn ConnectorKind>> = registry
-            .kinds_for(Platform::current())
+            .kinds_for(platform)
             .into_iter()
             .filter(|kind| !matches!(kind.authorization(), AuthorizationMethod::System))
             .collect();

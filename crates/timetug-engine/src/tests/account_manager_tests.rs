@@ -923,3 +923,16 @@ async fn an_add_while_another_sign_in_runs_returns_at_once() {
     wait_until(|| async { !h.manager.status().is_working }).await;
     assert_eq!(ids(&h.manager.status().accounts), strings(&["1"]));
 }
+
+/// Rust-only: the platform the host names (the bindings' `EngineConfig.platform`) decides which kinds are offered, not
+/// the platform this library was compiled for.
+#[test]
+fn kind_infos_on_offers_the_kinds_of_the_hosts_platform() {
+    let mut registry = ConnectorRegistry::new();
+    registry.register(FakeConnectorKind::new());
+    let on = |platform| AccountManager::kind_infos_on(&registry, &[], platform);
+    assert_eq!(on(calendar_core::connection::Platform::MACOS).len(), 1);
+    assert_eq!(on(calendar_core::connection::Platform::IOS).len(), 1);
+    // A platform that no kind lists (Android before the connector library adds its flag) is offered nothing.
+    assert!(on(calendar_core::connection::Platform::from_raw_value(1 << 4)).is_empty());
+}
