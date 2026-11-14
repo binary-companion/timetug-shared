@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Resource baseline of the engine behind the C interface (docs/rust-port/baselines.md): time to ready, memory and CPU
+    of an idle engine, and the size of the native modules loaded. It references the managed wrapper in this solution, so
+    it measures whichever native library the solution is built with. Like the test project, the library is found
+    through TIMETUG_ENGINE_LIBRARY (a file or a directory) or copied next to the binary with
+    -p:TimeTugNativeDir=<directory holding TimeTugEngineC.dll or the dylib or so, and its runtime files>.
+    Not packed, and not part of the test projects.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>TimeTug.Engine.Bench</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>12.0</LangVersion>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TimeTug.Engine\TimeTug.Engine.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TimeTugNativeDir)' != ''">
+    <None Include="$(TimeTugNativeDir)\*.dll;$(TimeTugNativeDir)\*.dylib;$(TimeTugNativeDir)\*.so"
+          Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

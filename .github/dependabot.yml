@@ -4,7 +4,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
-  - package-ecosystem: swift
+  # Cargo.toml pins every external crate exactly and cargo-deny gates licences and advisories; dependabot proposes the
+  # bumps, which a reviewer takes together with deny.toml, the architecture script and THIRD-PARTY-NOTICES.md. The
+  # calendar-connectors git dependency is moved by the bump workflow, not by dependabot.
+  - package-ecosystem: cargo
     directory: /
     schedule:
       interval: weekly

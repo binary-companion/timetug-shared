@@ -24,8 +24,9 @@ job = yaml.safe_load(open(workflow))['jobs']['publish']
 def check(condition, message):
     if not condition:
         sys.exit(f'FAIL: {workflow}: {message}')
-check(job.get('if') == "github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish)",
-      "job publish must run only for refs/heads/main, and not for a dry-run dispatch (publish: false)")
+check(job.get('if') == "(github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish)) || "
+                       "(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/v2' && inputs.prerelease != '' && inputs.publish)",
+      "job publish must run only for refs/heads/main, or for a prerelease dispatch on refs/heads/v2, and not for a dry-run dispatch (publish: false)")
 check(job.get('environment') == 'publish', "job publish must use the publish environment")
 checkout = [s for s in job['steps'] if str(s.get('uses', '')).startswith('actions/checkout@')]
 check(len(checkout) == 1, "job publish must have exactly one checkout step")
@@ -37,7 +38,7 @@ check(len(steps) == 1, "job publish must have exactly one step with id: version"
 open(script, 'w').write(steps[0]['run'])
 open(envfile, 'w').write('\n'.join(sorted(steps[0].get('env', {}))) + '\n')
 PY
-[ "$(cat "$T/step-env")" = "$(printf 'GH_TOKEN\nOVERRIDE\nREPO\nSHA')" ] ||
+[ "$(cat "$T/step-env")" = "$(printf 'GH_TOKEN\nOVERRIDE\nPRERELEASE\nREF\nREPO\nSHA')" ] ||
   fail "the step's env changed ($(tr '\n' ' ' < "$T/step-env")); update this harness"
 
 # --- the notify job: pinned shape, then its dispatch step executed against a stub gh ---
@@ -50,8 +51,9 @@ def check(condition, message):
         sys.exit(f'FAIL: {workflow}: notify: {message}')
 check('notify' in jobs, "job notify must exist")
 job = jobs['notify']
-check(job.get('needs') in ('publish', ['publish']), "job notify must need exactly publish")
-check(job.get('if') == "needs.publish.outputs.created == 'true'", "job notify must run only when publish created a release (a re-run of an existing version must not announce it again)")
+check(job.get('needs') == ['publish', 'release-swift'], "job notify must need exactly publish and release-swift (the release is published and tagged)")
+check(job.get('if') == "needs.release-swift.result == 'success' && needs.publish.outputs.created == 'true' && needs.publish.outputs.prerelease != 'true'",
+      "job notify must run only when publish created a release and release-swift published it (a re-run of an existing version must not announce it again) and never for a prerelease (no dependent follows a prerelease)")
 check(job.get('environment') == 'bump', "job notify must use the bump environment")
 check(job.get('runs-on') == 'ubuntu-latest', "job notify must run on ubuntu-latest")
 check('continue-on-error' not in job, "job notify must not set continue-on-error (a failed dispatch must fail the run)")
@@ -106,7 +108,7 @@ def check(condition, message):
         sys.exit(f'FAIL: {workflow}: connector notes: {message}')
 steps = job['steps']
 names = [s.get('name', '') for s in steps]
-create = [i for i, n in enumerate(names) if n == 'Create the tag and the release']
+create = [i for i, n in enumerate(names) if n == 'Create the draft release']
 notes = [i for i, n in enumerate(names) if n.startswith('Record the connector version')]
 check(len(create) == 1 and len(notes) == 1, "publish must have one create step and one connector-version step")
 check(notes[0] == create[0] + 1, "the connector-version step must come right after the release is created")
@@ -115,8 +117,8 @@ check(step.get('if') == "steps.release.outputs.created == 'true'", "the connecto
 check(step.get('env') == {'GH_TOKEN': '${{ github.token }}', 'VERSION': '${{ steps.version.outputs.version }}'},
       "the connector-version step env must be exactly GH_TOKEN (the repository token) and VERSION (the released version)")
 check('${{' not in step['run'], "the connector-version script must not contain ${{ }}")
-check('scripts/ci/resolved-version.py Package.resolved calendar-connectors' in step['run'],
-      "the connector-version step must read the calendar-connectors pin of Package.resolved")
+check('scripts/ci/cargo-dependency-version.py Cargo.lock calendar-connectors' in step['run'],
+      "the connector-version step must read the calendar-connectors pin of Cargo.lock")
 open(script, 'w').write(step['run'])
 PY
 mkdir -p "$T/notes-bin" "$T/notes-ws/scripts/ci"
@@ -131,20 +133,38 @@ esac
 STUB
 printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$PYTHON" > "$T/notes-bin/python3"
 chmod +x "$T/notes-bin/gh" "$T/notes-bin/python3"
-cp "$ROOT/scripts/ci/resolved-version.py" "$T/notes-ws/scripts/ci/"
-notes_step() { # notes_step <Package.resolved text>: sets STATUS; calls and result in $T/notes-*
-  printf '%s' "$1" > "$T/notes-ws/Package.resolved"; : > "$T/notes-calls"; rm -f "$T/notes-result"
+cp "$ROOT/scripts/ci/cargo-dependency-version.py" "$T/notes-ws/scripts/ci/"
+notes_step() { # notes_step <Cargo.lock text>: sets STATUS; calls and result in $T/notes-*
+  printf '%s' "$1" > "$T/notes-ws/Cargo.lock"; : > "$T/notes-calls"; rm -f "$T/notes-result"
   STATUS=0
   (cd "$T/notes-ws" && PATH="$T/notes-bin:$PATH" NOTES_CALLS="$T/notes-calls" NOTES_RESULT="$T/notes-result" \
      RUNNER_TEMP="$T" GH_TOKEN=unused VERSION=1.2.3 "$STEP_SHELL" "$T/notes.sh") >/dev/null 2>"$T/notes-stderr" || STATUS=$?
 }
-notes_step '{"pins":[{"identity":"other","state":{"version":"9.9.9"}},{"identity":"calendar-connectors","state":{"revision":"abc","version":"1.0.4"}}],"version":3}'
-[ "$STATUS" = 0 ] || { cat "$T/notes-stderr" >&2; fail "connector notes: the step failed on a valid Package.resolved"; }
-[ "$(cat "$T/notes-result")" = "$(printf '%s\n' "## What's Changed" "* a change" "" "Built and tested with calendar-connectors 1.0.4.")" ] ||
+lock_package() { # lock_package <name> <query>
+  printf '[[package]]\nname = "%s"\nversion = "0.0.0"\nsource = "git+https://github.com/binary-companion/calendar-connectors?%s#abcdef0123456789abcdef0123456789abcdef01"\n\n' "$1" "$2"
+}
+OTHER_PACKAGE='[[package]]
+name = "serde"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+'
+notes_step "version = 4
+
+$OTHER_PACKAGE$(lock_package calendar-core tag=2.0.0-alpha.1)$(lock_package calendar-oauth tag=2.0.0-alpha.1)"
+[ "$STATUS" = 0 ] || { cat "$T/notes-stderr" >&2; fail "connector notes: the step failed on a valid Cargo.lock"; }
+[ "$(cat "$T/notes-result")" = "$(printf '%s\n' "## What's Changed" "* a change" "" "Built and tested with calendar-connectors 2.0.0-alpha.1.")" ] ||
   fail "connector notes: the edited notes are wrong: $(cat "$T/notes-result")"
-notes_step '{"pins":[{"identity":"other","state":{"version":"9.9.9"}}],"version":3}'
-[ "$STATUS" != 0 ] || fail "connector notes: the step passed although Package.resolved has no calendar-connectors pin"
+notes_step "version = 4
+
+$OTHER_PACKAGE"
+[ "$STATUS" != 0 ] || fail "connector notes: the step passed although Cargo.lock has no calendar-connectors package"
 [ ! -e "$T/notes-result" ] || fail "connector notes: the release was edited although the pin is missing"
+notes_step "version = 4
+
+$(lock_package calendar-core rev=abcdef0123456789abcdef0123456789abcdef01)"
+[ "$STATUS" != 0 ] || fail "connector notes: the step passed although the connectors are pinned by revision"
+[ ! -e "$T/notes-result" ] || fail "connector notes: the release was edited although the pin has no version"
 
 # --- a stub gh: logs every call, answers /commits/<sha>/pulls from $STUB/labels/<sha> ---
 mkdir -p "$T/bin"
@@ -171,18 +191,19 @@ new_repo() {
   for kv in user.name=t user.email=t@example.com commit.gpgsign=false tag.gpgsign=false; do
     git -C "$R" config "${kv%%=*}" "${kv#*=}"
   done
-  cp "$ROOT/scripts/release/next-version.sh" "$R/scripts/release/"
+  cp "$ROOT/scripts/release/next-version.sh" "$ROOT/scripts/release/release-tags.py" "$R/scripts/release/"
   commit base
 }
 commit() { echo "$1" >> "$R/file"; git -C "$R" add -A; git -C "$R" commit -q -m "$1"; }
 tag() { git -C "$R" tag "$@"; }
 label() { printf '%s' "$2" > "$STUB/labels/$(git -C "$R" rev-parse "$1")"; } # label <rev> <labels>
 
-# run_step <override>: sets STATUS, OUT (the GITHUB_OUTPUT file) and CALLS (gh invocations).
+# run_step <override> [<prerelease> [<ref>]]: sets STATUS, OUT (the GITHUB_OUTPUT file) and CALLS (gh invocations).
 run_step() {
   STATUS=0; OUT="$STUB/output"; : > "$OUT"
   (cd "$R" && PATH="$T/bin:$PATH" GITHUB_OUTPUT="$OUT" GH_TOKEN=unused REPO=o/r \
-     SHA="$(git rev-parse HEAD)" OVERRIDE="${1-}" "$STEP_SHELL" "$T/step.sh") >"$STUB/stdout" 2>"$STUB/stderr" || STATUS=$?
+     SHA="$(git rev-parse HEAD)" OVERRIDE="${1-}" PRERELEASE="${2-}" REF="${3-refs/heads/main}" \
+     "$STEP_SHELL" "$T/step.sh") >"$STUB/stdout" 2>"$STUB/stderr" || STATUS=$?
   CALLS=0; [ ! -f "$STUB/calls" ] || CALLS="$(wc -l < "$STUB/calls" | tr -d ' ')"
 }
 # check <case> <exit: N or "nonzero"> <output: "version=X" | "none"> <gh calls>
@@ -286,5 +307,58 @@ check "lower side-branch tag" 0 "version=1.2.1" 1
 # A reachable tag that is not strict X.Y.Z (a pre-release) is not the base.
 new_repo; tag 1.0.0; commit one; tag 1.1.0-rc1; commit two; run_step ""
 check "reachable pre-release tag" 0 "version=1.0.1" 2
+
+# 9. Prereleases (the v2 branch only): 2.0.0-<prerelease>, no API call, the output marks the prerelease.
+new_repo; tag 1.8.1; commit one; run_step "" alpha.1 refs/heads/v2
+check "prerelease" 0 "version=2.0.0-alpha.1" 0
+grep -q '^prerelease=true$' "$OUT" || fail "prerelease: the output does not say prerelease=true"
+new_repo; commit one; run_step "" alpha.1 refs/heads/v2
+check "prerelease without any tag" 0 "version=2.0.0-alpha.1" 0
+# ...labels on earlier commits are irrelevant.
+new_repo; tag 1.8.1; commit one; commit two; label HEAD "semver:major"; run_step "" rc.2 refs/heads/v2
+check "prerelease ignores labels" 0 "version=2.0.0-rc.2" 0
+# A normal run does not claim to be a prerelease.
+new_repo; tag 1.0.0; commit one; run_step ""
+grep -q '^prerelease=' "$OUT" && fail "a normal release wrote a prerelease output"
+# Refused anywhere but on v2, and with a version override, and for a malformed id.
+for ref in refs/heads/main refs/heads/v20 refs/heads/feature refs/tags/2.0.0 refs/pull/1/merge ""; do
+  new_repo; tag 1.8.1; commit one; run_step "" alpha.1 "$ref"
+  check "prerelease on '$ref'" 2 none 0
+done
+new_repo; tag 1.8.1; commit one; run_step "2.0.0-alpha.1" alpha.1 refs/heads/v2
+check "prerelease with an override" 2 none 0
+for bad in alpha..1 alpha.01 'alpha 1' 'alpha;rm' '../x' '*'; do
+  new_repo; tag 1.8.1; commit one; run_step "" "$bad" refs/heads/v2
+  check "malformed prerelease '$bad'" 2 none 0
+done
+# A stable 2.x release already exists: a prerelease of it is refused.
+new_repo; tag 2.0.0; commit one; run_step "" alpha.1 refs/heads/v2
+check "prerelease after the release" 2 none 0
+# The tag is immutable: it exists on another commit -> refused; on this commit -> a recovery run is allowed.
+new_repo; tag 1.8.1; commit one; tag 2.0.0-alpha.1; commit two; run_step "" alpha.1 refs/heads/v2
+check "prerelease tag on another commit" 1 none 0
+grep -q 'already exists on another commit' "$STUB/stdout" || fail "prerelease tag on another commit: no explanation"
+new_repo; tag 1.8.1; commit one; tag 2.0.0-alpha.1; run_step "" alpha.1 refs/heads/v2
+check "prerelease tag on this commit" 0 "version=2.0.0-alpha.1" 0
+# A second prerelease on a new commit is a new tag.
+new_repo; tag 1.8.1; commit one; tag 2.0.0-alpha.1; commit two; run_step "" alpha.2 refs/heads/v2
+check "second prerelease" 0 "version=2.0.0-alpha.2" 0
+# A non-prerelease tag-less dispatch on v2 behaves as before (the job `if` keeps it from running; the step is the same).
+# The cutover: v2 (Rust, tagged 2.0.0-alpha.1 and .2) is merged into main (Swift, latest tag 1.8.4) with
+# semver:major. The base is 1.8.4, the prerelease tags are ignored, and the release is 2.0.0.
+commitf() { echo "$1" > "$R/$1"; git -C "$R" add -A; git -C "$R" commit -q -m "$1"; } # a commit on its own file: branches merge cleanly
+new_repo; tag 1.8.3
+git -C "$R" checkout -q -b v2; commitf rust1; tag 2.0.0-alpha.1; commitf rust2; tag 2.0.0-alpha.2
+git -C "$R" checkout -q main; commitf swift-fix; tag 1.8.4
+git -C "$R" merge -q --no-ff -m "2.0.0: the library in Rust" v2 || fail "cutover: the merge of v2 failed"
+label HEAD "semver:major"; run_step ""
+check "cutover merge with semver:major" 0 "version=2.0.0" "$(git -C "$R" rev-list --count 1.8.4..HEAD)"
+# ...and without the label the same merge would be a patch of 1.8.4, never a version taken from a prerelease tag.
+new_repo; tag 1.8.3
+git -C "$R" checkout -q -b v2; commitf rust1; tag 2.0.0-alpha.1
+git -C "$R" checkout -q main; commitf swift-fix; tag 1.8.4
+git -C "$R" merge -q --no-ff -m "merge v2" v2 || fail "cutover: the second merge of v2 failed"
+run_step ""
+check "cutover merge without a label" 0 "version=1.8.5" "$(git -C "$R" rev-list --count 1.8.4..HEAD)"
 
 echo PASS

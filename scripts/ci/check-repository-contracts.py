@@ -13,25 +13,6 @@ def require(condition, message):
     if not condition:
         errors.append(message)
 
-# The portable sources stay free of Apple-only and UI frameworks: TimeTugCore builds on Linux and
-# Windows, and CalendarBridge is minimal glue between it and the connector library.
-FORBIDDEN = {'AppKit', 'SwiftUI', 'EventKit', 'WidgetKit', 'FoundationModels',
-             'UIKit', 'Security', 'CryptoKit', 'Network', 'Combine'}
-# "import X", "@testable import X", "public import X", "@_exported public import X", "import struct X.Y".
-IMPORT = re.compile(
-    r'^[ \t]*(?:(?:@\w+(?:\([^)]*\))?|public|package|internal|fileprivate|private)[ \t]+)*'
-    r'import[ \t]+(?:(?:struct|class|enum|protocol|typealias|let|var|func)[ \t]+)?(\w+)', re.M)
-for target in ('TimeTugCore', 'CalendarBridge'):
-    directory = root / 'Sources' / target
-    require(directory.is_dir(), f'missing documented path: Sources/{target}')
-    for file in sorted(directory.rglob('*.swift')):
-        relative = file.relative_to(root)
-        text = file.read_text()
-        for match in IMPORT.finditer(text):
-            require(match.group(1) not in FORBIDDEN,
-                    f'Apple/UI import in portable source ({target}): '
-                    f'{relative}:{text.count(chr(10), 0, match.start()) + 1}: import {match.group(1)}')
-
 # Workflows: untrusted code never meets secrets (program design, section 8).
 ALLOWED_ANYWHERE = {'GITHUB_TOKEN', 'DOCKERHUB_USERNAME', 'DOCKERHUB_TOKEN'}
 def expressions_in(text):
@@ -109,12 +90,16 @@ if (root / '.github' / 'workflows').is_dir():
         require((root / '.github' / 'workflows' / documented).is_file(),
                 f'missing documented path: .github/workflows/{documented}')
 
-# The backward-compatibility jobs (AGENTS.md, "Backward compatibility") are documented by id and become required
-# checks; a renamed or deleted one would silently stop enforcing the rule.
+# The job ids of ci.yml are the required status checks of the branch-protection rulesets (macos, linux, windows-x64,
+# windows-arm64, architecture, dotnet-windows-x64, dotnet-windows-arm64, compat, compat-dotnet, rust-lint,
+# rust-targets); a renamed or deleted one would block every merge or silently stop enforcing its rule. compat and
+# compat-dotnet are also the backward-compatibility jobs of AGENTS.md.
+REQUIRED_JOBS = ('macos', 'linux', 'windows-x64', 'windows-arm64', 'architecture', 'dotnet-windows-x64',
+                 'dotnet-windows-arm64', 'compat', 'compat-dotnet', 'rust-lint', 'rust-targets')
 ci_workflow = root / '.github' / 'workflows' / 'ci.yml'
 if ci_workflow.is_file():
     ci_jobs = load(ci_workflow).get('jobs')
-    for documented in ('compat', 'compat-dotnet'):
+    for documented in REQUIRED_JOBS:
         require(isinstance(ci_jobs, dict) and documented in ci_jobs,
                 f'.github/workflows/ci.yml: missing documented job {documented}')
 
@@ -145,29 +130,6 @@ for action in sorted((root / '.github' / 'actions').glob('**/action.y*ml')):
     for secret in sorted(used):
         require(False, f'{action.relative_to(root)}: composite action uses secret {secret}')
     require(not whole, f'{action.relative_to(root)}: composite action uses the whole secrets context')
-
-# Protocol: one golden fixture per message type, no orphan fixtures. The type lists are string literals in
-# MessageCatalog.swift and ServiceMessages.swift; fixtures named edge-*.json are extra cases, not types.
-catalog = root / 'Sources' / 'TimeTugEngineProtocol' / 'MessageCatalog.swift'
-services = root / 'Sources' / 'TimeTugEngineProtocol' / 'ServiceMessages.swift'
-golden = root / 'Conformance' / 'Fixtures' / 'golden'
-if catalog.is_file():
-    def literals(path, marker):
-        text = path.read_text()
-        start = text.find(marker)
-        require(start >= 0, f'{path.relative_to(root)}: missing {marker}')
-        if start < 0:
-            return set()
-        end = text.find(']', start + len(marker))
-        return set(re.findall(r'"([A-Za-z0-9.]+)"', text[start:end]))
-    types = (literals(catalog, 'hostToEngine: [String] = [') | literals(catalog, 'engineToHost: [String] = [')
-             | (literals(services, 'types: [String] = [') if services.is_file() else set()))
-    require(golden.is_dir(), 'missing documented path: Conformance/Fixtures/golden')
-    fixtures = {f.stem for f in golden.glob('*.json') if not f.name.startswith('edge-')} if golden.is_dir() else set()
-    for missing in sorted(types - fixtures):
-        require(False, f'Conformance/Fixtures/golden: no fixture for message type {missing}')
-    for orphan in sorted(fixtures - types):
-        require(False, f'Conformance/Fixtures/golden/{orphan}.json: fixture for a type not in the message catalog')
 
 if errors:
     for error in errors:

@@ -1,8 +1,12 @@
-.build/
-.swiftpm/
 build/
 .DS_Store
 .serena/
 dotnet/**/bin/
 dotnet/**/obj/
 dotnet/**/TestResults/
+/target
+/.cargo/config.local.toml
+/swift/TimeTugKit/.build/
+/swift/TimeTugKit/.swiftpm/
+/swift/TimeTugKit/Package.resolved
+/.build/

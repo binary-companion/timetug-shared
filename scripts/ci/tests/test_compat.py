@@ -74,8 +74,7 @@ class Repo:
 
 
 FROZEN = ['--additive', 'Conformance/Fixtures/golden', '--appendable', 'Conformance/Scenarios',
-          '--strict', 'Tests/TimeTugEngineTests/Fixtures']
-FROZEN_PATHS = [path for path in FROZEN if not path.startswith('--')]
+          '--strict', 'Tests/TimeTugEngineTests/Fixtures=fixtures/engine', 'fixtures/engine']
 SCENARIO = '{"steps":[{"send":{"type":"start"}},{"expect":{"state":{"takeoverVisible":false}}}]}\n'
 
 
@@ -273,6 +272,51 @@ class Frozen(unittest.TestCase):
                                                  'Conformance/Fixtures/golden/ready2.json'),
                            'Conformance/Fixtures/golden/ready.json: deleted')
 
+    # --- the persisted-data fixtures moved from Tests/TimeTugEngineTests/Fixtures to fixtures/engine ---
+
+    def moved(self, change):
+        def both(repo):
+            (repo.root / 'fixtures').mkdir(exist_ok=True)
+            repo.git('mv', 'Tests/TimeTugEngineTests/Fixtures', 'fixtures/engine')
+            change(repo)
+        return both
+
+    def test_a_moved_persisted_fixture_passes(self):
+        result = self.assert_passes(self.moved(lambda repo: None))
+        self.assertIn('baseline files intact', result.stdout)
+
+    def test_a_fixture_left_in_place_also_passes(self):
+        self.assert_passes(lambda repo: repo.write('fixtures/engine/new-format.json', '{}\n'))
+
+    def test_files_added_next_to_the_moved_fixtures_pass(self):
+        self.assert_passes(self.moved(lambda repo: repo.write('fixtures/engine/new-format.json', '{"x":1}\n')))
+
+    def test_a_moved_fixture_that_changed_fails(self):
+        self.assert_breaks(self.moved(lambda repo: repo.write('fixtures/engine/settings-legacy.json', '{"leadTime":60,"x":1}\n')),
+                           'Tests/TimeTugEngineTests/Fixtures/settings-legacy.json: modified')
+
+    def test_a_moved_fixture_with_different_line_endings_fails(self):
+        self.assert_breaks(self.moved(lambda repo: repo.write('fixtures/engine/settings-legacy.json', '{"leadTime":60}\r\n')),
+                           'settings-legacy.json: modified')
+
+    def test_a_deleted_persisted_fixture_fails_after_the_move(self):
+        self.assert_breaks(self.moved(lambda repo: (repo.root / 'fixtures/engine/settings-legacy.json').unlink()),
+                           'Tests/TimeTugEngineTests/Fixtures/settings-legacy.json: deleted')
+
+    def test_a_fixture_moved_somewhere_else_fails(self):
+        def change(repo):
+            (repo.root / 'elsewhere').mkdir()
+            repo.git('mv', 'Tests/TimeTugEngineTests/Fixtures/settings-legacy.json', 'elsewhere/settings-legacy.json')
+        self.assert_breaks(change, 'settings-legacy.json: deleted')
+
+    def test_a_directory_that_the_baseline_lacks_is_ignored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Repo(directory)
+            repo.write('fixtures/engine/new.json', '{}\n')
+            repo.commit('new')
+            result = repo.compat('frozen', '1.0.0', '--strict', 'Nowhere/Old=fixtures/engine', 'fixtures/engine')
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_usage_errors(self):
         with tempfile.TemporaryDirectory() as directory:
             repo = Repo(directory)
@@ -281,6 +325,32 @@ class Frozen(unittest.TestCase):
 
     def test_only_additions_are_listed_as_unchanged(self):
         self.assertEqual(compat.changed_baseline_files('A\ta.json\nM\tb.json\nD\tc.json\n'), ['M\tb.json', 'D\tc.json'])
+
+
+class CargoLog(unittest.TestCase):
+    OK = ('running 3 tests\ntest a ... ok\n\ntest result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out\n'
+          'running 7 tests\n\ntest result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\n')
+
+    def test_the_passed_tests_of_every_binary_are_summed(self):
+        self.assertEqual(compat.tests_ran(self.OK, 10), [])
+        self.assertEqual(len(compat.tests_ran(self.OK, 11)), 1)
+
+    def test_a_filter_that_matched_nothing_fails(self):
+        log = 'running 0 tests\n\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out\n'
+        self.assertIn('only 0 test(s) passed', compat.tests_ran(log, 1)[0])
+        self.assertIn('only 0 test(s) passed', compat.tests_ran('', 1)[0])
+
+    def test_a_failure_fails(self):
+        log = self.OK + 'test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out\n'
+        self.assertIn('1 test(s) failed', compat.tests_ran(log, 1))
+
+    def test_the_command(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Repo(directory)
+            repo.write('cargo.log', self.OK)
+            self.assertEqual(repo.compat('ran', 'cargo.log', '10').returncode, 0)
+            self.assertEqual(repo.compat('ran', 'cargo.log', '11').returncode, 1)
+            self.assertEqual(repo.compat('ran', 'missing.log', '1').returncode, 2)
 
 
 class Covers(unittest.TestCase):
@@ -418,7 +488,8 @@ def workflow():
 
 def skipped_when_gate_is_off(step):
     condition = str(step.get('if', ''))
-    return "steps.gate.outputs.run == 'true'" in condition or "steps.nuget.outputs.version != ''" in condition
+    return ("steps.gate.outputs.run == 'true'" in condition or "steps.nuget.outputs.version != ''" in condition
+            or "steps.baseline.conclusion == 'success'" in condition)
 
 
 class Workflow(unittest.TestCase):
@@ -441,21 +512,24 @@ class Workflow(unittest.TestCase):
         runs = '\n'.join(step.get('run', '') for step in workflow()['jobs']['compat']['steps'])
         self.assertIn('compat.py frozen "$BASELINE"', runs)
         self.assertIn('--additive Conformance/Fixtures/golden --appendable Conformance/Scenarios', runs)
-        self.assertIn('--strict Tests/TimeTugEngineTests/Fixtures', runs)
+        self.assertIn('--strict Tests/TimeTugEngineTests/Fixtures=fixtures/engine fixtures/engine', runs)
         self.assertIn('compat.py header "$BASELINE" include/timetug_engine.h', runs)
-        self.assertIn('diagnose-api-breaking-changes "$BASELINE"', runs)
-        for product in ('TimeTugCore', 'CalendarBridge', 'TimeTugEngine', 'TimeTugEngineProtocol', 'TimeTugEngineC'):
-            self.assertIn(f' {product}', runs)
-        self.assertIn('TT_BASELINE_FIXTURES=', runs)
-        self.assertIn('TT_BASELINE_SCENARIOS=', runs)
-        self.assertIn('compat.py exports "$BASELINE"', runs)
+        self.assertIn('cargo test --locked -p timetug-engine-protocol fixture', runs)
+        self.assertIn('cargo test --release --locked -p timetug-engine-c --test scenarios', runs)
+        self.assertIn('compat.py exports "$BASELINE" include/timetug_engine.h target/release/libTimeTugEngineC.so', runs)
+        self.assertIn('compat.py ran build/compat-fixtures.log', runs)
+        self.assertIn('compat.py ran build/compat-scenarios.log', runs)
+        envs = [step.get('env', {}) for step in workflow()['jobs']['compat']['steps']]
+        self.assertTrue(any('TT_BASELINE_FIXTURES' in env for env in envs))
+        self.assertTrue(any('TT_BASELINE_SCENARIOS' in env for env in envs))
+        self.assertNotIn('swift', (runs + str(envs)).lower())
 
-    def test_every_library_product_is_compared(self):
-        package = (ROOT / 'Package.swift').read_text()
-        runs = '\n'.join(step.get('run', '') for step in workflow()['jobs']['compat']['steps'])
-        import re
-        for product in re.findall(r'\.library\(name: "(\w+)"', package):
-            self.assertIn(f' {product}', runs.split('diagnose-api-breaking-changes', 1)[1], product)
+    def test_the_persisted_fixtures_are_where_the_compat_job_looks(self):
+        fixtures = ROOT / 'fixtures' / 'engine'
+        self.assertTrue(fixtures.is_dir())
+        self.assertEqual(sorted(path.name for path in fixtures.glob('*.json')),
+                         ['dedup-state.json', 'settings-legacy.json', 'takeover-ledger.json'])
+        self.assertFalse((ROOT / 'Tests').exists())
 
     def test_the_dotnet_job_validates_against_the_published_package(self):
         runs = '\n'.join(step.get('run', '') for step in workflow()['jobs']['compat-dotnet']['steps'])
@@ -470,6 +544,48 @@ class Workflow(unittest.TestCase):
         agents = (ROOT / 'AGENTS.md').read_text()
         self.assertIn('## Backward compatibility', agents)
         self.assertIn('semver:major', agents)
+
+
+class ReleaseCommitBaseline(unittest.TestCase):
+    """The latest release of a branch includes a release commit made from it (scripts/release/release-tags.py)."""
+
+    def release_layout(self, directory, with_swift):
+        repo = Repo(directory)  # main at C0, tagged 1.0.0
+        repo.write('Package.swift', 'path\n')
+        if with_swift:
+            repo.write('swift/TimeTugKit/Sources/TimeTugKit/Names.swift', '// shims\n')
+        repo.commit('c1')
+        c1 = repo.git('rev-parse', 'HEAD').strip()
+        repo.git('checkout', '-q', '--detach', c1)
+        repo.write('Package.swift', 'url\n')
+        repo.commit('release 2.1.0')
+        repo.git('tag', '2.1.0')
+        repo.git('checkout', '-q', 'main')
+        repo.write('later.txt', 'x\n')
+        repo.commit('c2')
+        return repo
+
+    def test_the_baseline_is_a_release_commit_made_from_the_branch(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = self.release_layout(directory, with_swift=True)
+            result = repo.compat('baseline', '--ref', 'main')
+            self.assertEqual(result.stdout.strip(), '2.1.0', result.stderr)
+
+    def test_the_swift_api_check_runs_when_the_baseline_contains_the_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = self.release_layout(directory, with_swift=True)
+            out = repo.root / 'github-output'
+            result = repo.compat('swift-api', '2.1.0', env={'GITHUB_OUTPUT': str(out)})
+            self.assertIn('run=true', out.read_text())
+            self.assertIn('Swift API of TimeTugKit with release 2.1.0', result.stdout)
+
+    def test_the_swift_api_check_is_skipped_with_a_reason_without_the_package(self):
+        with tempfile.TemporaryDirectory() as directory:
+            repo = self.release_layout(directory, with_swift=False)
+            out = repo.root / 'github-output'
+            result = repo.compat('swift-api', '1.0.0', env={'GITHUB_OUTPUT': str(out)})
+            self.assertIn('run=false', out.read_text())
+            self.assertIn('does not contain the Swift package', result.stdout)
 
 
 if __name__ == '__main__':

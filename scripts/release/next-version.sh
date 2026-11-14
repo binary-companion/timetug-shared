@@ -2,6 +2,12 @@
 # Prints the version a push to main should release.
 #
 #   next-version.sh --latest <X.Y.Z or ""> --labels <comma-separated PR labels> [--override <X.Y.Z>]
+#   next-version.sh --prerelease <id> [--latest <X.Y.Z or "">]       (the v2 branch only)
+#
+# --prerelease prints 2.0.0-<id> (for example alpha.1 gives 2.0.0-alpha.1). The id is one or more dot-separated
+# identifiers of [0-9A-Za-z-] (non-numeric ones with a letter), numeric ones without a leading zero. Labels are ignored; it cannot be combined with
+# --override (exit 2); it is refused (exit 2) once a stable release 2.0.0 or higher is the latest tag, because a
+# prerelease of a version that is already out would sort below it. An empty id means "not a prerelease".
 #
 # Exit codes: 0 printed a version; 2 bad usage or malformed input, or an override below --latest; 3 no tag
 # exists and no override was given (the extraction push: nothing is released until the first version is
@@ -13,15 +19,16 @@
 # tag exists yet (the first release).
 set -euo pipefail
 set -f
-latest="" labels="" override=""
+latest="" labels="" override="" prerelease=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --latest|--labels|--override)
+    --latest|--labels|--override|--prerelease)
       [ $# -ge 2 ] || { echo "$1 needs a value" >&2; exit 2; }
       case "$1" in
         --latest) latest="$2" ;;
         --labels) labels="$2" ;;
         --override) override="$2" ;;
+        --prerelease) prerelease="$2" ;;
       esac
       shift 2 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
@@ -45,6 +52,20 @@ below() {
   done
   return 1
 }
+if [ -n "$prerelease" ]; then
+  [ -z "$override" ] || { echo "--prerelease cannot be combined with --override" >&2; exit 2; }
+  ident='(0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z][0-9A-Za-z-]*)'
+  [[ "$prerelease" =~ ^$ident(\.$ident)*$ ]] || { echo "not a prerelease identifier: $prerelease" >&2; exit 2; }
+  if [ -n "$latest" ]; then
+    [[ "$latest" =~ $semver ]] || { echo "latest tag is not X.Y.Z: $latest" >&2; exit 2; }
+    if ! below "$latest" 2.0.0; then
+      echo "stable release $latest exists; a prerelease of 2.0.0 would sort below it" >&2
+      exit 2
+    fi
+  fi
+  echo "2.0.0-$prerelease"
+  exit 0
+fi
 if [ -n "$override" ]; then
   [[ "$override" =~ $semver ]] || { echo "override is not X.Y.Z: $override" >&2; exit 2; }
   if [ -n "$latest" ]; then

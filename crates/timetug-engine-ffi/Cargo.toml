@@ -1,0 +1,69 @@
+[package]
+name = "timetug-engine-ffi"
+description = "UniFFI bindings for Swift and Kotlin hosts: the typed front door of the engine (new in phase 5)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+crate-type = ["staticlib", "cdylib", "lib"]
+
+# The two generator binaries are built only with `--features bindgen` (scripts/dev/generate-bindings.sh): the feature adds
+# the generator's own dependencies (clap, cargo_metadata, ...), which are never linked into the library.
+# `uniffi/cargo-metadata` makes the generator find this crate's `uniffi.toml`; without it the file is silently ignored.
+[features]
+# Adds `Engine.newForTesting(..., clockStart:)` and `advanceClock(seconds:)` (a manual clock). Off in every release build; the
+# Swift tests build their own copy of the library with it (scripts/dev/swift-test.sh).
+test-clock = []
+bindgen = ["uniffi/cli", "uniffi/cargo-metadata"]
+
+[[bin]]
+name = "uniffi-bindgen-swift"
+path = "src/bin/uniffi-bindgen-swift.rs"
+required-features = ["bindgen"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "src/bin/uniffi-bindgen.rs"
+required-features = ["bindgen"]
+
+# Cargo cannot override single workspace lints, so these are the workspace lints (conventions section 2) with
+# unsafe_code allowed and every unsafe operation inside an unsafe fn still marked explicitly.
+[lints.rust]
+unsafe_code = "allow"
+unsafe_op_in_unsafe_fn = "deny"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+print_stdout = "deny"
+print_stderr = "deny"
+
+[dependencies]
+timetug-engine-protocol = { workspace = true }
+timetug-engine = { workspace = true }
+timetug-core = { workspace = true }
+timetug-bridge = { workspace = true }
+calendar-core = { workspace = true }
+calendar-oauth = { workspace = true }
+calendar-ical = { workspace = true }
+calendar-google = { workspace = true }
+calendar-microsoft = { workspace = true }
+calendar-caldav = { workspace = true }
+calendar-ical-subscription = { workspace = true }
+thiserror = { workspace = true }
+jiff = { workspace = true }
+uuid = { workspace = true }
+uniffi = { workspace = true }
+async-trait = { workspace = true }
+tokio = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

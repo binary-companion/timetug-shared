@@ -10,5 +10,3 @@ Add exactly one label before merging; a merge to `main` releases automatically.
   and `compat-dotnet` checks fail such a change (AGENTS.md, "Backward compatibility").
 - `semver:minor`: new API
 - `semver:patch`: fixes and documentation (the default when no label is set)
-
-- [ ] If this changes behaviour of the Swift library, I added a line to `docs/rust-port/parity-ledger.md` on `v2`.

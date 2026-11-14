@@ -1,0 +1,190 @@
+# cargo-deny configuration (design section 6.2). `cargo deny check` runs in the rust-lint job of ci.yml.
+
+[graph]
+# The targets of design section 6.4, so platform-specific dependencies (Windows, Android) are checked too.
+targets = [
+    "aarch64-apple-darwin",
+    "x86_64-apple-darwin",
+    "aarch64-apple-ios",
+    "aarch64-apple-ios-sim",
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "aarch64-linux-android",
+]
+
+[advisories]
+yanked = "deny"
+unmaintained = "all"
+ignore = []
+
+[licenses]
+# Not every licence in the list is in use today.
+unused-allowed-license = "allow"
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+]
+
+# UniFFI (the bindings generator runtime, design section 6.2) is MPL-2.0, which is not on the general list above. MPL-2.0 is
+# file-level copyleft: using the crates unmodified, as here, only obliges the notice in THIRD-PARTY-NOTICES.md and keeping
+# the source of those files available (it is public on crates.io). Each exception names one crate that carries it.
+[[licenses.exceptions]]
+allow = ["MPL-2.0"]
+crate = "uniffi"
+[[licenses.exceptions]]
+allow = ["MPL-2.0"]
+crate = "uniffi_core"
+[[licenses.exceptions]]
+allow = ["MPL-2.0"]
+crate = "uniffi_internal_macros"
+[[licenses.exceptions]]
+allow = ["MPL-2.0"]
+crate = "uniffi_macros"
+[[licenses.exceptions]]
+allow = ["MPL-2.0"]
+crate = "uniffi_meta"
+[[licenses.exceptions]]
+allow = ["MPL-2.0"]
+crate = "uniffi_pipeline"
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow-wildcard-paths = true
+# The bindings generator's macros use two majors of `syn`; both run only while compiling, neither is linked into a library.
+skip = [{ crate = "syn@2.0.119", reason = "uniffi_internal_macros uses syn 2 while uniffi_macros uses syn 3; build time only" }]
+
+# The workspace crates, the connector crates (a git dependency), the external crates and everything they pull in, as `cargo metadata` reports them at this
+# commit (all targets of design section 6.4). Anything else fails the check. Adding an external crate needs a decision
+# record (design section 6.2); scripts/ci/check-crate-architecture.py checks the direct dependencies of the workspace.
+allow = [
+    "anyhow",
+    "async-trait",
+    "autocfg",
+    "base64",
+    "bitflags",
+    "block-buffer",
+    "bytes",
+    "calendar-caldav",
+    "calendar-core",
+    "calendar-google",
+    "calendar-ical",
+    "calendar-ical-subscription",
+    "calendar-microsoft",
+    "calendar-oauth",
+    "calendar-test-support",
+    "camino",
+    "cfg-if",
+    "cpufeatures",
+    "crypto-common",
+    "dedup-benchmark",
+    "digest",
+    "displaydoc",
+    "equivalent",
+    "errno",
+    "fastrand",
+    "form_urlencoded",
+    "fs-err",
+    "getrandom",
+    "hashbrown",
+    "heck",
+    "hybrid-array",
+    "icu_collections",
+    "icu_locale_core",
+    "icu_normalizer",
+    "icu_normalizer_data",
+    "icu_properties",
+    "icu_properties_data",
+    "icu_provider",
+    "idna",
+    "idna_adapter",
+    "indexmap",
+    "itoa",
+    "jiff",
+    "jiff-core",
+    "jiff-static",
+    "jiff-tzdb",
+    "jiff-tzdb-platform",
+    "libc",
+    "linux-raw-sys",
+    "litemap",
+    "log",
+    "memchr",
+    "once_cell",
+    "percent-encoding",
+    "pin-project-lite",
+    "portable-atomic",
+    "portable-atomic-util",
+    "potential_utf",
+    "proc-macro2",
+    "quick-xml",
+    "quote",
+    "r-efi",
+    "rustix",
+    "serde",
+    "serde_core",
+    "serde_derive",
+    "serde_json",
+    "serde_spanned",
+    "sha2",
+    "siphasher",
+    "smallvec",
+    "stable_deref_trait",
+    "static_assertions",
+    "syn",
+    "synstructure",
+    "tempfile",
+    "thiserror",
+    "thiserror-impl",
+    "timetug-bridge",
+    "timetug-core",
+    "timetug-engine",
+    "timetug-engine-c",
+    "timetug-engine-ffi",
+    "timetug-engine-protocol",
+    "tinystr",
+    "tokio",
+    "tokio-macros",
+    "toml",
+    "toml_datetime",
+    "toml_parser",
+    "toml_writer",
+    "typenum",
+    "unicode-ident",
+    "uniffi",
+    "uniffi_core",
+    "uniffi_internal_macros",
+    "uniffi_macros",
+    "uniffi_meta",
+    "uniffi_pipeline",
+    "url",
+    "utf8_iter",
+    "utf_types",
+    "uuid",
+    "windows-link",
+    "windows-sys",
+    "winnow",
+    "writeable",
+    "yoke",
+    "yoke-derive",
+    "zerofrom",
+    "zerofrom-derive",
+    "zerotrie",
+    "zerovec",
+    "zerovec-derive",
+    "zmij",
+]
+
+[sources]
+# The connector library is the only git dependency (pinned by revision in Cargo.toml).
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = ["https://github.com/binary-companion/calendar-connectors"]

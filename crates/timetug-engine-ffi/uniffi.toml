@@ -1,0 +1,41 @@
+# Settings of the generated Swift and Kotlin (docs/bindings.md says what each one is for).
+[bindings.swift]
+# The generated Swift file is its own module so the hand-written Swift package can be built in Swift 6 mode (the
+# generated code does not compile in it); the package re-exports it.
+module_name = "TimeTugKitGenerated"
+ffi_module_name = "TimeTugEngineFFI"
+
+[bindings.swift.custom_types.Timestamp]
+type_name = "Date"
+imports = ["Foundation"]
+lift = "Date(timeIntervalSince1970: Double({}) / 1000.0)"
+lower = "Int64(({}.timeIntervalSince1970 * 1000.0).rounded())"
+
+[bindings.swift.custom_types.Zone]
+type_name = "TimeZone"
+imports = ["Foundation"]
+# The engine only lowers identifiers it knows; a Swift TimeZone is never lowered unless Foundation made it.
+lift = "TimeZone(identifier: {}) ?? TimeZone(secondsFromGMT: 0)!"
+lower = "{}.identifier"
+
+[bindings.swift.custom_types.UrlString]
+type_name = "URL"
+imports = ["Foundation"]
+lift = "URL(string: {})!"
+lower = "{}.absoluteString"
+
+[bindings.swift.custom_types.Uuid]
+type_name = "UUID"
+imports = ["Foundation"]
+lift = "UUID(uuidString: {})!"
+lower = "{}.uuidString"
+
+[bindings.kotlin.custom_types.Timestamp]
+type_name = "java.time.Instant"
+lift = "java.time.Instant.ofEpochMilli({})"
+lower = "{}.toEpochMilli()"
+
+[bindings.kotlin.custom_types.Uuid]
+type_name = "java.util.UUID"
+lift = "java.util.UUID.fromString({})"
+lower = "{}.toString().uppercase()"

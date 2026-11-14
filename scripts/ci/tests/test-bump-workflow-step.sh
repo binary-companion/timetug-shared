@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Tests .github/workflows/bump-dependencies.yml: pins the shape of the workflow (triggers, environment, token
-# scope, no merge, no label), runs its "Move the pin" step against the real scripts/ci/bump-resolved.py and
-# the real Package.resolved and Package.swift (so the step must use the script's current command line), then
-# runs its "Open the pull request" step against stub `git` and `gh` and asserts which pull requests it opens
-# and closes. The steps are extracted from the workflow and executed, so the real text is what is tested.
+# scope, no merge, no label), runs its "Move the pin" step against the real scripts/ci/bump-cargo-dependency.py
+# and the real Cargo.toml and Cargo.lock with a stub `cargo` (so the step must use the script's current command
+# line), then runs its "Open the pull request" step against stub `git` and `gh` and asserts which pull requests it
+# opens and closes. The steps are extracted from the workflow and executed, so the real text is what is tested.
 # BUMP_WORKFLOW points at another copy of the workflow (used to prove that mutated copies fail).
 # PYTHON selects the interpreter that has PyYAML (CI points it at build/venv/bin/python).
 set -euo pipefail
@@ -18,9 +18,9 @@ mkdir -p "$T/bin"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
 # --- the shape of the workflow, then the two steps extracted ---
-"$PYTHON" - "$WORKFLOW" "$T/open.sh" "$T/move.sh" "$T/guard.sh" <<'PY'
+"$PYTHON" - "$WORKFLOW" "$T/open.sh" "$T/move.sh" <<'PY'
 import re, sys, yaml
-workflow, open_target, move_target, guard_target = sys.argv[1:]
+workflow, open_target, move_target = sys.argv[1:]
 raw = open(workflow).read()
 document = yaml.safe_load(raw)
 def check(condition, message):
@@ -44,12 +44,13 @@ check(job.get('if') == "github.event_name == 'workflow_dispatch' || github.event
 check(job.get('environment') == 'bump', 'the job must use the bump environment (it holds the bot key)')
 check(job.get('runs-on') == 'ubuntu-latest', 'the job must run on ubuntu-latest')
 check(job.get('permissions') == {'contents': 'read'}, 'the job permissions must be exactly contents: read')
-check(job.get('env') == {'VERSION': '${{ github.event.client_payload.version || inputs.version }}'},
-      'the job env must be exactly VERSION from the payload or the input')
+check(job.get('env') == {'VERSION': '${{ github.event.client_payload.version || inputs.version }}',
+                         'BASE': '${{ github.ref_name }}'},
+      'the job env must be exactly VERSION from the payload or the input, and BASE (the branch the workflow runs on)')
 check('continue-on-error' not in job, 'the job must not set continue-on-error')
 steps = job['steps']
-check(len(steps) == 5, 'the job must have exactly five steps: token, checkout, guard, move, open')
-token, checkout, guard, move, open_pr = steps
+check(len(steps) == 5, 'the job must have exactly five steps: token, checkout, toolchain, move, open')
+token, checkout, toolchain, move, open_pr = steps
 check(token.get('id') == 'app' and token.get('uses') == 'actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510',
       'the first step must be the token step (id app) pinned to the reviewed create-github-app-token SHA')
 check(token.get('with') == {'app-id': '${{ vars.BUMP_APP_ID }}',
@@ -62,22 +63,16 @@ check(token.get('with') == {'app-id': '${{ vars.BUMP_APP_ID }}',
       'permission-pull-requests: write')
 check(checkout.get('uses') == 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1',
       'the checkout must be pinned to the reviewed actions/checkout SHA')
-check(checkout.get('with') == {'ref': 'main', 'token': '${{ steps.app.outputs.token }}'},
-      'the checkout must be ref: main with the app token (so the push is made by the bot)')
-check(guard.get('name') == 'Skip new major versions' and guard.get('id') == 'guard'
-      and 'env' not in guard and '${{' not in guard['run']
-      and 'scripts/ci/bump-major-guard.sh "$VERSION"' in guard['run']
-      and '::notice::' in guard['run'] and 'decision=' in guard['run'] and 'continue-on-error' not in guard,
-      'the third step must be the major-version guard (id guard), calling bump-major-guard.sh with VERSION '
-      'and writing its decision to the step output')
+check(checkout.get('with') == {'ref': '${{ github.ref_name }}', 'token': '${{ steps.app.outputs.token }}'},
+      'the checkout must be the branch the workflow runs on with the app token (so the push is made by the bot)')
+check(toolchain.get('run') == 'rustup show active-toolchain || rustup toolchain install',
+      'the third step must install the pinned Rust toolchain (cargo update needs it)')
 check(move.get('name') == 'Move the pin' and open_pr.get('name') == 'Open the pull request',
       'the last two steps must be "Move the pin" and "Open the pull request", in that order')
-for gated in (move, open_pr):
-    check(gated.get('if') == "steps.guard.outputs.decision == 'proceed'",
-          f"the step {gated['name']!r} must run only when the guard decided proceed")
+check('env' not in move, 'the step "Move the pin" must not get the app token (it only edits files and runs cargo)')
+check(open_pr.get('env') == {'GH_TOKEN': '${{ steps.app.outputs.token }}'},
+      "the step 'Open the pull request' env must be exactly GH_TOKEN (the app token)")
 for step in (move, open_pr):
-    check(step.get('env') == {'GH_TOKEN': '${{ steps.app.outputs.token }}'},
-          f"the step {step['name']!r} env must be exactly GH_TOKEN (the app token)")
     check('${{' not in step['run'], f"the step {step['name']!r} must not contain ${{{{ }}}} (values reach it through env)")
     check('continue-on-error' not in step, f"the step {step['name']!r} must not set continue-on-error")
     check(not re.search(r'gh\s+pr\s+merge|--auto\b|--admin\b|--label|--add-label|/merge\b|gh\s+workflow\s+run', step['run']),
@@ -90,7 +85,6 @@ for line in raw.splitlines():
 check('refs/pull' not in raw and 'pull_request' not in raw, 'the workflow must not mention pull_request triggers')
 open(open_target, 'w').write(open_pr['run'])
 open(move_target, 'w').write(move['run'])
-open(guard_target, 'w').write(guard['run'])
 PY
 
 # --- stubs ---
@@ -152,120 +146,91 @@ no_forbidden_calls() { # after every run: the workflow never merges, labels or s
   fi
 }
 
-# --- the "Move the pin" step, in a tree with the real script, manifest and resolved file ---
-CURRENT="$("$ROOT/scripts/ci/resolved-version.py" "$ROOT/Package.resolved" calendar-connectors)"
-IFS=. read -r MAJOR MINOR PATCH <<< "$CURRENT"
-NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
-LOWER=""
-if [ "$PATCH" -gt 0 ]; then LOWER="$MAJOR.$MINOR.$((PATCH - 1))"; elif [ "$MINOR" -gt 0 ]; then LOWER="$MAJOR.$((MINOR - 1)).0"; fi
-NEW_SHA=1111111111111111111111111111111111111111
-TAG_OBJECT=2222222222222222222222222222222222222222
-OTHER_TAG_OBJECT=3333333333333333333333333333333333333333
+# --- the "Move the pin" step, in a tree with the real script, manifest and lock file and a stub cargo ---
+# The stub records its arguments and rewrites the lock the way `cargo update -p` would: every connector source
+# moves to the tag the manifest names, at a made-up commit.
+cat > "$T/bin/cargo" <<'SCRIPT'
+#!/usr/bin/env bash
+echo "cargo $*" >> "$CALLS"
+[ "${CARGO_FAIL:-0}" != 1 ] || { echo "error: failed to fetch the tag" >&2; exit 101; }
+manifest=Cargo.toml
+for ((i = 1; i <= $#; i++)); do [ "${!i}" = --manifest-path ] && { j=$((i + 1)); manifest="${!j}"; }; done
+tag="$(grep '^calendar-core = ' "$manifest" | grep -o 'tag = "[^"]*"' | cut -d'"' -f2)"
+sed -E "s@[?](rev|tag)=[^#\"]+#[0-9a-f]+@?tag=$tag#1111111111111111111111111111111111111111@" Cargo.lock > Cargo.lock.new
+mv Cargo.lock.new Cargo.lock
+SCRIPT
+chmod +x "$T/bin/cargo"
+# The copies of the real manifest and lock start from a fixed pin, 2.0.0-alpha.1, whatever the repository pins today
+# (a stable pin such as 2.0.0 would make every prerelease case below a downgrade).
+START=2.0.0-alpha.1
+NEXT=2.0.0-alpha.2
 fresh_tree() {
-  rm -rf "$T/move" "$T/tags"
-  mkdir -p "$T/move/scripts/ci" "$T/tags"
-  cp "$ROOT/scripts/ci/bump-resolved.py" "$T/move/scripts/ci/"
-  cp "$ROOT/Package.swift" "$ROOT/Package.resolved" "$T/move/"
-  cp "$T/move/Package.resolved" "$T/move.original"
-}
-lightweight() { printf '{"ref":"refs/tags/%s","object":{"type":"commit","sha":"%s"}}' "$1" "$2" > "$T/tags/ref-$1.json"; }
-annotated() { # annotated <version> <tag object sha> <target type> <target sha>
-  printf '{"ref":"refs/tags/%s","object":{"type":"tag","sha":"%s"}}' "$1" "$2" > "$T/tags/ref-$1.json"
-  printf '{"sha":"%s","object":{"type":"%s","sha":"%s"}}' "$2" "$3" "$4" > "$T/tags/tag-$2.json"
+  rm -rf "$T/move"
+  mkdir -p "$T/move/scripts/ci"
+  cp "$ROOT/scripts/ci/bump-cargo-dependency.py" "$ROOT/scripts/ci/cargo-dependency-version.py" "$T/move/scripts/ci/"
+  sed -E "/binary-companion\/calendar-connectors/s@(rev|tag) = \"[^\"]*\"@tag = \"$START\"@" "$ROOT/Cargo.toml" > "$T/move/Cargo.toml"
+  sed -E "s@(calendar-connectors[?])(rev|tag)=[^#\"]+#[0-9a-f]+@\1tag=$START#2222222222222222222222222222222222222222@" "$ROOT/Cargo.lock" > "$T/move/Cargo.lock"
+  [ "$("$T/move/scripts/ci/cargo-dependency-version.py" "$T/move/Cargo.lock" calendar-connectors)" = "$START" ] ||
+    fail "the copied lock does not start at $START"
+  cp "$T/move/Cargo.toml" "$T/move.toml.original"; cp "$T/move/Cargo.lock" "$T/move.lock.original"
 }
 # move <version>: sets STATUS; output in $T/move.out, calls in $T/calls.
 move() {
   : > "$T/calls"
   STATUS=0
-  (cd "$T/move" && CALLS="$T/calls" TAGS="$T/tags" VERSION="$1" GH_TOKEN=unused PATH="$T/bin:$PATH" \
-     bash "$T/move.sh") > "$T/move.out" 2>&1 || STATUS=$?
+  (cd "$T/move" && CALLS="$T/calls" VERSION="$1" PATH="$T/bin:$PATH" bash "$T/move.sh") > "$T/move.out" 2>&1 || STATUS=$?
   no_forbidden_calls
 }
-pin_field() { jq -r --arg f "$2" '.pins[] | select(.identity == "calendar-connectors") | .state[$f]' "$1"; }
-untouched() { cmp -s "$T/move/Package.resolved" "$T/move.original"; }
+locked_tags() { grep -o 'calendar-connectors?tag=[^#"]*' "$T/move/Cargo.lock" | sort -u | tr '\n' ' ' | sed 's/ $//'; }
+untouched() { cmp -s "$T/move/Cargo.toml" "$T/move.toml.original" && cmp -s "$T/move/Cargo.lock" "$T/move.lock.original"; }
 
-# A lightweight tag: the pin moves to the tag's commit and the new version, and nothing else changes.
-fresh_tree; lightweight "$NEXT" "$NEW_SHA"
-move "$NEXT"
-[ "$STATUS" = 0 ] || fail "moving to $NEXT failed: $(cat "$T/move.out")"
-[ "$(pin_field "$T/move/Package.resolved" version)" = "$NEXT" ] || fail "the pin did not move to $NEXT"
-[ "$(pin_field "$T/move/Package.resolved" revision)" = "$NEW_SHA" ] || fail 'the pin revision is not the tag commit'
-[ "$(jq -r .originHash "$T/move/Package.resolved")" = "$(jq -r .originHash "$T/move.original")" ] || fail 'originHash changed'
-[ "$(diff "$T/move.original" "$T/move/Package.resolved" | grep -c '^[<>]')" = 4 ] ||
-  fail "the diff is not exactly the revision and version lines: $(diff "$T/move.original" "$T/move/Package.resolved")"
-grep -q "api repos/binary-companion/calendar-connectors/git/ref/tags/$NEXT " "$T/calls" || fail 'the tag ref was not read'
-grep -q 'git/tags/' "$T/calls" && fail 'a lightweight tag was dereferenced as a tag object'
-
-# An annotated tag: the commit is the dereferenced one, never the tag object.
-fresh_tree; annotated "$NEXT" "$TAG_OBJECT" commit "$NEW_SHA"
-move "$NEXT"
-[ "$STATUS" = 0 ] || fail "an annotated tag failed: $(cat "$T/move.out")"
-[ "$(pin_field "$T/move/Package.resolved" revision)" = "$NEW_SHA" ] || fail 'an annotated tag was not dereferenced to its commit'
-grep -q "git/tags/$TAG_OBJECT" "$T/calls" || fail 'the tag object was not read'
-
-# A tag that points at another tag (or at a tree) is refused; nothing is written.
-fresh_tree; annotated "$NEXT" "$TAG_OBJECT" tag "$OTHER_TAG_OBJECT"
-move "$NEXT"
-[ "$STATUS" != 0 ] && untouched || fail 'a tag of a tag was accepted or modified the file'
-fresh_tree; annotated "$NEXT" "$TAG_OBJECT" tree "$NEW_SHA"
-move "$NEXT"
-[ "$STATUS" != 0 ] && untouched || fail 'a tag that points at a tree was accepted or modified the file'
-
-# A tag that does not exist (404) fails the step and leaves the file.
+# A bump to the next prerelease: every connector line takes the tag, nothing else changes in the manifest, and
+# cargo is asked to update exactly the connector crates.
 fresh_tree
 move "$NEXT"
-[ "$STATUS" != 0 ] && untouched || fail 'a missing tag did not fail the step cleanly'
+[ "$STATUS" = 0 ] || fail "moving to $NEXT failed: $(cat "$T/move.out")"
+[ "$(locked_tags)" = "calendar-connectors?tag=$NEXT" ] || fail "the lock does not follow: '$(locked_tags)'"
+changed="$(diff "$T/move.toml.original" "$T/move/Cargo.toml" | grep -c '^>' || true)"
+[ "$changed" = "$(grep -c 'binary-companion/calendar-connectors' "$T/move.toml.original")" ] ||
+  fail "the manifest diff is not exactly the connector lines: $(diff "$T/move.toml.original" "$T/move/Cargo.toml")"
+grep -q "tag = \"$NEXT\"" "$T/move/Cargo.toml" || fail 'the manifest does not carry the tag'
+[ "$(grep -c '^cargo update --manifest-path ' "$T/calls")" = 1 ] || fail "cargo was not called once: $(cat "$T/calls")"
+grep -q -- '-p calendar-core' "$T/calls" || fail 'cargo was not asked to update calendar-core'
+[ "$(cat "$T/calls" | tr ' ' '\n' | grep -c '^-p$')" = 8 ] || fail 'cargo was not asked to update the eight connector crates'
+no_cargo() { ! grep -q '^cargo' "$T/calls"; }
 
-# The API answering with something that is not a 40-character hex sha is refused by the script.
-fresh_tree; lightweight "$NEXT" 'not-a-sha'
-move "$NEXT"
-[ "$STATUS" != 0 ] && untouched || fail 'a malformed sha was accepted'
+# A tag that cannot be fetched (cargo fails) leaves both files as they were.
+fresh_tree; CARGO_FAIL=1 move "$NEXT"
+[ "$STATUS" != 0 ] && untouched || fail 'a failing cargo did not fail the step cleanly'
+unset CARGO_FAIL
 
-# A hostile or malformed version is refused before any API call is made.
-fresh_tree; lightweight "$NEXT" "$NEW_SHA"
-for hostile in '../../../repos/other/x' '1.0' 'v1.0.5' "$NEXT-rc1" "$MAJOR.$MINOR.1234567890" "$NEXT
-1.0.0" '' '1.0.5 --jq .' '$(touch /tmp/x)' '99999999999999999999.0.0'; do
+# A hostile or malformed version is refused before cargo runs and before any file is touched.
+fresh_tree
+for hostile in '../../../repos/other/x' '1.0' 'v1.0.5' "$NEXT-rc1" '2.0.0-beta.1' '1.0.1234567890' "2.0.0
+1.0.0" '' '1.0.5 --jq .' '$(touch /tmp/x)' '99999999999999999999.0.0' '2.0.0-alpha.01' '2.0.0+build'; do
   move "$hostile"
   [ "$STATUS" != 0 ] || fail "the version '$hostile' was accepted"
-  untouched || fail "the version '$hostile' modified the file"
-  grep -q 'gh api' "$T/calls" && fail "the version '$hostile' reached the API"
+  untouched || fail "the version '$hostile' modified the files"
+  no_cargo || fail "the version '$hostile' reached cargo"
 done
 
-# A downgrade and a change of major are refused and leave the file (the tag exists for both).
-if [ -n "$LOWER" ]; then
-  fresh_tree; lightweight "$LOWER" "$NEW_SHA"
-  move "$LOWER"
-  [ "$STATUS" != 0 ] && untouched || fail "a downgrade to $LOWER was accepted"
-fi
-fresh_tree; lightweight "$((MAJOR + 1)).0.0" "$NEW_SHA"
-move "$((MAJOR + 1)).0.0"
+# After the first bump to a tag: a downgrade, a change of major and a bump of the same version.
+fresh_tree; move "$NEXT"; [ "$STATUS" = 0 ] || fail "the setup bump failed: $(cat "$T/move.out")"
+cp "$T/move/Cargo.toml" "$T/move.toml.original"; cp "$T/move/Cargo.lock" "$T/move.lock.original"
+move 2.0.0-alpha.0
+[ "$STATUS" != 0 ] && untouched || fail 'a downgrade was accepted or modified the files'
+grep -q 'refusing to move' "$T/move.out" || fail 'a downgrade did not say so'
+move 3.0.0
 [ "$STATUS" != 0 ] && untouched || fail 'a major change was applied'
 grep -q 'manual change' "$T/move.out" || fail 'a major change did not say it needs a manual change'
-
-# The version that is already resolved, at the same commit, is a clean no-op (the open step then sees no diff).
-fresh_tree; lightweight "$CURRENT" "$(pin_field "$T/move/Package.resolved" revision)"
-move "$CURRENT"
-[ "$STATUS" = 0 ] && untouched || fail 'the version that is already resolved was not a no-op'
-# ... but at another commit it is refused (a moved tag), never silently rewritten.
-fresh_tree; lightweight "$CURRENT" "$NEW_SHA"
-move "$CURRENT"
-[ "$STATUS" != 0 ] && untouched || fail 'a moved tag rewrote the revision of the current version'
-
-# --- the guard step: a new major version of the connector library is skipped with a notice, anything else proceeds ---
-guard_run() { # guard_run <version>: sets STATUS; the step output lands in $T/guard.out, the log in $T/guard.log
-  rm -rf "$T/guard"; mkdir -p "$T/guard/scripts/ci"
-  cp "$ROOT/scripts/ci/bump-major-guard.sh" "$ROOT/scripts/ci/resolved-version.py" "$T/guard/scripts/ci/"
-  cp "$ROOT/Package.resolved" "$T/guard/"
-  : > "$T/guard.out"; STATUS=0
-  (cd "$T/guard" && VERSION="$1" GITHUB_OUTPUT="$T/guard.out" bash "$T/guard.sh") > "$T/guard.log" 2>&1 || STATUS=$?
-}
-guard_run "$NEXT"
-[ "$STATUS" = 0 ] && grep -qx 'decision=proceed' "$T/guard.out" || fail "the guard did not proceed for $NEXT: $(cat "$T/guard.log")"
-guard_run "$((MAJOR + 1)).0.0"
-[ "$STATUS" = 0 ] && grep -qx 'decision=skip' "$T/guard.out" || fail 'the guard did not skip a new major version'
-grep -q '::notice::' "$T/guard.log" || fail 'the guard left no notice for a skipped major version'
-guard_run '1.0'
-[ "$STATUS" != 0 ] && ! grep -q 'decision=' "$T/guard.out" || fail 'the guard accepted a malformed version'
+move "$NEXT"
+[ "$STATUS" = 0 ] && untouched || fail 'the version that is already pinned was not a no-op'
+no_cargo || fail 'a no-op bump called cargo'
+# A later prerelease, then the release itself.
+move 2.0.0-alpha.9
+[ "$STATUS" = 0 ] && [ "$(locked_tags)" = 'calendar-connectors?tag=2.0.0-alpha.9' ] || fail "a later prerelease failed: $(cat "$T/move.out")"
+move 2.0.0
+[ "$STATUS" = 0 ] && [ "$(locked_tags)" = 'calendar-connectors?tag=2.0.0' ] || fail "the release after its prereleases failed: $(cat "$T/move.out")"
 
 # --- the "Open the pull request" step against stub git and gh ---
 pr() { printf '{"number":%s,"headRefName":"%s","isCrossRepository":%s}' "$1" "$2" "${3:-false}"; }
@@ -279,8 +244,8 @@ run() {
   printf '[%s%s]\n' "$BASE_PRS" "${extra:+,$extra}" > "$T/prs.json"
   : > "$T/calls"; rm -f "$T/created.title" "$T/created.body"
   STATUS=0
-  CALLS="$T/calls" PRS="$T/prs.json" CREATED="$T/created" RUNNER_TEMP="$T" VERSION="$version" PATH="$T/bin:$PATH" \
-    bash "$T/open.sh" > "$T/out" 2>&1 || STATUS=$?
+  (cd "$ROOT" && CALLS="$T/calls" PRS="$T/prs.json" CREATED="$T/created" RUNNER_TEMP="$T" VERSION="$version" BASE=v2 \
+     PATH="$T/bin:$PATH" bash "$T/open.sh") > "$T/out" 2>&1 || STATUS=$?
   CLOSED="$({ grep '^gh pr close ' "$T/calls" || true; } | awk '{print $4}' | sort -n | tr '\n' ' ' | sed 's/ $//')"
   no_forbidden_calls
 }
@@ -300,6 +265,19 @@ run 1.0.10
 [ "$STATUS" = 0 ] || fail "1.0.10 exited $STATUS: $(cat "$T/out")"
 [ "$CLOSED" = "10 11 13 18" ] || fail "1.0.10 closed '$CLOSED', expected '10 11 13 18'"
 
+# Prereleases sort below their release: 2.0.0-alpha.3 supersedes alpha.1 and alpha.2 but not the release 2.0.0 (which is
+# higher), and 2.0.0 supersedes every alpha. A branch with another prerelease word is not a bump branch.
+BASE_SAVE2="$BASE_PRS"
+BASE_PRS="$(pr 20 $PREFIX-2.0.0-alpha.1),$(pr 21 $PREFIX-2.0.0-alpha.2),$(pr 22 $PREFIX-2.0.0),$(pr 23 $PREFIX-2.0.0-beta.1),\
+$(pr 24 $PREFIX-2.0.0-alpha.10),$(pr 25 $PREFIX-2.0.0-alpha.3)"
+run 2.0.0-alpha.3
+[ "$STATUS" = 0 ] || fail "2.0.0-alpha.3 exited $STATUS: $(cat "$T/out")"
+[ "$CLOSED" = "20 21" ] || fail "2.0.0-alpha.3 closed '$CLOSED', expected '20 21'"
+run 2.0.0
+[ "$STATUS" = 0 ] || fail "2.0.0 exited $STATUS: $(cat "$T/out")"
+[ "$CLOSED" = "20 21 24 25" ] || fail "2.0.0 closed '$CLOSED', expected '20 21 24 25'"
+BASE_PRS="$BASE_SAVE2"
+
 # 1.0.3 without its own pull request: the branch and the pull request are created, then the older ones closed.
 BASE_SAVE="$BASE_PRS"
 BASE_PRS="$(pr 10 $PREFIX-1.0.2),$(pr 11 $PREFIX-1.0.9),$(pr 14 feature/other),$(pr 15 $PREFIX-1.0.3-rc1),\
@@ -307,7 +285,7 @@ $(pr 16 xbump/calendar-connectors-1.0.1),$(pr 17 $PREFIX-1.0.1 true),$(pr 18 $PR
 run 1.0.3
 [ "$STATUS" = 0 ] || fail "1.0.3 without a pull request exited $STATUS: $(cat "$T/out")"
 called 'git push origin bump/calendar-connectors-1.0.3' || fail 'branch was not pushed'
-called 'gh pr create --base main --head bump/calendar-connectors-1.0.3' || fail 'pull request was not created'
+called 'gh pr create --base v2 --head bump/calendar-connectors-1.0.3' || fail 'pull request was not created'
 [ "$CLOSED" = "10 18" ] || fail "1.0.3 (new) closed '$CLOSED', expected '10 18'"
 called 'Superseded by #99' || fail 'close did not name the new pull request #99'
 # What the pull request carries: branch, commit, bot identity, title, release notes; no label, no reviewer.
@@ -325,7 +303,7 @@ grep -E '^gh pr create' "$T/calls" | grep -Eq -- '--(label|reviewer|assignee|dra
 run 1.0.5 "$(pr 30 $PREFIX-1.0.5 true)"
 [ "$STATUS" = 0 ] || fail "cross-repository head exited $STATUS: $(cat "$T/out")"
 called 'git push origin bump/calendar-connectors-1.0.5' || fail 'a cross-repository pull request suppressed the push'
-called 'gh pr create --base main --head bump/calendar-connectors-1.0.5' || fail 'a cross-repository pull request suppressed the create'
+called 'gh pr create --base v2 --head bump/calendar-connectors-1.0.5' || fail 'a cross-repository pull request suppressed the create'
 [ "$CLOSED" = "10 18" ] || fail "1.0.5 closed '$CLOSED', expected '10 18' (1.0.9 is higher)"
 
 # A fork's pull request with a lower matching head is never closed, whatever its number.
@@ -336,7 +314,7 @@ case " $CLOSED " in *" 31 "*|*" 17 "*) fail "a cross-repository pull request was
 BRANCH_EXISTS=1 run 1.0.5
 [ "$STATUS" = 0 ] || fail "existing branch exited $STATUS: $(cat "$T/out")"
 called 'git push' && fail 'an existing branch was pushed again'
-called 'gh pr create --base main --head bump/calendar-connectors-1.0.5' || fail 'existing branch got no pull request'
+called 'gh pr create --base v2 --head bump/calendar-connectors-1.0.5' || fail 'existing branch got no pull request'
 unset BRANCH_EXISTS
 
 # One failing close does not stop the others, and the step still fails.

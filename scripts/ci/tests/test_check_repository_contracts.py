@@ -2,6 +2,8 @@ import subprocess, sys, tempfile, unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'check-repository-contracts.py'
+REQUIRED_JOBS = ('macos', 'linux', 'windows-x64', 'windows-arm64', 'architecture', 'dotnet-windows-x64',
+                 'dotnet-windows-arm64', 'compat', 'compat-dotnet', 'rust-lint', 'rust-targets')
 CI = '''name: CI
 on: [pull_request]
 jobs:
@@ -9,15 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: echo "${{ secrets.GITHUB_TOKEN }}${{ secrets.DOCKERHUB_TOKEN }}"
-  compat:
+''' + ''.join(f'''  {job}:
     runs-on: ubuntu-latest
     steps:
-      - run: echo compat
-  compat-dotnet:
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo compat-dotnet
-'''
+      - run: echo {job}
+''' for job in REQUIRED_JOBS)
 
 RELEASE = '''name: Release
 on:
@@ -52,8 +50,6 @@ runs:
 
 def make(root: Path, **overrides):
     files = {
-        'Sources/TimeTugCore/A.swift': 'import Foundation\n',
-        'Sources/CalendarBridge/A.swift': 'import Foundation\nimport TimeTugCore\n',
         '.github/workflows/ci.yml': CI,
         '.github/workflows/release.yml': RELEASE,
         '.github/workflows/bump-dependencies.yml': BUMP,
@@ -112,11 +108,17 @@ class Contracts(unittest.TestCase):
         self.assertIn('scripts/ci/tests/test-bump-workflow-step.sh', runs)
         self.assertIn("unittest discover -s scripts/ci/tests -p 'test_*.py'", runs)
 
-    def test_a_missing_compat_job_fails(self):
-        for job in ('compat', 'compat-dotnet'):
+    def test_a_missing_required_job_fails(self):
+        for job in REQUIRED_JOBS:
             with self.subTest(job=job):
                 self.check(False, f'missing documented job {job}', **{
                     '.github/workflows/ci.yml': CI.replace(f'  {job}:\n', '  renamed-' + job + ':\n')})
+
+    def test_the_real_ci_workflow_has_every_required_job(self):
+        import yaml
+        ci = yaml.safe_load((Path(__file__).resolve().parents[3] / '.github' / 'workflows' / 'ci.yml').read_text())
+        for job in REQUIRED_JOBS:
+            self.assertIn(job, ci['jobs'])
 
     def test_pull_request_target_fails(self):
         self.check(False, 'pull_request_target', **{
@@ -180,52 +182,6 @@ class Contracts(unittest.TestCase):
     def test_missing_ci_workflow_fails(self):
         self.check(False, 'missing documented path: .github/workflows/ci.yml', **{
             '.github/workflows/ci.yml': None})
-
-    # --- the Apple/UI import rule covers TimeTugCore and CalendarBridge ---
-
-    def test_apple_import_in_timetug_core_fails(self):
-        self.check(False, 'Apple/UI import', **{'Sources/TimeTugCore/B.swift': 'import AppKit\n'})
-
-    def test_preconcurrency_swiftui_import_in_calendar_bridge_fails(self):
-        self.check(False, 'Apple/UI import', **{'Sources/CalendarBridge/B.swift': '@preconcurrency import SwiftUI\n'})
-
-    def test_missing_timetug_core_directory_fails(self):
-        self.check(False, 'missing documented path: Sources/TimeTugCore', **{'Sources/TimeTugCore/A.swift': None})
-
-    def test_missing_calendar_bridge_directory_fails(self):
-        self.check(False, 'missing documented path: Sources/CalendarBridge', **{'Sources/CalendarBridge/A.swift': None})
-
-    # --- portability: every spelling of an import, in every target and every nested directory ---
-
-    def test_apple_import_in_a_nested_directory_fails(self):
-        self.check(False, 'Sources/TimeTugCore/Write/Probe.swift:2: import AppKit', **{
-            'Sources/TimeTugCore/Write/Probe.swift': 'import Foundation\nimport AppKit\n'})
-
-    def test_apple_import_in_a_deeply_nested_directory_fails(self):
-        self.check(False, 'Apple/UI import', **{'Sources/CalendarBridge/A/B/C/Probe.swift': 'import SwiftUI\n'})
-
-    def test_every_forbidden_framework_fails(self):
-        for framework in ('AppKit', 'SwiftUI', 'EventKit', 'WidgetKit', 'FoundationModels',
-                          'UIKit', 'Security', 'CryptoKit', 'Network', 'Combine'):
-            with self.subTest(framework=framework):
-                self.check(False, f'import {framework}', **{
-                    'Sources/TimeTugCore/Probe.swift': f'import {framework}\n'})
-
-    def test_attribute_and_access_level_import_forms_fail(self):
-        for statement in ('@preconcurrency import AppKit', '@testable import AppKit', 'public import AppKit',
-                          'internal import AppKit', 'package import AppKit', 'fileprivate import AppKit',
-                          'private import AppKit', '@_exported public import AppKit',
-                          '@preconcurrency public import AppKit', '@available(macOS 14, *) import AppKit',
-                          'import struct AppKit.NSColor', 'public import class AppKit.NSView',
-                          '    import AppKit', '\timport AppKit'):
-            with self.subTest(statement=statement):
-                self.check(False, 'Apple/UI import', **{
-                    'Sources/CalendarBridge/Probe.swift': statement + '\n'})
-
-    def test_allowed_import_forms_pass(self):
-        self.check(True, **{'Sources/CalendarBridge/Probe.swift':
-                            '@_exported public import Foundation\nimport struct Foundation.Date\n'
-                            '#if canImport(FoundationNetworking)\nimport FoundationNetworking\n#endif\n'})
 
     # --- workflow secrets ---
 
@@ -393,35 +349,6 @@ class Contracts(unittest.TestCase):
     def test_secret_in_a_nested_composite_action_fails(self):
         self.check(False, 'composite action uses secret SIGNING_KEY', **{
             '.github/actions/a/b/action.yaml': ACTION.replace('echo hi', "echo ${{ secrets['SIGNING_KEY'] }}")})
-
-    def test_one_fixture_per_type_passes(self):
-        self.check(True, **PROTOCOL)
-
-    def test_missing_fixture_fails(self):
-        self.check(False, 'no fixture for message type refresh', **{**PROTOCOL, 'Conformance/Fixtures/golden/refresh.json': None})
-
-    def test_orphan_fixture_fails(self):
-        self.check(False, 'fixture for a type not in the message catalog',
-                   **{**PROTOCOL, 'Conformance/Fixtures/golden/surprise.json': '{}'})
-
-CATALOG = '''public enum MessageCatalog {
-    public static let hostToEngine: [String] = ["start", "refresh"]
-    public static let engineToHost: [String] = ["ready"]
-}
-'''
-SERVICES = '''public enum ServiceMessages {
-    public static let types: [String] = ["service.http.send"]
-}
-'''
-PROTOCOL = {
-    'Sources/TimeTugEngineProtocol/MessageCatalog.swift': CATALOG,
-    'Sources/TimeTugEngineProtocol/ServiceMessages.swift': SERVICES,
-    'Conformance/Fixtures/golden/start.json': '{}',
-    'Conformance/Fixtures/golden/refresh.json': '{}',
-    'Conformance/Fixtures/golden/ready.json': '{}',
-    'Conformance/Fixtures/golden/service.http.send.json': '{}',
-    'Conformance/Fixtures/golden/edge-unknown-type.json': '{}',
-}
 
 if __name__ == '__main__':
     unittest.main()

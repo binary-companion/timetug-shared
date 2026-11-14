@@ -3,8 +3,8 @@
 
 Usage: test_pack_inventory.py PACKAGE.nupkg [--version X.Y.Z]
 
-The package must hold the managed wrapper, the engine and its Swift runtime for both Windows architectures,
-the C header and the golden fixtures; with --version its nuspec must carry exactly that version. Exits 1,
+The package must hold the managed wrapper, exactly one native file (TimeTugEngineC.dll, the Rust library with a
+static C runtime) per Windows architecture, the C header, THIRD-PARTY-NOTICES.md next to it and the golden fixtures; with --version its nuspec must carry exactly that version. Exits 1,
 listing what is wrong, otherwise 0. release.yml (job nuget-pack) runs it on the produced package before the
 package is uploaded or pushed.
 
@@ -20,13 +20,15 @@ from pathlib import Path
 REQUIRED = [
     'lib/net8.0/TimeTug.Engine.dll',
     'runtimes/win-x64/native/TimeTugEngineC.dll',
-    'runtimes/win-x64/native/swiftCore.dll',
     'runtimes/win-arm64/native/TimeTugEngineC.dll',
-    'runtimes/win-arm64/native/swiftCore.dll',
     'contentFiles/any/any/include/timetug_engine.h',
+    'contentFiles/any/any/include/THIRD-PARTY-NOTICES.md',
     'LICENSE',
 ]
 FIXTURES = 'contentFiles/any/any/fixtures/'
+# Exactly these native files per architecture (phase 3 task 9): the engine library alone.
+NATIVE_ARCHITECTURES = ['win-x64', 'win-arm64']
+NATIVE_FILE = 'TimeTugEngineC.dll'
 
 
 def problems(package, version=None):
@@ -42,6 +44,10 @@ def problems(package, version=None):
     for entry in REQUIRED:
         if entry not in names:
             found.append(f'missing {entry}')
+    for architecture in NATIVE_ARCHITECTURES:
+        prefix = f'runtimes/{architecture}/native/'
+        for name in sorted(n for n in names if n.startswith(prefix) and n != prefix + NATIVE_FILE):
+            found.append(f'unexpected native file {name} (the package carries only {prefix}{NATIVE_FILE})')
     if not any(n.startswith(FIXTURES) and n.endswith('.json') for n in names):
         found.append(f'missing the golden fixtures ({FIXTURES}*.json)')
     if nuspec is None:
@@ -78,7 +84,7 @@ def build(directory, entries, version='1.2.3'):
     with zipfile.ZipFile(path, 'w') as archive:
         archive.writestr('TimeTug.Engine.nuspec',
                          f'<package><metadata><id>TimeTug.Engine</id><version>{version}</version></metadata></package>')
-        for entry in entries:
+        for entry in dict.fromkeys(entries):
             archive.writestr(entry, b'x')
     return path
 
@@ -96,6 +102,20 @@ class PackInventoryTests(unittest.TestCase):
             with self.subTest(entry=entry), tempfile.TemporaryDirectory() as directory:
                 found = problems(build(directory, [e for e in COMPLETE if e != entry]))
                 self.assertEqual(found, [f'missing {entry}'])
+
+    def test_an_extra_native_file_is_reported(self):
+        for architecture in NATIVE_ARCHITECTURES:
+            with self.subTest(architecture=architecture), tempfile.TemporaryDirectory() as directory:
+                extra = f'runtimes/{architecture}/native/VCRUNTIME140.dll'
+                found = problems(build(directory, COMPLETE + [extra]))
+                self.assertEqual(len(found), 1)
+                self.assertIn(f'unexpected native file {extra}', found[0])
+
+    def test_a_native_file_of_another_architecture_does_not_count(self):
+        with tempfile.TemporaryDirectory() as directory:
+            entries = [e for e in COMPLETE if e != 'runtimes/win-arm64/native/TimeTugEngineC.dll']
+            entries.append('runtimes/win-x64/native/TimeTugEngineC.dll')
+            self.assertEqual(problems(build(directory, entries)), ['missing runtimes/win-arm64/native/TimeTugEngineC.dll'])
 
     def test_missing_fixtures_are_reported(self):
         with tempfile.TemporaryDirectory() as directory:

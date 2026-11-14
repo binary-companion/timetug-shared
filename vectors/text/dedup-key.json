@@ -1,0 +1,1118 @@
+{
+  "area" : "text\/dedup-key",
+  "baseline" : "1.8.1",
+  "cases" : [
+    {
+      "expected" : {
+        "key" : "standup|1789725600|1789727400"
+      },
+      "input" : {
+        "end" : 1789727400000,
+        "start" : 1789725600000,
+        "title" : "Standup"
+      },
+      "name" : "hand-1"
+    },
+    {
+      "expected" : {
+        "key" : "standup|1789725600|1789727400"
+      },
+      "input" : {
+        "end" : 1789727400000,
+        "start" : 1789725600000,
+        "title" : "STANDUP"
+      },
+      "name" : "hand-2"
+    },
+    {
+      "expected" : {
+        "key" : "café|1789725600|1789729200"
+      },
+      "input" : {
+        "end" : 1789729200000,
+        "start" : 1789725600000,
+        "title" : "CafÉ"
+      },
+      "name" : "hand-3"
+    },
+    {
+      "expected" : {
+        "key" : "straße|1789725600|1789729200"
+      },
+      "input" : {
+        "end" : 1789729200000,
+        "start" : 1789725600000,
+        "title" : "Straße"
+      },
+      "name" : "hand-4"
+    },
+    {
+      "expected" : {
+        "key" : "strasse|1789725600|1789729200"
+      },
+      "input" : {
+        "end" : 1789729200000,
+        "start" : 1789725600000,
+        "title" : "STRASSE"
+      },
+      "name" : "hand-5"
+    },
+    {
+      "expected" : {
+        "key" : "i̇stanbul|1789725600|1789729200"
+      },
+      "input" : {
+        "end" : 1789729200000,
+        "start" : 1789725600000,
+        "title" : "İstanbul"
+      },
+      "name" : "hand-6"
+    },
+    {
+      "expected" : {
+        "key" : "οδυσσευσ|1789725600|1789729200"
+      },
+      "input" : {
+        "end" : 1789729200000,
+        "start" : 1789725600000,
+        "title" : "ΟΔΥΣΣΕΥΣ"
+      },
+      "name" : "hand-7"
+    },
+    {
+      "expected" : {
+        "key" : "σ|1789725600|1789729200"
+      },
+      "input" : {
+        "end" : 1789729200000,
+        "start" : 1789725600000,
+        "title" : "Σ"
+      },
+      "name" : "hand-8"
+    },
+    {
+      "expected" : {
+        "key" : "aσ b|1789725600|1789729200"
+      },
+      "input" : {
+        "end" : 1789729200000,
+        "start" : 1789725600000,
+        "title" : "AΣ B"
+      },
+      "name" : "hand-9"
+    },
+    {
+      "expected" : {
+        "key" : "|1789725600|1789725600"
+      },
+      "input" : {
+        "end" : 1789725600000,
+        "start" : 1789725600000,
+        "title" : ""
+      },
+      "name" : "hand-10"
+    },
+    {
+      "expected" : {
+        "key" : "a|b|1789725600|1789729200"
+      },
+      "input" : {
+        "end" : 1789729200000,
+        "start" : 1789725600000,
+        "title" : "a|b"
+      },
+      "name" : "hand-11"
+    },
+    {
+      "expected" : {
+        "key" : "😀|1789725600|1789729200"
+      },
+      "input" : {
+        "end" : 1789729200000,
+        "start" : 1789725600000,
+        "title" : "😀"
+      },
+      "name" : "hand-12"
+    },
+    {
+      "expected" : {
+        "key" : "sub-second|1789725600|1789725601"
+      },
+      "input" : {
+        "end" : 1789725601999,
+        "start" : 1789725600999,
+        "title" : "Sub-second"
+      },
+      "name" : "hand-13"
+    },
+    {
+      "expected" : {
+        "key" : "half second|1789725600|1789725601"
+      },
+      "input" : {
+        "end" : 1789725601500,
+        "start" : 1789725600500,
+        "title" : "Half second"
+      },
+      "name" : "hand-14"
+    },
+    {
+      "expected" : {
+        "key" : "negative|0|0"
+      },
+      "input" : {
+        "end" : 500,
+        "start" : -500,
+        "title" : "Negative"
+      },
+      "name" : "hand-15"
+    },
+    {
+      "expected" : {
+        "key" : "negative2|0|-1"
+      },
+      "input" : {
+        "end" : -1500,
+        "start" : -1,
+        "title" : "Negative2"
+      },
+      "name" : "hand-16"
+    },
+    {
+      "expected" : {
+        "key" : "epoch|0|0"
+      },
+      "input" : {
+        "end" : 0,
+        "start" : 0,
+        "title" : "Epoch"
+      },
+      "name" : "hand-17"
+    },
+    {
+      "expected" : {
+        "key" : "before epoch|-86400|-3600"
+      },
+      "input" : {
+        "end" : -3600000,
+        "start" : -86400000,
+        "title" : "Before epoch"
+      },
+      "name" : "hand-18"
+    },
+    {
+      "expected" : {
+        "key" : "far future|4102444800|4102448400"
+      },
+      "input" : {
+        "end" : 4102448400000,
+        "start" : 4102444800000,
+        "title" : "Far future"
+      },
+      "name" : "hand-19"
+    },
+    {
+      "expected" : {
+        "key" : "truncation|1700000000|1700000001"
+      },
+      "input" : {
+        "end" : 1700000001001,
+        "start" : 1700000000999,
+        "title" : "Truncation"
+      },
+      "name" : "hand-20"
+    },
+    {
+      "expected" : {
+        "key" : "year 1900|-2208988800|-2208985200"
+      },
+      "input" : {
+        "end" : -2208985200000,
+        "start" : -2208988800000,
+        "title" : "Year 1900"
+      },
+      "name" : "hand-21"
+    },
+    {
+      "expected" : {
+        "key" : "planning - q4|1773775050|1773799445"
+      },
+      "input" : {
+        "end" : 1773799445161,
+        "start" : 1773775050479,
+        "title" : "Planning - Q4"
+      },
+      "name" : "generated-1"
+    },
+    {
+      "expected" : {
+        "key" : "doctor|1792199402|1792227719"
+      },
+      "input" : {
+        "end" : 1792227719296,
+        "start" : 1792199402121,
+        "title" : "Doctor"
+      },
+      "name" : "generated-2"
+    },
+    {
+      "expected" : {
+        "key" : "design review|1773455228|1773471713"
+      },
+      "input" : {
+        "end" : 1773471713568,
+        "start" : 1773455228112,
+        "title" : "Design review"
+      },
+      "name" : "generated-3"
+    },
+    {
+      "expected" : {
+        "key" : "planning - q4|1771833525|1771839686"
+      },
+      "input" : {
+        "end" : 1771839686512,
+        "start" : 1771833525248,
+        "title" : "Planning - Q4"
+      },
+      "name" : "generated-4"
+    },
+    {
+      "expected" : {
+        "key" : "yoga|1792749450|1792772321"
+      },
+      "input" : {
+        "end" : 1792772321587,
+        "start" : 1792749450920,
+        "title" : "Yoga"
+      },
+      "name" : "generated-5"
+    },
+    {
+      "expected" : {
+        "key" : "board meeting|1785502001|1785524725"
+      },
+      "input" : {
+        "end" : 1785524725729,
+        "start" : 1785502001406,
+        "title" : "Board meeting"
+      },
+      "name" : "generated-6"
+    },
+    {
+      "expected" : {
+        "key" : "quarterly business review|1793649919|1793659731"
+      },
+      "input" : {
+        "end" : 1793659731899,
+        "start" : 1793649919183,
+        "title" : "Quarterly business review"
+      },
+      "name" : "generated-7"
+    },
+    {
+      "expected" : {
+        "key" : "lunch|1786022658|1786032531"
+      },
+      "input" : {
+        "end" : 1786032531901,
+        "start" : 1786022658028,
+        "title" : "Lunch"
+      },
+      "name" : "generated-8"
+    },
+    {
+      "expected" : {
+        "key" : "ß|1771569209|1771583328"
+      },
+      "input" : {
+        "end" : 1771583328707,
+        "start" : 1771569209645,
+        "title" : "ß"
+      },
+      "name" : "generated-9"
+    },
+    {
+      "expected" : {
+        "key" : "standup|1796706207|1796723127"
+      },
+      "input" : {
+        "end" : 1796723127288,
+        "start" : 1796706207894,
+        "title" : "Standup"
+      },
+      "name" : "generated-10"
+    },
+    {
+      "expected" : {
+        "key" : "lunch|1799130538|1799157745"
+      },
+      "input" : {
+        "end" : 1799157745434,
+        "start" : 1799130538580,
+        "title" : "Lunch"
+      },
+      "name" : "generated-11"
+    },
+    {
+      "expected" : {
+        "key" : "design review|1801143946|1801172304"
+      },
+      "input" : {
+        "end" : 1801172304156,
+        "start" : 1801143946629,
+        "title" : "Design review"
+      },
+      "name" : "generated-12"
+    },
+    {
+      "expected" : {
+        "key" : "intermountain health|1798813036|1798815060"
+      },
+      "input" : {
+        "end" : 1798815060916,
+        "start" : 1798813036387,
+        "title" : "Intermountain Health"
+      },
+      "name" : "generated-13"
+    },
+    {
+      "expected" : {
+        "key" : "intermountain health|1774831396|1774859813"
+      },
+      "input" : {
+        "end" : 1774859813674,
+        "start" : 1774831396941,
+        "title" : "Intermountain Health"
+      },
+      "name" : "generated-14"
+    },
+    {
+      "expected" : {
+        "key" : "scott: doctor|1784506620|1784530329"
+      },
+      "input" : {
+        "end" : 1784530329366,
+        "start" : 1784506620606,
+        "title" : "Scott: Doctor"
+      },
+      "name" : "generated-15"
+    },
+    {
+      "expected" : {
+        "key" : "dentist appt.|1771690687|1771719476"
+      },
+      "input" : {
+        "end" : 1771719476880,
+        "start" : 1771690687483,
+        "title" : "Dentist appt."
+      },
+      "name" : "generated-16"
+    },
+    {
+      "expected" : {
+        "key" : "doctor|1777644894|1777668320"
+      },
+      "input" : {
+        "end" : 1777668320529,
+        "start" : 1777644894022,
+        "title" : "Doctor"
+      },
+      "name" : "generated-17"
+    },
+    {
+      "expected" : {
+        "key" : "mixed case|1800218736|1800244083"
+      },
+      "input" : {
+        "end" : 1800244083500,
+        "start" : 1800218736452,
+        "title" : "MiXeD cAsE"
+      },
+      "name" : "generated-18"
+    },
+    {
+      "expected" : {
+        "key" : "1:1|1778811037|1778834942"
+      },
+      "input" : {
+        "end" : 1778834942327,
+        "start" : 1778811037207,
+        "title" : "1:1"
+      },
+      "name" : "generated-19"
+    },
+    {
+      "expected" : {
+        "key" : "quarterly business review|1785841603|1785846647"
+      },
+      "input" : {
+        "end" : 1785846647938,
+        "start" : 1785841603800,
+        "title" : "Quarterly business review"
+      },
+      "name" : "generated-20"
+    },
+    {
+      "expected" : {
+        "key" : "réunion équipe|1783121987|1783148354"
+      },
+      "input" : {
+        "end" : 1783148354022,
+        "start" : 1783121987917,
+        "title" : "Réunion équipe"
+      },
+      "name" : "generated-21"
+    },
+    {
+      "expected" : {
+        "key" : "standup|1781958601|1781985441"
+      },
+      "input" : {
+        "end" : 1781985441452,
+        "start" : 1781958601377,
+        "title" : "Standup"
+      },
+      "name" : "generated-22"
+    },
+    {
+      "expected" : {
+        "key" : "team offsite|1795798179|1795813401"
+      },
+      "input" : {
+        "end" : 1795813401969,
+        "start" : 1795798179797,
+        "title" : "Team offsite"
+      },
+      "name" : "generated-23"
+    },
+    {
+      "expected" : {
+        "key" : "dentist appt.|1798627597|1798643193"
+      },
+      "input" : {
+        "end" : 1798643193367,
+        "start" : 1798627597644,
+        "title" : "Dentist appt."
+      },
+      "name" : "generated-24"
+    },
+    {
+      "expected" : {
+        "key" : "café röndevoo|1781876741|1781900534"
+      },
+      "input" : {
+        "end" : 1781900534674,
+        "start" : 1781876741738,
+        "title" : "Café Röndevoo"
+      },
+      "name" : "generated-25"
+    },
+    {
+      "expected" : {
+        "key" : "design review|1768992938|1769003570"
+      },
+      "input" : {
+        "end" : 1769003570746,
+        "start" : 1768992938092,
+        "title" : "Design review"
+      },
+      "name" : "generated-26"
+    },
+    {
+      "expected" : {
+        "key" : "scott: doctor|1800002665|1800022414"
+      },
+      "input" : {
+        "end" : 1800022414273,
+        "start" : 1800002665549,
+        "title" : "Scott: Doctor"
+      },
+      "name" : "generated-27"
+    },
+    {
+      "expected" : {
+        "key" : "dentist appt.|1772218253|1772234258"
+      },
+      "input" : {
+        "end" : 1772234258482,
+        "start" : 1772218253844,
+        "title" : "Dentist appt."
+      },
+      "name" : "generated-28"
+    },
+    {
+      "expected" : {
+        "key" : "mixed case|1782251371|1782277647"
+      },
+      "input" : {
+        "end" : 1782277647737,
+        "start" : 1782251371535,
+        "title" : "MiXeD cAsE"
+      },
+      "name" : "generated-29"
+    },
+    {
+      "expected" : {
+        "key" : "café röndevoo|1799416818|1799443287"
+      },
+      "input" : {
+        "end" : 1799443287526,
+        "start" : 1799416818348,
+        "title" : "Café Röndevoo"
+      },
+      "name" : "generated-30"
+    },
+    {
+      "expected" : {
+        "key" : "parent night|1783396930|1783409432"
+      },
+      "input" : {
+        "end" : 1783409432049,
+        "start" : 1783396930092,
+        "title" : "Parent night"
+      },
+      "name" : "generated-31"
+    },
+    {
+      "expected" : {
+        "key" : "standup|1772464104|1772485196"
+      },
+      "input" : {
+        "end" : 1772485196129,
+        "start" : 1772464104760,
+        "title" : "Standup"
+      },
+      "name" : "generated-32"
+    },
+    {
+      "expected" : {
+        "key" : "scott: doctor|1776402012|1776410192"
+      },
+      "input" : {
+        "end" : 1776410192767,
+        "start" : 1776402012419,
+        "title" : "Scott: Doctor"
+      },
+      "name" : "generated-33"
+    },
+    {
+      "expected" : {
+        "key" : "ß|1800764678|1800772100"
+      },
+      "input" : {
+        "end" : 1800772100695,
+        "start" : 1800764678483,
+        "title" : "ß"
+      },
+      "name" : "generated-34"
+    },
+    {
+      "expected" : {
+        "key" : "doctor|1787253367|1787274080"
+      },
+      "input" : {
+        "end" : 1787274080871,
+        "start" : 1787253367836,
+        "title" : "Doctor"
+      },
+      "name" : "generated-35"
+    },
+    {
+      "expected" : {
+        "key" : "planning - q4|1768987824|1768995202"
+      },
+      "input" : {
+        "end" : 1768995202322,
+        "start" : 1768987824469,
+        "title" : "Planning - Q4"
+      },
+      "name" : "generated-36"
+    },
+    {
+      "expected" : {
+        "key" : "board meeting|1778372636|1778381185"
+      },
+      "input" : {
+        "end" : 1778381185964,
+        "start" : 1778372636493,
+        "title" : "Board meeting"
+      },
+      "name" : "generated-37"
+    },
+    {
+      "expected" : {
+        "key" : "design review|1798317670|1798336329"
+      },
+      "input" : {
+        "end" : 1798336329680,
+        "start" : 1798317670302,
+        "title" : "Design review"
+      },
+      "name" : "generated-38"
+    },
+    {
+      "expected" : {
+        "key" : "standup|1800873563|1800877959"
+      },
+      "input" : {
+        "end" : 1800877959597,
+        "start" : 1800873563040,
+        "title" : "Standup"
+      },
+      "name" : "generated-39"
+    },
+    {
+      "expected" : {
+        "key" : "σσ|1768218832|1768238245"
+      },
+      "input" : {
+        "end" : 1768238245094,
+        "start" : 1768218832527,
+        "title" : "ΣΣ"
+      },
+      "name" : "generated-40"
+    },
+    {
+      "expected" : {
+        "key" : "lunch|1796126458|1796153530"
+      },
+      "input" : {
+        "end" : 1796153530185,
+        "start" : 1796126458196,
+        "title" : "Lunch"
+      },
+      "name" : "generated-41"
+    },
+    {
+      "expected" : {
+        "key" : "1:1|1797044061|1797049263"
+      },
+      "input" : {
+        "end" : 1797049263061,
+        "start" : 1797044061031,
+        "title" : "1:1"
+      },
+      "name" : "generated-42"
+    },
+    {
+      "expected" : {
+        "key" : "σσ|1777890446|1777908974"
+      },
+      "input" : {
+        "end" : 1777908974675,
+        "start" : 1777890446250,
+        "title" : "ΣΣ"
+      },
+      "name" : "generated-43"
+    },
+    {
+      "expected" : {
+        "key" : "σσ|1781969096|1781976356"
+      },
+      "input" : {
+        "end" : 1781976356758,
+        "start" : 1781969096654,
+        "title" : "ΣΣ"
+      },
+      "name" : "generated-44"
+    },
+    {
+      "expected" : {
+        "key" : "planning - q4|1781449732|1781464415"
+      },
+      "input" : {
+        "end" : 1781464415740,
+        "start" : 1781449732007,
+        "title" : "Planning - Q4"
+      },
+      "name" : "generated-45"
+    },
+    {
+      "expected" : {
+        "key" : "piano lesson|1780806617|1780823678"
+      },
+      "input" : {
+        "end" : 1780823678997,
+        "start" : 1780806617495,
+        "title" : "Piano lesson"
+      },
+      "name" : "generated-46"
+    },
+    {
+      "expected" : {
+        "key" : "σσ|1780650227|1780678513"
+      },
+      "input" : {
+        "end" : 1780678513299,
+        "start" : 1780650227239,
+        "title" : "ΣΣ"
+      },
+      "name" : "generated-47"
+    },
+    {
+      "expected" : {
+        "key" : "doctor|1769090531|1769092189"
+      },
+      "input" : {
+        "end" : 1769092189841,
+        "start" : 1769090531255,
+        "title" : "Doctor"
+      },
+      "name" : "generated-48"
+    },
+    {
+      "expected" : {
+        "key" : "1:1|1778953739|1778969047"
+      },
+      "input" : {
+        "end" : 1778969047787,
+        "start" : 1778953739702,
+        "title" : "1:1"
+      },
+      "name" : "generated-49"
+    },
+    {
+      "expected" : {
+        "key" : "scott: doctor|1776751388|1776771817"
+      },
+      "input" : {
+        "end" : 1776771817351,
+        "start" : 1776751388621,
+        "title" : "Scott: Doctor"
+      },
+      "name" : "generated-50"
+    },
+    {
+      "expected" : {
+        "key" : "réunion équipe|1768238488|1768248690"
+      },
+      "input" : {
+        "end" : 1768248690269,
+        "start" : 1768238488685,
+        "title" : "Réunion équipe"
+      },
+      "name" : "generated-51"
+    },
+    {
+      "expected" : {
+        "key" : "team offsite|1785852339|1785873574"
+      },
+      "input" : {
+        "end" : 1785873574409,
+        "start" : 1785852339681,
+        "title" : "Team offsite"
+      },
+      "name" : "generated-52"
+    },
+    {
+      "expected" : {
+        "key" : "quarterly business review|1787080383|1787105049"
+      },
+      "input" : {
+        "end" : 1787105049209,
+        "start" : 1787080383304,
+        "title" : "Quarterly business review"
+      },
+      "name" : "generated-53"
+    },
+    {
+      "expected" : {
+        "key" : "mixed case|1788442867|1788468218"
+      },
+      "input" : {
+        "end" : 1788468218678,
+        "start" : 1788442867495,
+        "title" : "MiXeD cAsE"
+      },
+      "name" : "generated-54"
+    },
+    {
+      "expected" : {
+        "key" : "ß|1780800012|1780805426"
+      },
+      "input" : {
+        "end" : 1780805426341,
+        "start" : 1780800012690,
+        "title" : "ß"
+      },
+      "name" : "generated-55"
+    },
+    {
+      "expected" : {
+        "key" : "ß|1777907484|1777928048"
+      },
+      "input" : {
+        "end" : 1777928048375,
+        "start" : 1777907484239,
+        "title" : "ß"
+      },
+      "name" : "generated-56"
+    },
+    {
+      "expected" : {
+        "key" : "dentist appt.|1768614157|1768631816"
+      },
+      "input" : {
+        "end" : 1768631816806,
+        "start" : 1768614157051,
+        "title" : "Dentist appt."
+      },
+      "name" : "generated-57"
+    },
+    {
+      "expected" : {
+        "key" : "parent night|1778913549|1778923956"
+      },
+      "input" : {
+        "end" : 1778923956572,
+        "start" : 1778913549407,
+        "title" : "Parent night"
+      },
+      "name" : "generated-58"
+    },
+    {
+      "expected" : {
+        "key" : "doctor|1785967345|1785984817"
+      },
+      "input" : {
+        "end" : 1785984817585,
+        "start" : 1785967345650,
+        "title" : "Doctor"
+      },
+      "name" : "generated-59"
+    },
+    {
+      "expected" : {
+        "key" : "lunch|1771030595|1771051512"
+      },
+      "input" : {
+        "end" : 1771051512951,
+        "start" : 1771030595987,
+        "title" : "Lunch"
+      },
+      "name" : "generated-60"
+    },
+    {
+      "expected" : {
+        "key" : "doctor|1790653516|1790672445"
+      },
+      "input" : {
+        "end" : 1790672445403,
+        "start" : 1790653516872,
+        "title" : "Doctor"
+      },
+      "name" : "generated-61"
+    },
+    {
+      "expected" : {
+        "key" : "lunch|1796944113|1796945862"
+      },
+      "input" : {
+        "end" : 1796945862803,
+        "start" : 1796944113959,
+        "title" : "Lunch"
+      },
+      "name" : "generated-62"
+    },
+    {
+      "expected" : {
+        "key" : "scott: doctor|1784558823|1784564389"
+      },
+      "input" : {
+        "end" : 1784564389763,
+        "start" : 1784558823238,
+        "title" : "Scott: Doctor"
+      },
+      "name" : "generated-63"
+    },
+    {
+      "expected" : {
+        "key" : "design review|1788560622|1788564822"
+      },
+      "input" : {
+        "end" : 1788564822647,
+        "start" : 1788560622252,
+        "title" : "Design review"
+      },
+      "name" : "generated-64"
+    },
+    {
+      "expected" : {
+        "key" : "σσ|1790663253|1790691420"
+      },
+      "input" : {
+        "end" : 1790691420877,
+        "start" : 1790663253503,
+        "title" : "ΣΣ"
+      },
+      "name" : "generated-65"
+    },
+    {
+      "expected" : {
+        "key" : "parent night|1801664773|1801671647"
+      },
+      "input" : {
+        "end" : 1801671647519,
+        "start" : 1801664773833,
+        "title" : "Parent night"
+      },
+      "name" : "generated-66"
+    },
+    {
+      "expected" : {
+        "key" : "scott: doctor|1782459859|1782484347"
+      },
+      "input" : {
+        "end" : 1782484347541,
+        "start" : 1782459859712,
+        "title" : "Scott: Doctor"
+      },
+      "name" : "generated-67"
+    },
+    {
+      "expected" : {
+        "key" : "dance class|1793985987|1794009450"
+      },
+      "input" : {
+        "end" : 1794009450333,
+        "start" : 1793985987493,
+        "title" : "Dance class"
+      },
+      "name" : "generated-68"
+    },
+    {
+      "expected" : {
+        "key" : "standup|1768847246|1768874661"
+      },
+      "input" : {
+        "end" : 1768874661431,
+        "start" : 1768847246797,
+        "title" : "Standup"
+      },
+      "name" : "generated-69"
+    },
+    {
+      "expected" : {
+        "key" : "i̇|1777876911|1777882175"
+      },
+      "input" : {
+        "end" : 1777882175335,
+        "start" : 1777876911618,
+        "title" : "İ"
+      },
+      "name" : "generated-70"
+    },
+    {
+      "expected" : {
+        "key" : "quarterly business review|1785233884|1785258408"
+      },
+      "input" : {
+        "end" : 1785258408740,
+        "start" : 1785233884187,
+        "title" : "Quarterly business review"
+      },
+      "name" : "generated-71"
+    },
+    {
+      "expected" : {
+        "key" : "piano lesson|1781714964|1781735955"
+      },
+      "input" : {
+        "end" : 1781735955187,
+        "start" : 1781714964128,
+        "title" : "Piano lesson"
+      },
+      "name" : "generated-72"
+    },
+    {
+      "expected" : {
+        "key" : "réunion équipe|1783576053|1783602475"
+      },
+      "input" : {
+        "end" : 1783602475049,
+        "start" : 1783576053287,
+        "title" : "Réunion équipe"
+      },
+      "name" : "generated-73"
+    },
+    {
+      "expected" : {
+        "key" : "piano lesson|1786416258|1786441722"
+      },
+      "input" : {
+        "end" : 1786441722943,
+        "start" : 1786416258205,
+        "title" : "Piano lesson"
+      },
+      "name" : "generated-74"
+    },
+    {
+      "expected" : {
+        "key" : "parent night|1773329993|1773332833"
+      },
+      "input" : {
+        "end" : 1773332833231,
+        "start" : 1773329993369,
+        "title" : "Parent night"
+      },
+      "name" : "generated-75"
+    },
+    {
+      "expected" : {
+        "key" : "1:1|1783904456|1783913297"
+      },
+      "input" : {
+        "end" : 1783913297170,
+        "start" : 1783904456915,
+        "title" : "1:1"
+      },
+      "name" : "generated-76"
+    },
+    {
+      "expected" : {
+        "key" : "board meeting|1793779317|1793781337"
+      },
+      "input" : {
+        "end" : 1793781337594,
+        "start" : 1793779317621,
+        "title" : "Board meeting"
+      },
+      "name" : "generated-77"
+    },
+    {
+      "expected" : {
+        "key" : "intermountain health|1769778542|1769777646"
+      },
+      "input" : {
+        "end" : 1769777646762,
+        "start" : 1769778542078,
+        "title" : "Intermountain Health"
+      },
+      "name" : "generated-78"
+    },
+    {
+      "expected" : {
+        "key" : "intermountain health|1773575661|1773579045"
+      },
+      "input" : {
+        "end" : 1773579045691,
+        "start" : 1773575661620,
+        "title" : "Intermountain Health"
+      },
+      "name" : "generated-79"
+    },
+    {
+      "expected" : {
+        "key" : "café röndevoo|1773292568|1773295459"
+      },
+      "input" : {
+        "end" : 1773295459940,
+        "start" : 1773292568592,
+        "title" : "Café Röndevoo"
+      },
+      "name" : "generated-80"
+    }
+  ],
+  "schema" : 1
+}

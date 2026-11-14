@@ -137,11 +137,12 @@ class ReleaseNugetJobsTests(unittest.TestCase):
         include = job['strategy']['matrix']['include']
         self.assertEqual({(i['runner'], i['rid']) for i in include},
                          {('windows-latest', 'win-x64'), ('windows-11-arm', 'win-arm64')})
-        names = [s.get('name', s.get('uses', '')) for s in job['steps']]
-        stamp = names.index('Stamp the version into the engine')
-        build = names.index('Build the engine library')
-        self.assertLess(stamp, build, 'the version must be stamped before the build')
-        self.assertIn('stamp-engine-version.py', step(job, 'Stamp the version into the engine')['run'])
+        build = step(job, 'Build the engine library (the version is stamped in through TIMETUG_ENGINE_VERSION)')
+        self.assertEqual(build['env'], {'TIMETUG_ENGINE_VERSION': '${{ needs.nuget-version.outputs.version }}'})
+        self.assertIn('cargo build --release --locked -p timetug-engine-c --target $env:TRIPLE', build['run'])
+        self.assertEqual({i['triple'] for i in include}, {'x86_64-pc-windows-msvc', 'aarch64-pc-windows-msvc'})
+        self.assertEqual(job['env']['TRIPLE'], '${{ matrix.triple }}')
+        self.assertNotIn('swift', yaml.safe_dump(job).lower())
         self.assertIn('assemble-native.ps1', step(job, 'Assemble the native set and check its exports')['run'])
         self.assertIn('run-dotnet-tests.ps1', step(job, 'C# tests against the native set')['run'])
 
@@ -201,13 +202,61 @@ class ReleaseNugetJobsTests(unittest.TestCase):
         result, _ = run_step(script, {'RELEASED': '', 'REQUESTED': 'v1;rm', 'RUN_NUMBER': '7'})
         self.assertEqual(result.returncode, 1)
 
+    def test_dispatch_has_a_prerelease_input_that_defaults_to_empty(self):
+        prerelease = self.on['workflow_dispatch']['inputs']['prerelease']
+        self.assertEqual(prerelease['type'], 'string')
+        self.assertEqual(prerelease['default'], '')
+        self.assertFalse(prerelease['required'])
+
+    def test_a_prerelease_is_published_from_v2_only_and_notifies_nobody(self):
+        condition = self.jobs['publish']['if']
+        self.assertIn("github.ref == 'refs/heads/v2'", condition)
+        self.assertIn("inputs.prerelease != ''", condition)
+        self.assertIn("github.event_name == 'workflow_dispatch'", condition)
+        self.assertEqual(self.jobs['publish']['outputs']['prerelease'], '${{ steps.version.outputs.prerelease }}')
+        self.assertIn("needs.publish.outputs.prerelease != 'true'", self.jobs['notify']['if'])
+        # The GitHub release of a prerelease is marked as one.
+        script = step(self.jobs['publish'], 'Create the draft release')['run']
+        self.assertIn('--prerelease', script)
+        self.assertEqual(step(self.jobs['publish'], 'Create the draft release')['env']['IS_PRERELEASE'],
+                         '${{ steps.version.outputs.prerelease }}')
+
+    def test_the_github_release_is_a_prerelease_only_for_a_prerelease(self):
+        script = step(self.jobs['publish'], 'Create the draft release')['run']
+        with tempfile.TemporaryDirectory() as directory:
+            fake = Path(directory) / 'gh'
+            calls = Path(directory) / 'calls'
+            fake.write_text(f'#!/bin/bash\necho "$@" >> {calls}\n[ "$1 $2" = "release view" ] && exit 1\nexit 0\n')
+            fake.chmod(0o755)
+            base = {'PATH': f'{directory}:{os.environ["PATH"]}', 'SHA': 'abc'}
+            for is_prerelease, version in (('true', '2.0.0-alpha.1'), ('', '1.2.3')):
+                calls.write_text('')
+                result, outputs = run_step(script, {**base, 'VERSION': version, 'IS_PRERELEASE': is_prerelease})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                create = [line for line in calls.read_text().splitlines() if line.startswith('release create')][0]
+                self.assertEqual('--prerelease' in create, is_prerelease == 'true', create)
+                self.assertIn(f'release create {version} --draft --target abc --title {version}', create)
+
+    def test_a_prerelease_package_version_is_accepted(self):
+        script = step(self.jobs['nuget-version'], 'Choose the package version')['run']
+        result, outputs = run_step(script, {'RELEASED': '2.0.0-alpha.1', 'REQUESTED': '', 'RUN_NUMBER': '7'})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(outputs, {'version': '2.0.0-alpha.1'})
+
+    def test_the_workflow_builds_with_cargo_and_the_swift_package_is_only_the_xcframework(self):
+        text = WORKFLOW.read_text(encoding='utf-8')
+        self.assertNotIn('swift test', text)
+        self.assertIn('scripts/dev/build-xcframework.sh --release', text)
+        self.assertNotIn('Package.resolved', text)
+        self.assertIn('cargo-dependency-version.py Cargo.lock calendar-connectors', text)
+
     def test_a_dry_run_never_tags(self):
         self.assertIn("inputs.publish", self.jobs['publish']['if'])
         self.assertIn("!inputs.publish", self.jobs['nuget-version']['if'])
 
     def test_an_existing_release_is_not_created_again_or_announced_twice(self):
         job = self.jobs['publish']
-        script = step(job, 'Create the tag and the release')['run']
+        script = step(job, 'Create the draft release')['run']
         with tempfile.TemporaryDirectory() as directory:
             fake = Path(directory) / 'gh'
             calls = Path(directory) / 'calls'
@@ -222,6 +271,39 @@ class ReleaseNugetJobsTests(unittest.TestCase):
                 self.assertEqual('release create' in calls.read_text(), created == 'true')
         self.assertIn("created == 'true'", self.jobs['notify']['if'])
         self.assertIn("created == 'true'", step(job, 'Record the connector version in the release notes')['if'])
+
+    def test_a_draft_left_by_a_failed_run_is_finished_not_recreated(self):
+        script = step(self.jobs['publish'], 'Create the draft release')['run']
+        with tempfile.TemporaryDirectory() as directory:
+            fake = Path(directory) / 'gh'
+            calls = Path(directory) / 'calls'
+            fake.write_text(f'#!/bin/bash\necho "$@" >> {calls}\n[ "$1 $2" = "release view" ] && {{ echo true; exit 0; }}\nexit 0\n')
+            fake.chmod(0o755)
+            env = {'PATH': f'{directory}:{os.environ["PATH"]}', 'VERSION': '1.2.3', 'SHA': 'abc', 'IS_PRERELEASE': ''}
+            result, outputs = run_step(script, env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(outputs, {'created': 'true'})
+            self.assertNotIn('release create', calls.read_text())
+
+    def test_the_tag_is_made_on_a_release_commit_after_the_asset_and_before_publishing(self):
+        job = self.jobs['release-swift']
+        self.assertEqual(job['environment'], 'publish')
+        self.assertEqual(job['permissions'], {'contents': 'write'})
+        script = step(job, 'Upload the asset, tag the release commit, publish the release')['run']
+        order = [script.index(marker) for marker in ('gh release upload', 'git/commits', 'git/refs', 'release edit')]
+        self.assertEqual(order, sorted(order), 'asset, then commit, then tag, then publish')
+        self.assertIn('parents: [$parent]', script)
+        self.assertIn('"Package.swift"', script, 'the release commit changes Package.swift only')
+        self.assertNotIn('${{', script)
+        self.assertIn('release-swift', self.jobs['notify']['needs'])
+        self.assertIn('release-swift', self.jobs['publish-nuget']['needs'])
+
+    def test_a_dry_run_builds_the_swift_package_and_uploads_it_untagged(self):
+        job = self.jobs['swift-package']
+        self.assertEqual(job['needs'], 'nuget-version')
+        self.assertEqual(job['permissions'], {'contents': 'read'})
+        self.assertTrue(any(s.get('uses', '').startswith('actions/upload-artifact@') for s in job['steps']))
+        self.assertNotIn('release-swift', job.get('needs', ''))
 
 
 if __name__ == '__main__':
