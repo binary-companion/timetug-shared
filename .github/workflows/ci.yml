@@ -34,6 +34,8 @@
 #                  TimeTug.Engine on nuget.org (skipped for semver:major, and when nothing is published).
 #   rust-lint      rustfmt, clippy, cargo-deny, the crate architecture, tokio feature and no-clock checks, and their tests.
 #   rust-targets   release builds for x86_64-apple-darwin, aarch64-apple-ios and aarch64-apple-ios-sim.
+#   swift-bindings the generated Swift and Kotlin are current (regenerating changes nothing), the XCFramework builds, the
+#                  Swift package builds and its tests pass (release, with the test clock), and the iOS simulator slice links.
 # The labeled and unlabeled triggers re-run CI when a label changes, so adding or removing semver:major re-decides compat.
 name: CI
 
@@ -492,3 +494,25 @@ jobs:
           for target in x86_64-apple-darwin aarch64-apple-ios aarch64-apple-ios-sim; do
             cargo build --workspace --release --locked --target "$target"
           done
+
+  swift-bindings:
+    runs-on: macos-26
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install the pinned Rust toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+      - name: The generated Swift and Kotlin are current
+        run: |
+          scripts/dev/generate-bindings.sh
+          git diff --exit-code -- swift/TimeTugKit/Sources/TimeTugKitGenerated kotlin/generated
+      - name: Build the XCFramework (macOS, iOS, iOS simulator)
+        run: scripts/dev/build-xcframework.sh --release
+      - name: Build the Swift package
+        run: swift build --package-path swift/TimeTugKit
+      - name: Swift tests (release build, test clock)
+        run: scripts/dev/swift-test.sh --release
+      - name: The iOS simulator slice links
+        run: scripts/dev/swift-test.sh --ios-sim-link
