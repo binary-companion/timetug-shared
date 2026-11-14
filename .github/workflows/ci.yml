@@ -424,7 +424,16 @@ jobs:
         if: steps.swift.outputs.run == 'true'
         env:
           BASELINE: ${{ steps.gate.outputs.baseline }}
-        run: swift package diagnose-api-breaking-changes "$BASELINE" --products TimeTugKit
+        run: |
+          ls -d /Applications/Xcode* || true
+          swift --version
+          for x in /Applications/Xcode*.app; do
+            echo "=== $x"
+            DEVELOPER_DIR="$x/Contents/Developer" swift --version 2>&1 | head -1
+            rm -rf .build/out/apidiff
+            DEVELOPER_DIR="$x/Contents/Developer" swift package diagnose-api-breaking-changes "$BASELINE" --products TimeTugKit 2>&1 | grep -v '^\[' | tail -4 || true
+          done
+          exit 1
 
   compat-dotnet:
     runs-on: ubuntu-latest
