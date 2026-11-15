@@ -36,6 +36,9 @@ allow = [
 # UniFFI (the bindings generator runtime, design section 6.2) is MPL-2.0, which is not on the general list above. MPL-2.0 is
 # file-level copyleft: using the crates unmodified, as here, only obliges the notice in THIRD-PARTY-NOTICES.md and keeping
 # the source of those files available (it is public on crates.io). Each exception names one crate that carries it.
+# Accepted by the owner on 2026-11-15 ("Yes, I accept [uniffi's MPL-2.0] license"); what that obliges us to do, and where each
+# obligation is met, is in docs/licensing.md. A new MPL-2.0 (or other copyleft) crate is a new decision: do not add an
+# exception for it without asking the owner.
 [[licenses.exceptions]]
 allow = ["MPL-2.0"]
 crate = "uniffi"
