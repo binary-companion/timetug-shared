@@ -56,3 +56,6 @@ elif [ "$with_ios_sim" = 1 ]; then
   args+=(-library "$target_dir/aarch64-apple-ios-sim/$profile_dir/$lib" -headers "$work/headers")
 fi
 xcodebuild -create-xcframework "${args[@]}" -output "$output/TimeTugEngineFFI.xcframework"
+# The library statically links the UniFFI crates (MPL-2.0) and the other crates of THIRD-PARTY-NOTICES.md, so the notices and
+# this repository's LICENSE travel inside the XCFramework itself (docs/licensing.md).
+cp THIRD-PARTY-NOTICES.md LICENSE "$output/TimeTugEngineFFI.xcframework/"

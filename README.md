@@ -24,4 +24,4 @@ On `main`, every merge publishes a version tag (`X.Y.Z`) and a GitHub release; o
 
 ## License
 
-MIT with the Commons Clause (no selling the software). See [LICENSE](LICENSE).
+MIT with the Commons Clause (no selling the software). See [LICENSE](LICENSE). The libraries that ship in the Swift and Android artifacts link UniFFI (MPL-2.0); the third-party licences and notices are in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md), and [docs/licensing.md](docs/licensing.md) says what they require and where each requirement is met.

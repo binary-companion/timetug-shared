@@ -10,6 +10,30 @@ shows them and are kept so the list is stable. The crates of this repository are
 scripts/ci/check-third-party-notices.py fails when this file and the tree disagree; scripts/dev/generate-third-party-notices.py
 writes it. Do not edit the sections by hand.
 
+## Mozilla Public License 2.0 (MPL-2.0): the UniFFI crates
+
+The crates `uniffi`, `uniffi_core`, `uniffi_internal_macros`, `uniffi_macros`, `uniffi_meta` and `uniffi_pipeline`, version
+0.32.2, are licensed under the Mozilla Public License, v. 2.0, and are statically linked into the UniFFI bindings library
+(`timetug-engine-ffi`) that the Swift package (`TimeTugEngineFFI.xcframework`) and the Android library contain. They are used
+exactly as published, with no modification. The generator crates `uniffi_bindgen` and `uniffi_udl` (also MPL-2.0, version
+0.32.2) run only while the Swift and Kotlin bindings are generated and are not linked into any library. The Windows engine
+library `TimeTugEngineC` does not link any of these crates.
+
+- This notice tells you that the Source Code Form of those crates is governed by the MPL-2.0 (section 3.1 of the licence), and
+  where to get the licence: the full text is in each `uniffi` section below, and at https://mozilla.org/MPL/2.0/.
+- The Source Code Form of those crates, as built into this library, is available (section 3.2 of the licence) at no charge from
+  https://github.com/mozilla/uniffi-rs (tag `v0.32.2`) and from https://crates.io/crates/uniffi/0.32.2 (and the five other crate
+  pages under the same version); the exact files are fixed by the checksums in this repository's `Cargo.lock`. The code that
+  TimeTug builds around them is in https://github.com/binary-companion/timetug-shared (`crates/timetug-engine-ffi`).
+- The MPL-2.0 covers those crates' own files. It does not cover the rest of the TimeTug library, which is under this
+  repository's `LICENSE` (the Larger Work, section 3.3). The Swift and Kotlin sources that UniFFI generates are built from the
+  generator's templates; they are distributed with these notices and the terms above apply to any part of them that comes from
+  the MPL-2.0 templates (docs/licensing.md).
+
+The other licences below are permissive (MIT, Apache-2.0, Unicode-3.0, Unlicense); where a crate offers a choice, the
+permissive one is used (`r-efi` is also offered under LGPL-2.1-or-later and is not used under it, and links on no platform
+that the engine ships on).
+
 ## anyhow 1.0.104
 
 License: MIT OR Apache-2.0

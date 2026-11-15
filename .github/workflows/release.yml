@@ -201,6 +201,10 @@ jobs:
           mkdir -p build/swift-release
           asset="build/swift-release/TimeTugEngineFFI-$VERSION.xcframework.zip"
           (cd build && ditto -c -k --sequesterRsrc --keepParent TimeTugEngineFFI.xcframework "../$asset")
+          # The notices travel with the library (docs/licensing.md): the zip must hold them, or the release stops.
+          for notice in THIRD-PARTY-NOTICES.md LICENSE; do
+            unzip -l "$asset" | grep -q "TimeTugEngineFFI.xcframework/$notice\$" || { echo "::error::$asset does not contain $notice"; exit 1; }
+          done
           checksum="$(swift package compute-checksum "$asset")"
           echo "$checksum" > build/swift-release/checksum.txt
           cp Package.swift build/swift-release/Package.swift
