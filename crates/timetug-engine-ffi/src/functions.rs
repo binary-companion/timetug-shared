@@ -15,8 +15,10 @@ use calendar_core::write::types::WriteValidation;
 use jiff::Timestamp;
 
 use crate::errors::FfiError;
-use crate::values::model::{CalendarDate, CalendarEvent, ConferenceInfo, SourceCapabilities};
-use crate::values::write::{EventField, EventPatch, EventRef};
+use crate::values::model::{
+    CalendarDate, CalendarEvent, ConferenceInfo, RecurrenceRule, SourceCapabilities,
+};
+use crate::values::write::{EventDraft, EventField, EventPatch, EventRef, EventTiming};
 use crate::values::{ToEngine, ToMirror};
 
 /// `JoinURLPolicy.isAllowed`: whether the app may open a meeting link from calendar data.
@@ -70,6 +72,49 @@ pub fn event_patch_diff(original: CalendarEvent, edited: CalendarEvent) -> Event
 #[uniffi::export]
 pub fn patch_merge_conflicts(patch: EventPatch, current: CalendarEvent) -> HashSet<EventField> {
     PatchMerge::conflicts(&patch.to_engine(), &current.to_engine()).to_mirror()
+}
+
+/// `EventDraft.usedFields`: the fields the draft sets beyond their defaults (title and timing always), which a connector
+/// checks against its writable fields (`require_writable`).
+#[uniffi::export]
+pub fn event_draft_used_fields(draft: EventDraft) -> HashSet<EventField> {
+    draft.to_engine().used_fields().to_mirror()
+}
+
+/// `EventPatch.touchedFields`: the fields the patch changes. A patch with a base counts the fields that differ from it
+/// (`event_patch_diff`), so a field set to the value the base already has is not touched.
+#[uniffi::export]
+pub fn event_patch_touched_fields(patch: EventPatch) -> HashSet<EventField> {
+    patch.to_engine().touched_fields().to_mirror()
+}
+
+/// `EventDraft.validate()`: the timing, the recurrence rule, the attendee addresses and the reminders. Throws
+/// `FfiError.Write` (`WriteError.Invalid` or `.Unsupported`) before any request or store change.
+#[uniffi::export]
+pub fn validate_event_draft(draft: EventDraft) -> Result<(), FfiError> {
+    draft
+        .to_engine()
+        .validate()
+        .map_err(|error| FfiError::Write(error.to_mirror()))
+}
+
+/// `EventTiming.validate()`: the end is after the start, and an all-day timing has a zone and starts and ends at midnight
+/// in it.
+#[uniffi::export]
+pub fn validate_event_timing(timing: EventTiming) -> Result<(), FfiError> {
+    timing
+        .to_engine()
+        .validate()
+        .map_err(|error| FfiError::Write(error.to_mirror()))
+}
+
+/// `RecurrenceRule.validate()`: `Invalid` for an interval or a count below 1 or a part out of range, `Unsupported` for a
+/// rule the writers cannot store.
+#[uniffi::export]
+pub fn validate_recurrence_rule(rule: RecurrenceRule) -> Result<(), FfiError> {
+    rule.to_engine()
+        .validate()
+        .map_err(|error| FfiError::Write(error.to_mirror()))
 }
 
 /// The reference a write needs, built from the event as read (`EventRef(event)`).

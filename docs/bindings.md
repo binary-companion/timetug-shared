@@ -50,6 +50,18 @@ same behaviour.
 | `JoinURLPolicy` | `join_url_is_allowed` |
 | `WriteValidation` | `require_writable` |
 | `PatchMerge` | `patch_merge_conflicts`, `event_patch_diff` |
+| `EventDraft.usedFields` | `event_draft_used_fields` |
+| `EventPatch.touchedFields` | `event_patch_touched_fields` |
+| `EventDraft.validate` | `validate_event_draft` |
+| `EventTiming.validate` | `validate_event_timing` |
+| `RecurrenceRule.validate` | `validate_recurrence_rule` |
+
+The last five (2.1.0, the write checks the EventKit adapter runs before it touches the store) wrap the `calendar-core` methods
+of the same name, so a rule stays in one place. The three `validate_*` functions throw `FfiError.Write` carrying
+`WriteError.invalid(reason)` or `.unsupported(fields)`, the same case `require_writable` throws; `event_draft_used_fields` and
+`event_patch_touched_fields` return what `require_writable` takes as its first argument. A patch with a base counts the fields that
+differ from the base (it is rebuilt from the comparison on the way in), so a field set to the value the base already has is not
+touched.
 
 `PatchMerge.apply` (the retry loop around a host write, generic over two host closures) is not exported: the EventKit adapter
 keeps the loop (about ten lines) and calls `patch_merge_conflicts` for the field comparison. A patch made with
@@ -68,15 +80,22 @@ keeps the loop (about ten lines) and calls `patch_merge_conflicts` for the field
 | `CalendarSnapshot` | The engine's `EngineState` carries the same data. |
 | `CalendarSource`, `SeriesSource`, `WritableCalendarSource`, `ConnectedSource`, `SyncStateStore` | The source seam stays inside the engine; the host implements `SystemCalendarSource`. |
 | `SHA256Hashing` | Removed: the engine hashes with `sha2`. |
-| `Scheduler` | The engine computes the next takeover: the app reads `EngineState.nextTakeover`. Phase 6 verifies that `MenuBarIconState` can use it (it is `nil` while a takeover is on screen). |
+| `Scheduler` | The engine computes the next takeover: the app reads `EngineState.nextTakeover` (it is `nil` while a takeover is on screen) and, for the menu bar icon, `EngineStateSummary.nextPendingStart`: the start of what `Scheduler.next` over the events, the settings and the ledger returns at the time of the state, whether or not a takeover is out (2.1.0). The icon is "soon" when `nextPendingStart - now <= 10 minutes`. |
 | `WidgetTimeline`, `NextUp`, `TodayRow` | App code: widgets do not link the engine (design 6.6); `WidgetSnapshot` is the contract. |
-| `DiagnosticLog`, `FanOutDiagnosticLog`, `NullDiagnosticLog`, `RingBufferDiagnosticLog`, `EngineDiagnosticSink` | The engine reports diagnostics through the `DiagnosticSink` host interface; the app keeps its own log collection in Swift. |
+| `DiagnosticLog`, `FanOutDiagnosticLog`, `NullDiagnosticLog`, `RingBufferDiagnosticLog`, `EngineDiagnosticSink` | The engine reports its own lines through `DiagnosticSink.log` and the connectors' structured events (`DiagnosticEvent`, with the private flag of each field) through `DiagnosticSink.record` (2.1.0); the app keeps its own log collection (ring buffer, fan-out, redaction) in Swift. |
 | `Value` | The generic parameter of `FieldUpdate<Value>`, not a type; `FieldUpdate` has one mirror per instantiation (`FieldUpdateString`, `FieldUpdateReminders`, `FieldUpdateRecurrenceRule`). |
 
 ## Planned
 
 | Swift name | Task |
 |---|---|
+
+## The state summary
+
+`EngineStateSummary` carries `nextPendingStart` (2.1.0, additive): the start of the next meeting that still qualifies for a takeover,
+computed as `Scheduler.next` over the events, the settings and the ledger each time the engine publishes a state. It is not part of the
+wire contract of the C interface. See "Not exposed" (`Scheduler`) for how the Mac app uses it. A host that builds an `EngineState` by hand
+(the Swift package's `ObservedEngine` does) passes it.
 
 ## Mirrors that differ from the engine type
 
@@ -88,7 +107,7 @@ keeps the loop (about ten lines) and calls `patch_merge_conflicts` for the field
 
 ## Host interfaces
 
-The app implements these (foreign UniFFI traits). Every method may be called from the engine thread concurrently with the
+The app implements these (foreign UniFFI traits; every method of every one is required, see "Foreign traits and the rules for later changes"). Every method may be called from the engine thread concurrently with the
 others, so an implementor is thread-safe (`Sendable`), does not block for long, and hops to its own actor or queue inside the
 method when it touches main-actor or EventKit state. A call that never returns is cancelled when the engine drops it (the
 Swift `Task` is cancelled; a cooperative implementation stops).
@@ -105,7 +124,7 @@ Swift `Task` is cancelled; a cooperative implementation stops).
 | `ExternalTokenSource` | `accessToken`, `signIn` | async |
 | `SystemCalendarSource` | `id`, `displayName`, `capabilities` (sync); `requestAccess`, `calendars`, `eventsIn(start:end:)`, `series`, `create`, `update`, `delete`, `respond`, `setChangeHandler` | async; errors are `FfiError` (`.Source(.needsPermission)`, `.Write(.forbidden(nil))`); the engine calls `setChangeHandler` once, before the first read, and the host calls `eventsChanged`, `calendarsChanged` or `sourceFailed` on the handler it was given |
 | `EngineObserver` | `stateChanged`, `event` | **synchronous**, called from the delivery thread one call at a time, in order; states are coalesced newest-wins, events are never dropped; nothing after `shutdown()` returns |
-| `DiagnosticSink` | `log` | synchronous |
+| `DiagnosticSink` | `log`, `record` | synchronous; `record(event:)` (2.1.0) gets each structured event of a connector (today the iCalendar subscription's), with its privacy flags and the engine clock's time, in order; an engine without a sink drops them. every sink implements both methods, for Swift and Kotlin alike (a sink that only wants engine lines implements `record` as an empty body); see "Foreign traits" |
 
 What a callback throws: `HostError` (`Network(detail)`, `Cancelled`, `NotFound`, `Denied`, `Failed(detail)`); any other
 Swift error arrives as `Failed` with its description. The engine converts it as the C interface's reply errors are converted
@@ -151,8 +170,8 @@ public final class Engine {
 - **Commands**: those of one kind of work (accounts, settings, takeovers, ...) run one after another in send order; kinds do
   not wait for each other, so a sign-in waiting for a person never holds up a takeover. `send` returns when the engine
   finished the command, and at once after `shutdown()`.
-- **Diagnostics** go to `EngineHostInterfaces.diagnostics` when the host gave one, otherwise they arrive as
-  `EngineEvent.diagnostic`.
+- **Diagnostics** go to `EngineHostInterfaces.diagnostics` when the host gave one (`log` for the engine's lines, `record` for the
+  connectors' events), otherwise the engine's lines arrive as `EngineEvent.diagnostic` and the connectors' events are dropped.
 - `EngineConfig` flags and interfaces must agree: `textGeneration`, `externalTokens` and `systemCalendar` are on exactly when
   the matching interface is passed, else `InvalidConfig`.
 - Tests of the host can build the library with the cargo feature `test-clock`, which adds `Engine.newForTesting(config:host:observer:clockStart:)`
@@ -184,8 +203,10 @@ Shims (`Sources/TimeTugKit`, each with a test in `Tests/TimeTugKitTests/ShimTest
 
 | Shim | What it restores |
 |---|---|
-| `Names.swift` | the name differences above as typealiases; `eventID`, `calendarID`, `sourceID`, `kindID`, `connectionID`, `seriesID`, `joinURL` as computed properties over the generated `...Id` and `...Url` fields (the `ID` and `URL` acronyms UniFFI cannot spell) |
-| `Conformances.swift` | `Identifiable` on `CalendarEvent` (`calendarId/eventId`), `Comparable` on `CalendarDate`, `seriesID`, `originalStart`, `conference`, `myResponse`, `Reminder.minutesBefore`, `accessRole`, `Error` on `SourceError` and `WriteError` |
+| `Names.swift` | the name differences above as typealiases, and the nested `RecurrenceRule.Frequency`, `.Weekday` and `.WeekdayOccurrence` (2.1.0); `eventID`, `calendarID`, `sourceID`, `kindID`, `connectionID`, `seriesID`, `joinURL` as computed properties over the generated `...Id` and `...Url` fields (the `ID` and `URL` acronyms UniFFI cannot spell) |
+| `Conformances.swift` | `Identifiable` on `CalendarEvent` (`calendarId/eventId`), `Comparable` on `CalendarDate`, `seriesID`, `originalStart`, `conference`, `myResponse`, `Reminder.minutesBefore`, `accessRole`, `Error` on `SourceError` and `WriteError`; (2.1.0) on `TimeTugCalendarEvent` `init(event:sourceID:)` with the 1.x derived fields, the forwarded accessors (`title`, `start`, `end`, `isAllDay`, `timeZone`, `location`, `notes`, `url`, `calendarID`), `conferenceURL`, `shownStart`, `Identifiable` with `id` (`sourceId/eventId/<start seconds>`, the engine's formula), `contentKey`, `calendarKey`, `allCalendarKeys`; on `CalendarInfo` `init(sourceID:calendarID:title:...)` with defaults, `key`, `id`, `key(sourceID:calendarID:)`; on `Connection` `init(kindID:connectionID:displayName:config:)`, `sourceID` (`kindId-connectionId`) and `id`; `RawRepresentable` and the static values of `CalendarService` (`eventKit`, `google`, `microsoft`, `calDAV`, `iCalSubscription`) and `CalendarProvider` (`iCloud`, `google`, `microsoft`, `local`, `subscription`, `calDAV`), with the 1.x raw strings; the empty default of `DiagnosticSink.record` |
+| `TakeoverSettings.swift` | (2.1.0) `TakeoverSettings()` with the 1.x defaults (60 s, all-day events skipped, enabled), `Codable` with the 1.x lenient decoder and encoder (the JSON the Mac app keeps in UserDefaults, including the keys of earlier versions `disabled` and `skipSoloEvents`), `isShownInList`, `setTakeover(_:forCalendar:)` and `(_:forCalendars:)`, `setShownInList(_:forCalendar:)`, `removeCalendars(...)` |
+| `Initializers.swift` | (2.1.0) the convenience initialisers with the 1.x defaults and labels: `CalendarEvent(eventID:calendarID:title:start:end:...)`, `CalendarDescriptor(id:title:service:...)` (the colour is normalised), `CalendarPermissions`, `SourceCapabilities`, `Reminder(trigger:type:...)` and `Reminder.before(minutes:)` (the field is `kind`, with a `type` alias), `Attendee` (the address is trimmed and lowercased), `ConferenceInfo(url:provider:)`, `WeekdayOccurrence(_:ordinal:)`. Where the 1.x labels equal the generated ones the initialiser has a last unlabelled `_: Void = ()` parameter (a same-signature initialiser would shadow the generated one and call itself); naming every field reaches the generated initialiser, which does not normalise an `Attendee`'s address |
 | `FieldUpdate.swift` | `FieldUpdate<Value>` as a generic enum with conversions to and from the concrete mirrors |
 | `SettingsPatch.swift` | `SettingsPatch(from:to:)` and `EngineCommand.applySettings(from:_:)`, the closure spelling that diffs into a patch |
 | `ObservedEngine.swift` | `states: AsyncStream<EngineState>` (full states assembled from the summaries, fetching a large part only when its revision changed) and `events: AsyncStream<EngineEvent>`, built on an internal observer, with `start`, `send(_:)`, `applySettings { }` and `shutdown` |
@@ -211,9 +232,75 @@ Every host interface is called from the engine's own thread, concurrently with t
   any other error becomes `Failed` with its description. `SystemCalendarSource` throws `FfiError`.
 - After `Engine.shutdown()` returns, no host method starts. A call that was running may still finish.
 
+## Foreign traits and the rules for later changes
+
+Decided 2026-11-15 (owner: nobody uses Kotlin yet, so make every change the future state needs now). Everything below is fixed
+before the first release that contains the bindings (2.1.0); after it, each rule is how a change stays non-breaking.
+
+**Design for growth.** A foreign trait (host-implemented) is small and single-purpose, and each optional capability is its own
+trait in its own optional slot with a record-field default (`#[uniffi(default = None)]`): the four optional slots are on
+`EngineHostInterfaces` (`diagnostics`, `textGenerator`, `externalTokens`, `systemCalendar`; the engine skips a capability whose
+slot is empty), and the settings that go with them are on `EngineConfig`, whose optional fields all have defaults. A host builds
+both from the required values alone (`kotlin/checks/OptionalSlots.kt`, compiled by `kotlin/compile-check.sh`, and the Swift
+`Host.interfaces` in the tests do exactly that). Required capabilities (credentials, authorization, sign-in, settings, HTTP) stay
+out of the optional set. A new capability is a new small trait plus a new defaulted slot; a new `EngineConfig` or
+`EngineHostInterfaces` field has a default and never becomes required in a minor release. `DiagnosticSink` is an optional slot
+(none: the engine's lines arrive as `EngineEvent.diagnostic`, connector events are dropped) and both of its methods are required
+once a sink is given. The existing traits were checked for growth (gaps M11 to M13 of the Mac migration map are app-side and
+the Android adapters implement the same methods), so none was split.
+
+**At a major-version upgrade, consolidate.** A major version is the one time breaking the host contract is allowed, so before
+cutting one, consider merging related small foreign traits and optional slots, making slots that every host fills required,
+and dropping deprecated ones.
+
+**Foreign traits have no default methods** (UniFFI 0.32.2, the version pinned here; re-read its changelog when upgrading, a
+newer version may change this, and this rule then relaxes only by a decision record). UniFFI cannot give a method of a foreign trait (an interface the host implements) a
+default, so every method is required for every host, Swift and Kotlin alike, and the Swift package adds no empty defaults or shims
+that hide a method (`DiagnosticSink.record` was the last one; it is required now, and a sink that only wants engine lines
+implements it as an empty body). Consequences:
+
+- Adding a method to a foreign trait breaks every implementor, so it is a major-version change (`semver:major`). Do not do it.
+  Add a **new** foreign trait instead, passed as a new optional field of `EngineHostInterfaces` (`#[uniffi(default = None)]`,
+  so existing hosts compile unchanged), with a flag in `EngineConfig` when the engine must know before it starts.
+- Changing a method's arguments, return type or error type is major for the same reason.
+
+**Records** (structs). A new field is additive only when it is appended and carries `#[uniffi(default = ...)]`: Kotlin gets a
+default parameter and Swift a default argument. A new field without a default breaks every host that constructs the record
+(`EngineConfig`, `EngineHostInterfaces`, and every record a host returns from a callback: `CalendarDescriptor`,
+`SourceCapabilities`, `HttpResponse`, `EngineSettings`, the events and series). Removing, renaming or retyping a field is major.
+
+**Enums, sealed classes and error enums.** UniFFI's Swift and Kotlin generators ignore `#[non_exhaustive]`, so these are
+closed in the host language. A variant the host *passes in* (`EngineCommand`, `ProvidedField`, `HostError`, `CalendarChange`, the
+types of write arguments) can be added without breaking a host. A variant the engine *produces* (`EngineEvent`, `FfiError`,
+`SourceError`, `WriteError`, `SourceStatus`, `InferenceStatus`, `EventField`) breaks a host whose `switch` or `when` has no
+default arm. Rule for hosts: every `switch` over a type the engine produces has a `default`, and every Kotlin `when` over one has
+an `else`. Rule for this crate: adding such a variant is minor only because of that rule; the release notes name it.
+
+**Kotlin settings fixed now** (`uniffi.toml`): the package is `com.binarycompanion.timetug.engine` (the UniFFI default
+`uniffi.timetug_engine_ffi` would have to change later, which breaks every import), and records are immutable (`val`; changing
+`var` to `val` later breaks code that assigns a field). Swift records keep `var` because the Swift package's 1.x-style mutators
+and the app's code rely on it. `android = true` (the Android cleaner) is not set: it changes no name and no signature, so a later
+Android build can switch it without a break; it would need `android.jar` to compile, which the JVM compile check lacks.
+
+**Names that differ by host, found by the audit and left as they are.**
+
+| Item | Why it stays |
+|---|---|
+| Kotlin errors are `FfiException` and `HostException` (Swift `FfiError`, `HostError`) | UniFFI appends `Exception` to every error enum for Kotlin; there is no setting. |
+| `FfiError.Source(v1)`, `FfiError.Write(v1)`, and the other tuple variants have fields `v1`, `v2` in Kotlin and no labels in Swift | Naming them would add labels to the Swift call sites, which the 1.x Swift spellings and the Mac migration map (`.Source(.needsPermission)`, `.merge(a, b)`) do not have. Adding a field to a variant is a breaking change either way, so `v1` buys nothing to fix now. |
+| `DiagnosticFieldValue` has cases `Int`, `Double`, `Bool`, `String` | Legal in Kotlin (the generated code writes `kotlin.String`); they keep the 1.x Swift spellings `.int`, `.double`, `.bool`, `.string` that the app's log code uses. A Kotlin host should refer to them as `DiagnosticFieldValue.String`. |
+| Kotlin enum entries are `SCREAMING_SNAKE`, Swift cases are `lowerCamel` | UniFFI's convention for each language. |
+| `SystemCalendarSource` is the largest foreign trait (12 methods) | Android's calendar adapter needs the same methods; if it needs more, the rule above applies (a new trait). |
+
+Checked and clean: no record field, method or error variant is named `message`, `cause`, `close`, `finalize`, `toString`,
+`hashCode`, `equals` or `destroy` where it would clash (`name` and `ordinal` appear only as fields of data classes, which is
+legal); Kotlin keywords are escaped by the generator; no type clashes with a Kotlin or `java.lang` stdlib name that would be
+confusing inside the package. Gaps M11 to M13 of the Mac migration map need no shared change. `Platform.android` exists; the
+connector flag it needs is a `calendar-connectors` change that touches no signature here.
+
 ## Kotlin and Android
 
-`kotlin/generated/` holds the generated Kotlin (`uniffi-bindgen generate --library`, regenerated by
+`kotlin/generated/` (package `com.binarycompanion.timetug.engine`) holds the generated Kotlin (`uniffi-bindgen generate --library`, regenerated by
 `scripts/dev/generate-bindings.sh`; CI fails when it differs). It uses JNA and kotlinx-coroutines; the custom types map to
 `java.time.Instant` and `java.util.UUID`. `kotlin/compile-check.sh` compiles it with a pinned `kotlinc`, JNA and
 kotlinx-coroutines, each downloaded into `build/kotlin-tools` and verified against a checksum in the script. The

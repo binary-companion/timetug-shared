@@ -30,6 +30,12 @@ imports = ["Foundation"]
 lift = "UUID(uuidString: {})!"
 lower = "{}.uuidString"
 
+# Kotlin. The package and immutable records are public API that cannot change later without breaking every host, so they
+# are fixed before the first release (docs/bindings.md, "Foreign traits and the rules for later changes").
+[bindings.kotlin]
+package_name = "com.binarycompanion.timetug.engine"
+generate_immutable_records = true
+
 [bindings.kotlin.custom_types.Timestamp]
 type_name = "java.time.Instant"
 lift = "java.time.Instant.ofEpochMilli({})"

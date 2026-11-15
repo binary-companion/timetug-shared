@@ -106,5 +106,6 @@ mirror_record!(forward_only EngineState <=> engine_state::EngineState {
     ledger: TakeoverLedger,
     next_takeover: Option<ScheduledTakeover>,
     takeover_visible: bool,
+    next_pending_start: Option<Timestamp>,
     available_account_kinds: Vec<AccountKindInfo>,
 });

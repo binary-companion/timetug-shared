@@ -49,6 +49,6 @@ out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 classpath="$cache/jna-$JNA_VERSION.jar:$cache/kotlinx-coroutines-core-jvm-$COROUTINES_VERSION.jar"
 
-find "$root/kotlin/generated" -name '*.kt' -print0 | xargs -0 \
+find "$root/kotlin/generated" "$root/kotlin/checks" -name '*.kt' -print0 | xargs -0 \
   "$kotlinc_dir/kotlinc/bin/kotlinc" -classpath "$classpath" -d "$out" -Werror -nowarn
-echo "kotlin: generated bindings compile ($(find "$root/kotlin/generated" -name '*.kt' | wc -l | tr -d ' ') file(s))"
+echo "kotlin: generated bindings compile ($(find "$root/kotlin/generated" "$root/kotlin/checks" -name '*.kt' | wc -l | tr -d ' ') file(s))"

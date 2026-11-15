@@ -3,7 +3,7 @@
 
 @file:Suppress("NAME_SHADOWING")
 
-package uniffi.timetug_engine_ffi
+package com.binarycompanion.timetug.engine
 
 // Common helper code.
 //
@@ -690,6 +690,9 @@ internal interface UniffiCallbackInterfaceCredentialStoreMethod4 : com.sun.jna.C
 internal interface UniffiCallbackInterfaceDiagnosticSinkMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`diagnostic`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
 }
+internal interface UniffiCallbackInterfaceDiagnosticSinkMethod1 : com.sun.jna.Callback {
+    fun callback(`uniffiHandle`: Long,`event`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,)
+}
 internal interface UniffiCallbackInterfaceExternalTokenSourceMethod0 : com.sun.jna.Callback {
     fun callback(`uniffiHandle`: Long,`account`: RustBuffer.ByValue,`scopes`: RustBuffer.ByValue,`forceRefresh`: Byte,`uniffiFutureCallback`: UniffiForeignFutureCompleteRustBuffer,`uniffiCallbackData`: Long,`uniffiOutDroppedCallback`: UniffiForeignFutureDroppedCallbackStruct,)
 }
@@ -837,22 +840,25 @@ internal open class UniffiVTableCallbackInterfaceCredentialStore(
     }
 
 }
-@Structure.FieldOrder("uniffiFree", "uniffiClone", "log")
+@Structure.FieldOrder("uniffiFree", "uniffiClone", "log", "record")
 internal open class UniffiVTableCallbackInterfaceDiagnosticSink(
     @JvmField internal var `uniffiFree`: UniffiCallbackInterfaceFree? = null,
     @JvmField internal var `uniffiClone`: UniffiCallbackInterfaceClone? = null,
     @JvmField internal var `log`: UniffiCallbackInterfaceDiagnosticSinkMethod0? = null,
+    @JvmField internal var `record`: UniffiCallbackInterfaceDiagnosticSinkMethod1? = null,
 ) : Structure() {
     class UniffiByValue(
         `uniffiFree`: UniffiCallbackInterfaceFree? = null,
         `uniffiClone`: UniffiCallbackInterfaceClone? = null,
         `log`: UniffiCallbackInterfaceDiagnosticSinkMethod0? = null,
-    ): UniffiVTableCallbackInterfaceDiagnosticSink(`uniffiFree`,`uniffiClone`,`log`,), Structure.ByValue
+        `record`: UniffiCallbackInterfaceDiagnosticSinkMethod1? = null,
+    ): UniffiVTableCallbackInterfaceDiagnosticSink(`uniffiFree`,`uniffiClone`,`log`,`record`,), Structure.ByValue
 
    internal fun uniffiSetValue(other: UniffiVTableCallbackInterfaceDiagnosticSink) {
         `uniffiFree` = other.`uniffiFree`
         `uniffiClone` = other.`uniffiClone`
         `log` = other.`log`
+        `record` = other.`record`
     }
 
 }
@@ -1076,7 +1082,11 @@ internal object IntegrityCheckingUniffiLib {
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_func_detect_conferences(
     ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_func_event_draft_used_fields(
+    ): Int
     external fun uniffi_timetug_engine_ffi_checksum_func_event_patch_diff(
+    ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_func_event_patch_touched_fields(
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_func_event_ref_from_event(
     ): Int
@@ -1085,6 +1095,12 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_timetug_engine_ffi_checksum_func_patch_merge_conflicts(
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_func_require_writable(
+    ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_func_validate_event_draft(
+    ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_func_validate_event_timing(
+    ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_func_validate_recurrence_rule(
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_method_engine_current_agenda(
     ): Int
@@ -1125,6 +1141,8 @@ internal object IntegrityCheckingUniffiLib {
     external fun uniffi_timetug_engine_ffi_checksum_method_credentialstore_update_refresh_token(
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_log(
+    ): Int
+    external fun uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_record(
     ): Int
     external fun uniffi_timetug_engine_ffi_checksum_method_externaltokensource_access_token(
     ): Int
@@ -1281,6 +1299,8 @@ internal object UniffiLib {
     ): Unit
     external fun uniffi_timetug_engine_ffi_fn_method_diagnosticsink_log(`ptr`: Long,`diagnostic`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
+    external fun uniffi_timetug_engine_ffi_fn_method_diagnosticsink_record(`ptr`: Long,`event`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
     external fun uniffi_timetug_engine_ffi_fn_clone_externaltokensource(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): Long
     external fun uniffi_timetug_engine_ffi_fn_free_externaltokensource(`handle`: Long,uniffi_out_err: UniffiRustCallStatus, 
@@ -1393,7 +1413,11 @@ internal object UniffiLib {
     ): RustBuffer.ByValue
     external fun uniffi_timetug_engine_ffi_fn_func_detect_conferences(`structured`: RustBuffer.ByValue,`location`: RustBuffer.ByValue,`url`: RustBuffer.ByValue,`notes`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
+    external fun uniffi_timetug_engine_ffi_fn_func_event_draft_used_fields(`draft`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
     external fun uniffi_timetug_engine_ffi_fn_func_event_patch_diff(`original`: RustBuffer.ByValue,`edited`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): RustBuffer.ByValue
+    external fun uniffi_timetug_engine_ffi_fn_func_event_patch_touched_fields(`patch`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_timetug_engine_ffi_fn_func_event_ref_from_event(`event`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1402,6 +1426,12 @@ internal object UniffiLib {
     external fun uniffi_timetug_engine_ffi_fn_func_patch_merge_conflicts(`patch`: RustBuffer.ByValue,`current`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
     external fun uniffi_timetug_engine_ffi_fn_func_require_writable(`fields`: RustBuffer.ByValue,`capabilities`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_timetug_engine_ffi_fn_func_validate_event_draft(`draft`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_timetug_engine_ffi_fn_func_validate_event_timing(`timing`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
+    ): Unit
+    external fun uniffi_timetug_engine_ffi_fn_func_validate_recurrence_rule(`rule`: RustBuffer.ByValue,uniffi_out_err: UniffiRustCallStatus, 
     ): Unit
     external fun ffi_timetug_engine_ffi_rustbuffer_alloc(`size`: Long,uniffi_out_err: UniffiRustCallStatus, 
     ): RustBuffer.ByValue
@@ -1543,7 +1573,13 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
     if ((lib.uniffi_timetug_engine_ffi_checksum_func_detect_conferences() and 0xFFFF) != 16167) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_func_event_draft_used_fields() and 0xFFFF) != 6955) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
     if ((lib.uniffi_timetug_engine_ffi_checksum_func_event_patch_diff() and 0xFFFF) != 40856) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_func_event_patch_touched_fields() and 0xFFFF) != 32248) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_timetug_engine_ffi_checksum_func_event_ref_from_event() and 0xFFFF) != 2106) {
@@ -1556,6 +1592,15 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_timetug_engine_ffi_checksum_func_require_writable() and 0xFFFF) != 22143) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_func_validate_event_draft() and 0xFFFF) != 42935) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_func_validate_event_timing() and 0xFFFF) != 17207) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_func_validate_recurrence_rule() and 0xFFFF) != 62181) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_timetug_engine_ffi_checksum_method_engine_current_agenda() and 0xFFFF) != 32976) {
@@ -1616,6 +1661,9 @@ private fun uniffiCheckApiChecksums(lib: IntegrityCheckingUniffiLib) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_log() and 0xFFFF) != 2374) {
+        throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
+    }
+    if ((lib.uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_record() and 0xFFFF) != 46196) {
         throw RuntimeException("UniFFI API checksum mismatch: try cleaning and rebuilding your project")
     }
     if ((lib.uniffi_timetug_engine_ffi_checksum_method_externaltokensource_access_token() and 0xFFFF) != 52861) {
@@ -3339,8 +3387,10 @@ public object FfiConverterTypeCredentialStore: FfiConverter<CredentialStore, Lon
 
 
 /**
- * Receives the engine's diagnostics. Called from the engine thread; return quickly. Diagnostics never contain tokens,
- * passwords, addresses or feed links.
+ * Receives the engine's diagnostics (`log`) and the structured events its connectors report (`record`). Called from the
+ * engine thread; return quickly. Diagnostics never contain tokens, passwords, addresses or feed links; a string field of a
+ * connector event is private (`isPrivate`) unless the connector marked it public, and a host's report shows private values
+ * as a placeholder by default.
  */
 public interface DiagnosticSink {
     
@@ -3349,12 +3399,22 @@ public interface DiagnosticSink {
      */
     fun `log`(`diagnostic`: EngineDiagnostic)
     
+    /**
+     * Records one structured event of a connector (for example the iCalendar subscription's `fetchCompleted`), as the
+     * connector library's `DiagnosticLog.record` reported it: level, category, name, fields with their privacy flag, and
+     * the engine clock's time. Added in 2.1.0. Required for every host:
+     * UniFFI has no default methods for foreign traits (`docs/bindings.md`, "Foreign traits").
+     */
+    fun `record`(`event`: DiagnosticEvent)
+    
     companion object
 }
 
 /**
- * Receives the engine's diagnostics. Called from the engine thread; return quickly. Diagnostics never contain tokens,
- * passwords, addresses or feed links.
+ * Receives the engine's diagnostics (`log`) and the structured events its connectors report (`record`). Called from the
+ * engine thread; return quickly. Diagnostics never contain tokens, passwords, addresses or feed links; a string field of a
+ * connector event is private (`isPrivate`) unless the connector marked it public, and a host's report shows private values
+ * as a placeholder by default.
  */
 open class DiagnosticSinkImpl: Disposable, AutoCloseable, DiagnosticSink
 {
@@ -3474,6 +3534,25 @@ open class DiagnosticSinkImpl: Disposable, AutoCloseable, DiagnosticSink
     
 
     
+    /**
+     * Records one structured event of a connector (for example the iCalendar subscription's `fetchCompleted`), as the
+     * connector library's `DiagnosticLog.record` reported it: level, category, name, fields with their privacy flag, and
+     * the engine clock's time. Added in 2.1.0. Required for every host:
+     * UniFFI has no default methods for foreign traits (`docs/bindings.md`, "Foreign traits").
+     */override fun `record`(`event`: DiagnosticEvent)
+        = 
+    callWithHandle {
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_method_diagnosticsink_record(
+        it,
+        
+        FfiConverterTypeDiagnosticEvent.lower(`event`),_status)
+}
+    }
+    
+    
+
+    
 
     
 
@@ -3503,6 +3582,18 @@ internal object uniffiCallbackInterfaceDiagnosticSink {
             uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
         }
     }
+    internal object `record`: UniffiCallbackInterfaceDiagnosticSinkMethod1 {
+        override fun callback(`uniffiHandle`: Long,`event`: RustBuffer.ByValue,`uniffiOutReturn`: Pointer,uniffiCallStatus: UniffiRustCallStatus,) {
+            val uniffiObj = FfiConverterTypeDiagnosticSink.handleMap.get(uniffiHandle)
+            val makeCall = { ->
+                uniffiObj.`record`(
+                    FfiConverterTypeDiagnosticEvent.lift(`event`),
+                )
+            }
+            val writeReturn = { _: Unit -> Unit }
+            uniffiTraitInterfaceCall(uniffiCallStatus, makeCall, writeReturn)
+        }
+    }
 
     internal object uniffiFree: UniffiCallbackInterfaceFree {
         override fun callback(handle: Long) {
@@ -3520,6 +3611,7 @@ internal object uniffiCallbackInterfaceDiagnosticSink {
         uniffiFree,
         uniffiClone,
         `log`,
+        `record`,
     )
 
     // Registers the foreign callback with the Rust side.
@@ -8129,13 +8221,13 @@ public object FfiConverterTypeTextGenerator: FfiConverter<TextGenerator, Long> {
 
 
 data class AccountKindInfo (
-    var `id`: kotlin.String
+    val `id`: kotlin.String
     , 
-    var `displayName`: kotlin.String
+    val `displayName`: kotlin.String
     , 
-    var `authorization`: Authorization
+    val `authorization`: Authorization
     , 
-    var `isConfigured`: kotlin.Boolean
+    val `isConfigured`: kotlin.Boolean
     
 ){
     
@@ -8177,15 +8269,15 @@ public object FfiConverterTypeAccountKindInfo: FfiConverterRustBuffer<AccountKin
 
 
 data class AccountStatus (
-    var `accounts`: List<Connection>
+    val `accounts`: List<Connection>
     , 
-    var `isWorking`: kotlin.Boolean
+    val `isWorking`: kotlin.Boolean
     , 
-    var `buildFailures`: Map<kotlin.String, kotlin.String>
+    val `buildFailures`: Map<kotlin.String, kotlin.String>
     , 
-    var `errorMessage`: kotlin.String?
+    val `errorMessage`: kotlin.String?
     , 
-    var `waitingStyle`: WaitingStyle
+    val `waitingStyle`: WaitingStyle
     
 ){
     
@@ -8236,12 +8328,12 @@ data class AllDayDates (
     /**
      * First day.
      */
-    var `first`: CalendarDate
+    val `first`: CalendarDate
     , 
     /**
      * The day after the last day covered: a one-day event on 14 November has `first` 14 and `end_exclusive` 15.
      */
-    var `endExclusive`: CalendarDate
+    val `endExclusive`: CalendarDate
     
 ){
     
@@ -8280,17 +8372,17 @@ public object FfiConverterTypeAllDayDates: FfiConverterRustBuffer<AllDayDates> {
  * An attendee. The engine normalises the address (trimmed, lower case, empty is none) on the way back in.
  */
 data class Attendee (
-    var `name`: kotlin.String?
+    val `name`: kotlin.String?
     , 
-    var `email`: kotlin.String?
+    val `email`: kotlin.String?
     , 
-    var `role`: AttendeeRole
+    val `role`: AttendeeRole
     , 
-    var `response`: ResponseStatus
+    val `response`: ResponseStatus
     , 
-    var `isSelf`: kotlin.Boolean
+    val `isSelf`: kotlin.Boolean
     , 
-    var `isOrganizer`: kotlin.Boolean
+    val `isOrganizer`: kotlin.Boolean
     
 ){
     
@@ -8341,9 +8433,9 @@ public object FfiConverterTypeAttendee: FfiConverterRustBuffer<Attendee> {
  * Attendees to add and addresses to remove. The engine normalises the addresses on the way back in.
  */
 data class AttendeeChanges (
-    var `add`: List<AttendeeDraft>
+    val `add`: List<AttendeeDraft>
     , 
-    var `remove`: List<kotlin.String>
+    val `remove`: List<kotlin.String>
     
 ){
     
@@ -8382,11 +8474,11 @@ public object FfiConverterTypeAttendeeChanges: FfiConverterRustBuffer<AttendeeCh
  * An attendee to invite. The engine normalises the address on the way back in.
  */
 data class AttendeeDraft (
-    var `name`: kotlin.String?
+    val `name`: kotlin.String?
     , 
-    var `email`: kotlin.String
+    val `email`: kotlin.String
     , 
-    var `role`: AttendeeRole
+    val `role`: AttendeeRole
     
 ){
     
@@ -8425,11 +8517,11 @@ public object FfiConverterTypeAttendeeDraft: FfiConverterRustBuffer<AttendeeDraf
 
 
 data class CalendarDate (
-    var `year`: kotlin.Long
+    val `year`: kotlin.Long
     , 
-    var `month`: kotlin.Long
+    val `month`: kotlin.Long
     , 
-    var `day`: kotlin.Long
+    val `day`: kotlin.Long
     
 ){
     
@@ -8471,29 +8563,29 @@ public object FfiConverterTypeCalendarDate: FfiConverterRustBuffer<CalendarDate>
  * A calendar as a source describes it. The colour is normalised by the engine on the way back in.
  */
 data class CalendarDescriptor (
-    var `id`: kotlin.String
+    val `id`: kotlin.String
     , 
-    var `title`: kotlin.String
+    val `title`: kotlin.String
     , 
-    var `colorHex`: kotlin.String?
+    val `colorHex`: kotlin.String?
     , 
-    var `permissions`: CalendarPermissions
+    val `permissions`: CalendarPermissions
     , 
-    var `isDefault`: kotlin.Boolean?
+    val `isDefault`: kotlin.Boolean?
     , 
-    var `timeZone`: Zone?
+    val `timeZone`: Zone?
     , 
-    var `accountName`: kotlin.String?
+    val `accountName`: kotlin.String?
     , 
-    var `kind`: CalendarKind
+    val `kind`: CalendarKind
     , 
-    var `defaultReminders`: List<Reminder>?
+    val `defaultReminders`: List<Reminder>?
     , 
-    var `service`: CalendarService
+    val `service`: CalendarService
     , 
-    var `provider`: CalendarProvider?
+    val `provider`: CalendarProvider?
     , 
-    var `supportedAvailabilities`: Set<Availability>?
+    val `supportedAvailabilities`: Set<Availability>?
     
 ){
     
@@ -8559,57 +8651,57 @@ public object FfiConverterTypeCalendarDescriptor: FfiConverterRustBuffer<Calenda
 
 
 data class CalendarEvent (
-    var `eventId`: kotlin.String
+    val `eventId`: kotlin.String
     , 
-    var `uid`: kotlin.String?
+    val `uid`: kotlin.String?
     , 
-    var `uidScope`: UidScope?
+    val `uidScope`: UidScope?
     , 
-    var `calendarId`: kotlin.String
+    val `calendarId`: kotlin.String
     , 
-    var `title`: kotlin.String
+    val `title`: kotlin.String
     , 
-    var `notes`: kotlin.String?
+    val `notes`: kotlin.String?
     , 
-    var `location`: kotlin.String?
+    val `location`: kotlin.String?
     , 
-    var `start`: Timestamp
+    val `start`: Timestamp
     , 
-    var `end`: Timestamp
+    val `end`: Timestamp
     , 
-    var `timeZone`: Zone
+    val `timeZone`: Zone
     , 
-    var `isAllDay`: kotlin.Boolean
+    val `isAllDay`: kotlin.Boolean
     , 
-    var `status`: EventStatus
+    val `status`: EventStatus
     , 
-    var `availability`: Availability?
+    val `availability`: Availability?
     , 
-    var `visibility`: Visibility?
+    val `visibility`: Visibility?
     , 
-    var `kind`: EventKind?
+    val `kind`: EventKind?
     , 
-    var `series`: SeriesInfo?
+    val `series`: SeriesInfo?
     , 
-    var `attendees`: List<Attendee>
+    val `attendees`: List<Attendee>
     , 
-    var `organizer`: Attendee?
+    val `organizer`: Attendee?
     , 
-    var `conferences`: List<ConferenceInfo>
+    val `conferences`: List<ConferenceInfo>
     , 
-    var `reminders`: List<Reminder>?
+    val `reminders`: List<Reminder>?
     , 
-    var `url`: UrlString?
+    val `url`: UrlString?
     , 
-    var `version`: kotlin.String?
+    val `version`: kotlin.String?
     , 
-    var `lastModified`: Timestamp?
+    val `lastModified`: Timestamp?
     , 
-    var `created`: Timestamp?
+    val `created`: Timestamp?
     , 
-    var `participation`: Participation?
+    val `participation`: Participation?
     , 
-    var `sourceId`: kotlin.String?
+    val `sourceId`: kotlin.String?
     
 ){
     
@@ -8720,21 +8812,21 @@ public object FfiConverterTypeCalendarEvent: FfiConverterRustBuffer<CalendarEven
  * A calendar as the engine lists it (a source's calendar). The colour is normalised on the way back in.
  */
 data class CalendarInfo (
-    var `sourceId`: kotlin.String
+    val `sourceId`: kotlin.String
     , 
-    var `calendarId`: kotlin.String
+    val `calendarId`: kotlin.String
     , 
-    var `title`: kotlin.String
+    val `title`: kotlin.String
     , 
-    var `accountName`: kotlin.String?
+    val `accountName`: kotlin.String?
     , 
-    var `colorHex`: kotlin.String?
+    val `colorHex`: kotlin.String?
     , 
-    var `kind`: CalendarKind
+    val `kind`: CalendarKind
     , 
-    var `service`: CalendarService?
+    val `service`: CalendarService?
     , 
-    var `provider`: CalendarProvider?
+    val `provider`: CalendarProvider?
     
 ){
     
@@ -8788,13 +8880,13 @@ public object FfiConverterTypeCalendarInfo: FfiConverterRustBuffer<CalendarInfo>
 
 
 data class CalendarPermissions (
-    var `canViewDetails`: kotlin.Boolean
+    val `canViewDetails`: kotlin.Boolean
     , 
-    var `canEdit`: kotlin.Boolean
+    val `canEdit`: kotlin.Boolean
     , 
-    var `canShare`: kotlin.Boolean?
+    val `canShare`: kotlin.Boolean?
     , 
-    var `canViewPrivate`: kotlin.Boolean?
+    val `canViewPrivate`: kotlin.Boolean?
     
 ){
     
@@ -8839,7 +8931,7 @@ public object FfiConverterTypeCalendarPermissions: FfiConverterRustBuffer<Calend
  * Swift's string-backed `CalendarProvider`.
  */
 data class CalendarProvider (
-    var `rawValue`: kotlin.String
+    val `rawValue`: kotlin.String
     
 ){
     
@@ -8872,17 +8964,17 @@ public object FfiConverterTypeCalendarProvider: FfiConverterRustBuffer<CalendarP
 
 
 data class CalendarSeries (
-    var `seriesId`: kotlin.String
+    val `seriesId`: kotlin.String
     , 
-    var `calendarId`: kotlin.String
+    val `calendarId`: kotlin.String
     , 
-    var `start`: Timestamp
+    val `start`: Timestamp
     , 
-    var `timeZone`: Zone
+    val `timeZone`: Zone
     , 
-    var `isAllDay`: kotlin.Boolean
+    val `isAllDay`: kotlin.Boolean
     , 
-    var `recurrence`: RecurrenceSet
+    val `recurrence`: RecurrenceSet
     
 ){
     
@@ -8933,7 +9025,7 @@ public object FfiConverterTypeCalendarSeries: FfiConverterRustBuffer<CalendarSer
  * Swift's string-backed `CalendarService` (`eventkit`, `google`, `microsoft`, `caldav`, `icalsub`, or a host's own).
  */
 data class CalendarService (
-    var `rawValue`: kotlin.String
+    val `rawValue`: kotlin.String
     
 ){
     
@@ -8966,11 +9058,11 @@ public object FfiConverterTypeCalendarService: FfiConverterRustBuffer<CalendarSe
 
 
 data class ConferenceInfo (
-    var `url`: UrlString
+    val `url`: UrlString
     , 
-    var `provider`: ConferenceProvider
+    val `provider`: ConferenceProvider
     , 
-    var `origin`: ConferenceOrigin
+    val `origin`: ConferenceOrigin
     
 ){
     
@@ -9009,13 +9101,13 @@ public object FfiConverterTypeConferenceInfo: FfiConverterRustBuffer<ConferenceI
 
 
 data class Connection (
-    var `kindId`: kotlin.String
+    val `kindId`: kotlin.String
     , 
-    var `connectionId`: kotlin.String
+    val `connectionId`: kotlin.String
     , 
-    var `displayName`: kotlin.String
+    val `displayName`: kotlin.String
     , 
-    var `config`: Map<kotlin.String, kotlin.String>
+    val `config`: Map<kotlin.String, kotlin.String>
     
 ){
     
@@ -9057,11 +9149,11 @@ public object FfiConverterTypeConnection: FfiConverterRustBuffer<Connection> {
 
 
 data class CredentialField (
-    var `key`: kotlin.String
+    val `key`: kotlin.String
     , 
-    var `label`: kotlin.String
+    val `label`: kotlin.String
     , 
-    var `isSecret`: kotlin.Boolean
+    val `isSecret`: kotlin.Boolean
     
 ){
     
@@ -9100,11 +9192,11 @@ public object FfiConverterTypeCredentialField: FfiConverterRustBuffer<Credential
 
 
 data class CredentialHelp (
-    var `text`: kotlin.String
+    val `text`: kotlin.String
     , 
-    var `linkTitle`: kotlin.String?
+    val `linkTitle`: kotlin.String?
     , 
-    var `url`: UrlString?
+    val `url`: UrlString?
     
 ){
     
@@ -9143,9 +9235,9 @@ public object FfiConverterTypeCredentialHelp: FfiConverterRustBuffer<CredentialH
 
 
 data class CredentialSnapshot (
-    var `secrets`: Map<kotlin.String, kotlin.String>
+    val `secrets`: Map<kotlin.String, kotlin.String>
     , 
-    var `revision`: Uuid
+    val `revision`: Uuid
     
 ){
     
@@ -9181,9 +9273,9 @@ public object FfiConverterTypeCredentialSnapshot: FfiConverterRustBuffer<Credent
 
 
 data class DayAgenda (
-    var `items`: List<DayAgendaItem>
+    val `items`: List<DayAgendaItem>
     , 
-    var `next`: TimeTugCalendarEvent?
+    val `next`: TimeTugCalendarEvent?
     
 ){
     
@@ -9219,9 +9311,9 @@ public object FfiConverterTypeDayAgenda: FfiConverterRustBuffer<DayAgenda> {
 
 
 data class DayAgendaItem (
-    var `event`: TimeTugCalendarEvent
+    val `event`: TimeTugCalendarEvent
     , 
-    var `state`: DayAgendaItemState
+    val `state`: DayAgendaItemState
     
 ){
     
@@ -9257,15 +9349,15 @@ public object FfiConverterTypeDayAgendaItem: FfiConverterRustBuffer<DayAgendaIte
 
 
 data class DiagnosticEvent (
-    var `level`: DiagnosticLevel
+    val `level`: DiagnosticLevel
     , 
-    var `category`: kotlin.String
+    val `category`: kotlin.String
     , 
-    var `name`: kotlin.String
+    val `name`: kotlin.String
     , 
-    var `fields`: List<DiagnosticField>
+    val `fields`: List<DiagnosticField>
     , 
-    var `date`: Timestamp
+    val `date`: Timestamp
     
 ){
     
@@ -9310,11 +9402,11 @@ public object FfiConverterTypeDiagnosticEvent: FfiConverterRustBuffer<Diagnostic
 
 
 data class DiagnosticField (
-    var `name`: kotlin.String
+    val `name`: kotlin.String
     , 
-    var `value`: DiagnosticFieldValue
+    val `value`: DiagnosticFieldValue
     , 
-    var `isPrivate`: kotlin.Boolean
+    val `isPrivate`: kotlin.Boolean
     
 ){
     
@@ -9359,52 +9451,52 @@ data class EngineConfig (
     /**
      * The directory where the engine keeps its files (accounts, ledger, dedup state). Created if missing.
      */
-    var `dataDirectory`: kotlin.String
+    val `dataDirectory`: kotlin.String
     , 
     /**
      * The platform the host runs on; decides which account kinds are offered.
      */
-    var `platform`: Platform
+    val `platform`: Platform
     , 
     /**
      * Google's client; without it Google is listed as unconfigured.
      */
-    var `googleClient`: GoogleClient? = null 
+    val `googleClient`: GoogleClient? = null 
     , 
     /**
      * Microsoft's client; without it Microsoft is listed as unconfigured.
      */
-    var `microsoftClient`: MicrosoftClient? = null 
+    val `microsoftClient`: MicrosoftClient? = null 
     , 
     /**
      * True when the host passes a `TextGenerator`.
      */
-    var `textGeneration`: kotlin.Boolean = false 
+    val `textGeneration`: kotlin.Boolean = false 
     , 
     /**
      * True when the host passes an `ExternalTokenSource` (enables the brokered Microsoft kind).
      */
-    var `externalTokens`: kotlin.Boolean = false 
+    val `externalTokens`: kotlin.Boolean = false 
     , 
     /**
      * True when the host passes a `SystemCalendarSource`.
      */
-    var `systemCalendar`: kotlin.Boolean = false 
+    val `systemCalendar`: kotlin.Boolean = false 
     , 
     /**
      * The current time zone identifier; the host reports changes with `setTimeZone` and `.system(.timeZoneChanged)`.
      */
-    var `timeZone`: kotlin.String
+    val `timeZone`: kotlin.String
     , 
     /**
      * How many days back an iCalendar subscription keeps events.
      */
-    var `icalDaysBack`: kotlin.UInt = 3u 
+    val `icalDaysBack`: kotlin.UInt = 3u 
     , 
     /**
      * How many days ahead an iCalendar subscription keeps events.
      */
-    var `icalDaysAhead`: kotlin.UInt = 7u 
+    val `icalDaysAhead`: kotlin.UInt = 7u 
     
 ){
     
@@ -9464,11 +9556,11 @@ public object FfiConverterTypeEngineConfig: FfiConverterRustBuffer<EngineConfig>
 
 
 data class EngineDiagnostic (
-    var `level`: EngineDiagnosticLevel
+    val `level`: EngineDiagnosticLevel
     , 
-    var `category`: kotlin.String
+    val `category`: kotlin.String
     , 
-    var `message`: kotlin.String
+    val `message`: kotlin.String
     
 ){
     
@@ -9508,53 +9600,54 @@ public object FfiConverterTypeEngineDiagnostic: FfiConverterRustBuffer<EngineDia
 
 /**
  * The host objects the engine calls. The first five are required; the others are passed when the configuration says the
- * host has them (`textGeneration`, `externalTokens`, `systemCalendar`).
+ * host has them (`textGeneration`, `externalTokens`, `systemCalendar`); the others default to nil / null. A new optional
+ * interface is added as a new field with `#[uniffi(default = None)]`, which is additive for every host.
  */
 data class EngineHostInterfaces (
     /**
      * Where secrets are kept.
      */
-    var `credentials`: CredentialStore
+    val `credentials`: CredentialStore
     , 
     /**
      * The sign-in interactions (browser and form).
      */
-    var `authorization`: AuthorizationInteraction
+    val `authorization`: AuthorizationInteraction
     , 
     /**
      * The password sign-in form.
      */
-    var `signIn`: SignInPrompting
+    val `signIn`: SignInPrompting
     , 
     /**
      * Where the user's preferences are kept.
      */
-    var `settings`: SettingsStorage
+    val `settings`: SettingsStorage
     , 
     /**
      * Sends every HTTP request.
      */
-    var `http`: HttpTransport
+    val `http`: HttpTransport
     , 
     /**
      * Receives the engine's log lines; without it they arrive as `EngineEvent.diagnostic`.
      */
-    var `diagnostics`: DiagnosticSink?
+    val `diagnostics`: DiagnosticSink? = null 
     , 
     /**
      * The host's text model (`textGeneration`).
      */
-    var `textGenerator`: TextGenerator?
+    val `textGenerator`: TextGenerator? = null 
     , 
     /**
      * The host's account broker (`externalTokens`).
      */
-    var `externalTokens`: ExternalTokenSource?
+    val `externalTokens`: ExternalTokenSource? = null 
     , 
     /**
      * The host's calendar store (`systemCalendar`).
      */
-    var `systemCalendar`: SystemCalendarSource?
+    val `systemCalendar`: SystemCalendarSource? = null 
     
 ): Disposable{
     
@@ -9627,11 +9720,11 @@ public object FfiConverterTypeEngineHostInterfaces: FfiConverterRustBuffer<Engin
 
 
 data class EngineInfo (
-    var `id`: kotlin.String
+    val `id`: kotlin.String
     , 
-    var `displayName`: kotlin.String
+    val `displayName`: kotlin.String
     , 
-    var `isOnDevice`: kotlin.Boolean
+    val `isOnDevice`: kotlin.Boolean
     
 ){
     
@@ -9670,11 +9763,11 @@ public object FfiConverterTypeEngineInfo: FfiConverterRustBuffer<EngineInfo> {
 
 
 data class EngineSettings (
-    var `takeover`: TakeoverSettings
+    val `takeover`: TakeoverSettings
     , 
-    var `inferenceEnabled`: kotlin.Boolean
+    val `inferenceEnabled`: kotlin.Boolean
     , 
-    var `systemCalendarEnabled`: kotlin.Boolean
+    val `systemCalendarEnabled`: kotlin.Boolean
     
 ){
     
@@ -9713,37 +9806,39 @@ public object FfiConverterTypeEngineSettings: FfiConverterRustBuffer<EngineSetti
 
 
 data class EngineState (
-    var `revision`: kotlin.ULong
+    val `revision`: kotlin.ULong
     , 
-    var `agenda`: DayAgenda
+    val `agenda`: DayAgenda
     , 
-    var `events`: List<TimeTugCalendarEvent>
+    val `events`: List<TimeTugCalendarEvent>
     , 
-    var `calendars`: List<CalendarInfo>
+    val `calendars`: List<CalendarInfo>
     , 
-    var `statuses`: Map<kotlin.String, SourceStatus>
+    val `statuses`: Map<kotlin.String, SourceStatus>
     , 
-    var `notices`: Map<kotlin.String, List<SourceNotice>>
+    val `notices`: Map<kotlin.String, List<SourceNotice>>
     , 
-    var `sourceNames`: Map<kotlin.String, kotlin.String>
+    val `sourceNames`: Map<kotlin.String, kotlin.String>
     , 
-    var `candidates`: Map<kotlin.String, List<TimeTugCalendarEvent>>
+    val `candidates`: Map<kotlin.String, List<TimeTugCalendarEvent>>
     , 
-    var `accounts`: List<Connection>
+    val `accounts`: List<Connection>
     , 
-    var `accountStatus`: AccountStatus
+    val `accountStatus`: AccountStatus
     , 
-    var `settings`: EngineSettings
+    val `settings`: EngineSettings
     , 
-    var `inferenceStatus`: InferenceStatus
+    val `inferenceStatus`: InferenceStatus
     , 
-    var `ledger`: TakeoverLedger
+    val `ledger`: TakeoverLedger
     , 
-    var `nextTakeover`: ScheduledTakeover?
+    val `nextTakeover`: ScheduledTakeover?
     , 
-    var `takeoverVisible`: kotlin.Boolean
+    val `takeoverVisible`: kotlin.Boolean
     , 
-    var `availableAccountKinds`: List<AccountKindInfo>
+    val `nextPendingStart`: Timestamp?
+    , 
+    val `availableAccountKinds`: List<AccountKindInfo>
     
 ){
     
@@ -9775,6 +9870,7 @@ public object FfiConverterTypeEngineState: FfiConverterRustBuffer<EngineState> {
             FfiConverterTypeTakeoverLedger.read(buf),
             FfiConverterOptionalTypeScheduledTakeover.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterOptionalTypeTimestamp.read(buf),
             FfiConverterSequenceTypeAccountKindInfo.read(buf),
         )
     }
@@ -9795,6 +9891,7 @@ public object FfiConverterTypeEngineState: FfiConverterRustBuffer<EngineState> {
             FfiConverterTypeTakeoverLedger.allocationSize(value.`ledger`) +
             FfiConverterOptionalTypeScheduledTakeover.allocationSize(value.`nextTakeover`) +
             FfiConverterBoolean.allocationSize(value.`takeoverVisible`) +
+            FfiConverterOptionalTypeTimestamp.allocationSize(value.`nextPendingStart`) +
             FfiConverterSequenceTypeAccountKindInfo.allocationSize(value.`availableAccountKinds`)
     )
 
@@ -9814,6 +9911,7 @@ public object FfiConverterTypeEngineState: FfiConverterRustBuffer<EngineState> {
             FfiConverterTypeTakeoverLedger.write(value.`ledger`, buf)
             FfiConverterOptionalTypeScheduledTakeover.write(value.`nextTakeover`, buf)
             FfiConverterBoolean.write(value.`takeoverVisible`, buf)
+            FfiConverterOptionalTypeTimestamp.write(value.`nextPendingStart`, buf)
             FfiConverterSequenceTypeAccountKindInfo.write(value.`availableAccountKinds`, buf)
     }
 }
@@ -9825,37 +9923,43 @@ public object FfiConverterTypeEngineState: FfiConverterRustBuffer<EngineState> {
  * on the engine (`currentEvents`, `currentAgenda`, `currentCandidates`).
  */
 data class EngineStateSummary (
-    var `revision`: kotlin.ULong
+    val `revision`: kotlin.ULong
     , 
-    var `eventsRevision`: kotlin.ULong
+    val `eventsRevision`: kotlin.ULong
     , 
-    var `agendaRevision`: kotlin.ULong
+    val `agendaRevision`: kotlin.ULong
     , 
-    var `candidatesRevision`: kotlin.ULong
+    val `candidatesRevision`: kotlin.ULong
     , 
-    var `calendars`: List<CalendarInfo>
+    val `calendars`: List<CalendarInfo>
     , 
-    var `statuses`: Map<kotlin.String, SourceStatus>
+    val `statuses`: Map<kotlin.String, SourceStatus>
     , 
-    var `notices`: Map<kotlin.String, List<SourceNotice>>
+    val `notices`: Map<kotlin.String, List<SourceNotice>>
     , 
-    var `sourceNames`: Map<kotlin.String, kotlin.String>
+    val `sourceNames`: Map<kotlin.String, kotlin.String>
     , 
-    var `accounts`: List<Connection>
+    val `accounts`: List<Connection>
     , 
-    var `accountStatus`: AccountStatus
+    val `accountStatus`: AccountStatus
     , 
-    var `settings`: EngineSettings
+    val `settings`: EngineSettings
     , 
-    var `inferenceStatus`: InferenceStatus
+    val `inferenceStatus`: InferenceStatus
     , 
-    var `ledger`: TakeoverLedger
+    val `ledger`: TakeoverLedger
     , 
-    var `nextTakeover`: ScheduledTakeover?
+    val `nextTakeover`: ScheduledTakeover?
     , 
-    var `takeoverVisible`: kotlin.Boolean
+    val `takeoverVisible`: kotlin.Boolean
     , 
-    var `availableAccountKinds`: List<AccountKindInfo>
+    /**
+     * The start of the next meeting that still qualifies for a takeover, whether or not one is on screen (`next_takeover`
+     * is `None` while one is). A menu bar icon that turns "soon" ten minutes ahead reads this one.
+     */
+    val `nextPendingStart`: Timestamp?
+    , 
+    val `availableAccountKinds`: List<AccountKindInfo>
     
 ){
     
@@ -9887,6 +9991,7 @@ public object FfiConverterTypeEngineStateSummary: FfiConverterRustBuffer<EngineS
             FfiConverterTypeTakeoverLedger.read(buf),
             FfiConverterOptionalTypeScheduledTakeover.read(buf),
             FfiConverterBoolean.read(buf),
+            FfiConverterOptionalTypeTimestamp.read(buf),
             FfiConverterSequenceTypeAccountKindInfo.read(buf),
         )
     }
@@ -9907,6 +10012,7 @@ public object FfiConverterTypeEngineStateSummary: FfiConverterRustBuffer<EngineS
             FfiConverterTypeTakeoverLedger.allocationSize(value.`ledger`) +
             FfiConverterOptionalTypeScheduledTakeover.allocationSize(value.`nextTakeover`) +
             FfiConverterBoolean.allocationSize(value.`takeoverVisible`) +
+            FfiConverterOptionalTypeTimestamp.allocationSize(value.`nextPendingStart`) +
             FfiConverterSequenceTypeAccountKindInfo.allocationSize(value.`availableAccountKinds`)
     )
 
@@ -9926,6 +10032,7 @@ public object FfiConverterTypeEngineStateSummary: FfiConverterRustBuffer<EngineS
             FfiConverterTypeTakeoverLedger.write(value.`ledger`, buf)
             FfiConverterOptionalTypeScheduledTakeover.write(value.`nextTakeover`, buf)
             FfiConverterBoolean.write(value.`takeoverVisible`, buf)
+            FfiConverterOptionalTypeTimestamp.write(value.`nextPendingStart`, buf)
             FfiConverterSequenceTypeAccountKindInfo.write(value.`availableAccountKinds`, buf)
     }
 }
@@ -9933,27 +10040,27 @@ public object FfiConverterTypeEngineStateSummary: FfiConverterRustBuffer<EngineS
 
 
 data class EventDraft (
-    var `title`: kotlin.String
+    val `title`: kotlin.String
     , 
-    var `notes`: kotlin.String?
+    val `notes`: kotlin.String?
     , 
-    var `location`: kotlin.String?
+    val `location`: kotlin.String?
     , 
-    var `timing`: EventTiming
+    val `timing`: EventTiming
     , 
-    var `availability`: Availability
+    val `availability`: Availability
     , 
-    var `visibility`: Visibility
+    val `visibility`: Visibility
     , 
-    var `reminders`: List<Reminder>?
+    val `reminders`: List<Reminder>?
     , 
-    var `attendees`: List<AttendeeDraft>
+    val `attendees`: List<AttendeeDraft>
     , 
-    var `conference`: ConferenceRequest
+    val `conference`: ConferenceRequest
     , 
-    var `recurrence`: RecurrenceRule?
+    val `recurrence`: RecurrenceRule?
     , 
-    var `uid`: kotlin.String?
+    val `uid`: kotlin.String?
     
 ){
     
@@ -10019,9 +10126,9 @@ public object FfiConverterTypeEventDraft: FfiConverterRustBuffer<EventDraft> {
  * An event being edited: the copy as it was and the copy as it is.
  */
 data class EventEdit (
-    var `original`: CalendarEvent
+    val `original`: CalendarEvent
     , 
-    var `event`: CalendarEvent
+    val `event`: CalendarEvent
     
 ){
     
@@ -10063,27 +10170,27 @@ public object FfiConverterTypeEventEdit: FfiConverterRustBuffer<EventEdit> {
  * holds) becomes `keep`.
  */
 data class EventPatch (
-    var `title`: kotlin.String?
+    val `title`: kotlin.String?
     , 
-    var `notes`: FieldUpdateString
+    val `notes`: FieldUpdateString
     , 
-    var `location`: FieldUpdateString
+    val `location`: FieldUpdateString
     , 
-    var `timing`: EventTiming?
+    val `timing`: EventTiming?
     , 
-    var `availability`: Availability?
+    val `availability`: Availability?
     , 
-    var `visibility`: Visibility?
+    val `visibility`: Visibility?
     , 
-    var `reminders`: FieldUpdateReminders
+    val `reminders`: FieldUpdateReminders
     , 
-    var `attendees`: AttendeeChanges?
+    val `attendees`: AttendeeChanges?
     , 
-    var `recurrence`: FieldUpdateRecurrenceRule
+    val `recurrence`: FieldUpdateRecurrenceRule
     , 
-    var `conference`: ConferenceChange?
+    val `conference`: ConferenceChange?
     , 
-    var `base`: CalendarEvent?
+    val `base`: CalendarEvent?
     
 ){
     
@@ -10149,15 +10256,15 @@ public object FfiConverterTypeEventPatch: FfiConverterRustBuffer<EventPatch> {
  * What a write needs to find an event.
  */
 data class EventRef (
-    var `calendarId`: kotlin.String
+    val `calendarId`: kotlin.String
     , 
-    var `eventId`: kotlin.String
+    val `eventId`: kotlin.String
     , 
-    var `version`: kotlin.String?
+    val `version`: kotlin.String?
     , 
-    var `seriesId`: kotlin.String?
+    val `seriesId`: kotlin.String?
     , 
-    var `originalStart`: Timestamp?
+    val `originalStart`: Timestamp?
     
 ){
     
@@ -10202,13 +10309,13 @@ public object FfiConverterTypeEventRef: FfiConverterRustBuffer<EventRef> {
 
 
 data class EventTiming (
-    var `start`: Timestamp
+    val `start`: Timestamp
     , 
-    var `end`: Timestamp
+    val `end`: Timestamp
     , 
-    var `timeZone`: Zone?
+    val `timeZone`: Zone?
     , 
-    var `isAllDay`: kotlin.Boolean
+    val `isAllDay`: kotlin.Boolean
     
 ){
     
@@ -10250,9 +10357,9 @@ public object FfiConverterTypeEventTiming: FfiConverterRustBuffer<EventTiming> {
 
 
 data class ExternalAccessToken (
-    var `accessToken`: kotlin.String
+    val `accessToken`: kotlin.String
     , 
-    var `expiresAt`: Timestamp
+    val `expiresAt`: Timestamp
     
 ){
     
@@ -10288,11 +10395,11 @@ public object FfiConverterTypeExternalAccessToken: FfiConverterRustBuffer<Extern
 
 
 data class ExternalAccount (
-    var `id`: kotlin.String
+    val `id`: kotlin.String
     , 
-    var `email`: kotlin.String?
+    val `email`: kotlin.String?
     , 
-    var `connectionId`: kotlin.String?
+    val `connectionId`: kotlin.String?
     
 ){
     
@@ -10331,11 +10438,11 @@ public object FfiConverterTypeExternalAccount: FfiConverterRustBuffer<ExternalAc
 
 
 data class ExternalSignInRequest (
-    var `account`: ExternalAccount?
+    val `account`: ExternalAccount?
     , 
-    var `email`: kotlin.String?
+    val `email`: kotlin.String?
     , 
-    var `scopes`: List<kotlin.String>
+    val `scopes`: List<kotlin.String>
     
 ){
     
@@ -10374,9 +10481,9 @@ public object FfiConverterTypeExternalSignInRequest: FfiConverterRustBuffer<Exte
 
 
 data class ExternalSignInResult (
-    var `account`: ExternalAccount
+    val `account`: ExternalAccount
     , 
-    var `token`: ExternalAccessToken
+    val `token`: ExternalAccessToken
     
 ){
     
@@ -10418,12 +10525,12 @@ data class GoogleClient (
     /**
      * The client id.
      */
-    var `id`: kotlin.String
+    val `id`: kotlin.String
     , 
     /**
      * The client secret.
      */
-    var `secret`: kotlin.String
+    val `secret`: kotlin.String
     
 ){
     
@@ -10459,13 +10566,13 @@ public object FfiConverterTypeGoogleClient: FfiConverterRustBuffer<GoogleClient>
 
 
 data class HttpRequest (
-    var `url`: UrlString
+    val `url`: UrlString
     , 
-    var `method`: kotlin.String
+    val `method`: kotlin.String
     , 
-    var `headers`: Map<kotlin.String, kotlin.String>
+    val `headers`: Map<kotlin.String, kotlin.String>
     , 
-    var `body`: kotlin.ByteArray?
+    val `body`: kotlin.ByteArray?
     
 ){
     
@@ -10510,11 +10617,11 @@ public object FfiConverterTypeHttpRequest: FfiConverterRustBuffer<HttpRequest> {
  * An HTTP answer; the engine lower-cases the header names on the way in, as the Swift type does.
  */
 data class HttpResponse (
-    var `status`: kotlin.Long
+    val `status`: kotlin.Long
     , 
-    var `headers`: Map<kotlin.String, kotlin.String>
+    val `headers`: Map<kotlin.String, kotlin.String>
     , 
-    var `body`: kotlin.ByteArray
+    val `body`: kotlin.ByteArray
     
 ){
     
@@ -10553,17 +10660,17 @@ public object FfiConverterTypeHttpResponse: FfiConverterRustBuffer<HttpResponse>
 
 
 data class MergedMember (
-    var `title`: kotlin.String
+    val `title`: kotlin.String
     , 
-    var `calendarKey`: kotlin.String
+    val `calendarKey`: kotlin.String
     , 
-    var `contentKey`: kotlin.String
+    val `contentKey`: kotlin.String
     , 
-    var `details`: kotlin.String
+    val `details`: kotlin.String
     , 
-    var `start`: Timestamp
+    val `start`: Timestamp
     , 
-    var `end`: Timestamp
+    val `end`: Timestamp
     
 ){
     
@@ -10617,7 +10724,7 @@ data class MicrosoftClient (
     /**
      * The client id.
      */
-    var `id`: kotlin.String
+    val `id`: kotlin.String
     
 ){
     
@@ -10657,7 +10764,7 @@ data class OAuthRedirectHandle (
     /**
      * The session.
      */
-    var `session`: OAuthRedirectSession
+    val `session`: OAuthRedirectSession
     
 ): Disposable{
     
@@ -10698,33 +10805,33 @@ public object FfiConverterTypeOAuthRedirectHandle: FfiConverterRustBuffer<OAuthR
 
 
 data class RecurrenceRule (
-    var `frequency`: Frequency
+    val `frequency`: Frequency
     , 
-    var `interval`: kotlin.Long
+    val `interval`: kotlin.Long
     , 
-    var `weekStart`: Weekday
+    val `weekStart`: Weekday
     , 
-    var `weekdays`: List<WeekdayOccurrence>
+    val `weekdays`: List<WeekdayOccurrence>
     , 
-    var `monthDays`: List<kotlin.Long>
+    val `monthDays`: List<kotlin.Long>
     , 
-    var `months`: List<kotlin.Long>
+    val `months`: List<kotlin.Long>
     , 
-    var `yearDays`: List<kotlin.Long>
+    val `yearDays`: List<kotlin.Long>
     , 
-    var `weekNumbers`: List<kotlin.Long>
+    val `weekNumbers`: List<kotlin.Long>
     , 
-    var `setPositions`: List<kotlin.Long>
+    val `setPositions`: List<kotlin.Long>
     , 
-    var `hours`: List<kotlin.Long>
+    val `hours`: List<kotlin.Long>
     , 
-    var `minutes`: List<kotlin.Long>
+    val `minutes`: List<kotlin.Long>
     , 
-    var `seconds`: List<kotlin.Long>
+    val `seconds`: List<kotlin.Long>
     , 
-    var `end`: RuleEnd
+    val `end`: RuleEnd
     , 
-    var `unrecognizedParts`: List<UnrecognizedPart>
+    val `unrecognizedParts`: List<UnrecognizedPart>
     
 ){
     
@@ -10796,13 +10903,13 @@ public object FfiConverterTypeRecurrenceRule: FfiConverterRustBuffer<RecurrenceR
 
 
 data class RecurrenceSet (
-    var `rules`: List<RecurrenceRule>
+    val `rules`: List<RecurrenceRule>
     , 
-    var `extraDates`: List<Timestamp>?
+    val `extraDates`: List<Timestamp>?
     , 
-    var `excludedDates`: List<Timestamp>?
+    val `excludedDates`: List<Timestamp>?
     , 
-    var `unparsed`: List<kotlin.String>
+    val `unparsed`: List<kotlin.String>
     
 ){
     
@@ -10844,15 +10951,15 @@ public object FfiConverterTypeRecurrenceSet: FfiConverterRustBuffer<RecurrenceSe
 
 
 data class Reminder (
-    var `trigger`: ReminderTrigger
+    val `trigger`: ReminderTrigger
     , 
-    var `kind`: ReminderType
+    val `kind`: ReminderType
     , 
-    var `repeatCount`: kotlin.Long
+    val `repeatCount`: kotlin.Long
     , 
-    var `repeatInterval`: kotlin.Double?
+    val `repeatInterval`: kotlin.Double?
     , 
-    var `isCalendarDefault`: kotlin.Boolean?
+    val `isCalendarDefault`: kotlin.Boolean?
     
 ){
     
@@ -10897,9 +11004,9 @@ public object FfiConverterTypeReminder: FfiConverterRustBuffer<Reminder> {
 
 
 data class ScheduledTakeover (
-    var `event`: TimeTugCalendarEvent
+    val `event`: TimeTugCalendarEvent
     , 
-    var `fireAt`: Timestamp
+    val `fireAt`: Timestamp
     
 ){
     
@@ -10938,23 +11045,23 @@ public object FfiConverterTypeScheduledTakeover: FfiConverterRustBuffer<Schedule
  * What `applySettings` changes: a field left `None` is left alone. Replaces the Swift closure `(inout EngineSettings)`.
  */
 data class SettingsPatch (
-    var `leadTime`: kotlin.Double? = null 
+    val `leadTime`: kotlin.Double? = null 
     , 
-    var `takeoverCalendarKeys`: Set<kotlin.String>? = null 
+    val `takeoverCalendarKeys`: Set<kotlin.String>? = null 
     , 
-    var `hiddenCalendarKeys`: Set<kotlin.String>? = null 
+    val `hiddenCalendarKeys`: Set<kotlin.String>? = null 
     , 
-    var `requireConferenceLink`: kotlin.Boolean? = null 
+    val `requireConferenceLink`: kotlin.Boolean? = null 
     , 
-    var `requireOtherAttendees`: kotlin.Boolean? = null 
+    val `requireOtherAttendees`: kotlin.Boolean? = null 
     , 
-    var `skipAllDayEvents`: kotlin.Boolean? = null 
+    val `skipAllDayEvents`: kotlin.Boolean? = null 
     , 
-    var `enabled`: kotlin.Boolean? = null 
+    val `enabled`: kotlin.Boolean? = null 
     , 
-    var `inferenceEnabled`: kotlin.Boolean? = null 
+    val `inferenceEnabled`: kotlin.Boolean? = null 
     , 
-    var `systemCalendarEnabled`: kotlin.Boolean? = null 
+    val `systemCalendarEnabled`: kotlin.Boolean? = null 
     
 ){
     
@@ -11011,23 +11118,23 @@ public object FfiConverterTypeSettingsPatch: FfiConverterRustBuffer<SettingsPatc
 
 
 data class SourceCapabilities (
-    var `canWrite`: kotlin.Boolean
+    val `canWrite`: kotlin.Boolean
     , 
-    var `canEditAttendees`: kotlin.Boolean
+    val `canEditAttendees`: kotlin.Boolean
     , 
-    var `canRespondToInvite`: kotlin.Boolean
+    val `canRespondToInvite`: kotlin.Boolean
     , 
-    var `providedFields`: Set<ProvidedField>
+    val `providedFields`: Set<ProvidedField>
     , 
-    var `syncKind`: SyncKind
+    val `syncKind`: SyncKind
     , 
-    var `supportsPush`: kotlin.Boolean
+    val `supportsPush`: kotlin.Boolean
     , 
-    var `writableFields`: Set<EventField>
+    val `writableFields`: Set<EventField>
     , 
-    var `controlsNotifications`: kotlin.Boolean
+    val `controlsNotifications`: kotlin.Boolean
     , 
-    var `recurrenceScopes`: Set<RecurrenceScope>
+    val `recurrenceScopes`: Set<RecurrenceScope>
     
 ){
     
@@ -11084,9 +11191,9 @@ public object FfiConverterTypeSourceCapabilities: FfiConverterRustBuffer<SourceC
 
 
 data class SourceNotice (
-    var `kind`: SourceNoticeKind
+    val `kind`: SourceNoticeKind
     , 
-    var `count`: kotlin.Long
+    val `count`: kotlin.Long
     
 ){
     
@@ -11122,13 +11229,13 @@ public object FfiConverterTypeSourceNotice: FfiConverterRustBuffer<SourceNotice>
 
 
 data class StructuredLocation (
-    var `title`: kotlin.String?
+    val `title`: kotlin.String?
     , 
-    var `latitude`: kotlin.Double?
+    val `latitude`: kotlin.Double?
     , 
-    var `longitude`: kotlin.Double?
+    val `longitude`: kotlin.Double?
     , 
-    var `radius`: kotlin.Double?
+    val `radius`: kotlin.Double?
     
 ){
     
@@ -11174,7 +11281,7 @@ public object FfiConverterTypeStructuredLocation: FfiConverterRustBuffer<Structu
  * is the engine's, in `takeover-ledger.json`).
  */
 data class TakeoverLedger (
-    var `keyCount`: kotlin.ULong
+    val `keyCount`: kotlin.ULong
     
 ){
     
@@ -11207,13 +11314,13 @@ public object FfiConverterTypeTakeoverLedger: FfiConverterRustBuffer<TakeoverLed
 
 
 data class TakeoverRequest (
-    var `event`: TimeTugCalendarEvent
+    val `event`: TimeTugCalendarEvent
     , 
-    var `hasStarted`: kotlin.Boolean
+    val `hasStarted`: kotlin.Boolean
     , 
-    var `joinUrl`: UrlString?
+    val `joinUrl`: UrlString?
     , 
-    var `snoozeOptions`: List<kotlin.Double>
+    val `snoozeOptions`: List<kotlin.Double>
     
 ){
     
@@ -11255,19 +11362,19 @@ public object FfiConverterTypeTakeoverRequest: FfiConverterRustBuffer<TakeoverRe
 
 
 data class TakeoverSettings (
-    var `leadTime`: kotlin.Double
+    val `leadTime`: kotlin.Double
     , 
-    var `takeoverCalendarKeys`: Set<kotlin.String>
+    val `takeoverCalendarKeys`: Set<kotlin.String>
     , 
-    var `hiddenCalendarKeys`: Set<kotlin.String>
+    val `hiddenCalendarKeys`: Set<kotlin.String>
     , 
-    var `requireConferenceLink`: kotlin.Boolean
+    val `requireConferenceLink`: kotlin.Boolean
     , 
-    var `requireOtherAttendees`: kotlin.Boolean
+    val `requireOtherAttendees`: kotlin.Boolean
     , 
-    var `skipAllDayEvents`: kotlin.Boolean
+    val `skipAllDayEvents`: kotlin.Boolean
     , 
-    var `enabled`: kotlin.Boolean
+    val `enabled`: kotlin.Boolean
     
 ){
     
@@ -11318,27 +11425,27 @@ public object FfiConverterTypeTakeoverSettings: FfiConverterRustBuffer<TakeoverS
 
 
 data class TimeTugCalendarEvent (
-    var `event`: CalendarEvent
+    val `event`: CalendarEvent
     , 
-    var `sourceId`: kotlin.String
+    val `sourceId`: kotlin.String
     , 
-    var `conferences`: List<ConferenceInfo>
+    val `conferences`: List<ConferenceInfo>
     , 
-    var `otherAttendeeCount`: kotlin.Long
+    val `otherAttendeeCount`: kotlin.Long
     , 
-    var `responseStatus`: ResponseStatus?
+    val `responseStatus`: ResponseStatus?
     , 
-    var `additionalCalendarKeys`: Set<kotlin.String>
+    val `additionalCalendarKeys`: Set<kotlin.String>
     , 
-    var `mergedMembers`: List<MergedMember>
+    val `mergedMembers`: List<MergedMember>
     , 
-    var `mergeProvenance`: MergeProvenance?
+    val `mergeProvenance`: MergeProvenance?
     , 
-    var `calendarService`: kotlin.String?
+    val `calendarService`: kotlin.String?
     , 
-    var `calendarProvider`: kotlin.String?
+    val `calendarProvider`: kotlin.String?
     , 
-    var `displayStart`: Timestamp?
+    val `displayStart`: Timestamp?
     
 ){
     
@@ -11401,9 +11508,9 @@ public object FfiConverterTypeTimeTugCalendarEvent: FfiConverterRustBuffer<TimeT
 
 
 data class UnrecognizedPart (
-    var `name`: kotlin.String
+    val `name`: kotlin.String
     , 
-    var `value`: kotlin.String
+    val `value`: kotlin.String
     
 ){
     
@@ -11439,9 +11546,9 @@ public object FfiConverterTypeUnrecognizedPart: FfiConverterRustBuffer<Unrecogni
 
 
 data class WeekdayOccurrence (
-    var `weekday`: Weekday
+    val `weekday`: Weekday
     , 
-    var `ordinal`: kotlin.Long?
+    val `ordinal`: kotlin.Long?
     
 ){
     
@@ -11477,19 +11584,19 @@ public object FfiConverterTypeWeekdayOccurrence: FfiConverterRustBuffer<WeekdayO
 
 
 data class WidgetEvent (
-    var `id`: kotlin.String
+    val `id`: kotlin.String
     , 
-    var `title`: kotlin.String
+    val `title`: kotlin.String
     , 
-    var `start`: Timestamp
+    val `start`: Timestamp
     , 
-    var `end`: Timestamp
+    val `end`: Timestamp
     , 
-    var `isAllDay`: kotlin.Boolean
+    val `isAllDay`: kotlin.Boolean
     , 
-    var `colorHex`: kotlin.String?
+    val `colorHex`: kotlin.String?
     , 
-    var `joinUrl`: UrlString?
+    val `joinUrl`: UrlString?
     
 ){
     
@@ -11540,9 +11647,9 @@ public object FfiConverterTypeWidgetEvent: FfiConverterRustBuffer<WidgetEvent> {
 
 
 data class WidgetSnapshot (
-    var `generatedAt`: Timestamp
+    val `generatedAt`: Timestamp
     , 
-    var `events`: List<WidgetEvent>
+    val `events`: List<WidgetEvent>
     
 ){
     
@@ -11692,7 +11799,7 @@ sealed class AuthorizationMethod {
     
     
     data class Password(
-        val `fields`: List<uniffi.timetug_engine_ffi.CredentialField>) : AuthorizationMethod()
+        val `fields`: List<com.binarycompanion.timetug.engine.CredentialField>) : AuthorizationMethod()
         
     {
         
@@ -11827,7 +11934,7 @@ sealed class CalendarChange {
     }
     
     data class SourceFailed(
-        val v1: uniffi.timetug_engine_ffi.SourceError) : CalendarChange()
+        val v1: com.binarycompanion.timetug.engine.SourceError) : CalendarChange()
         
     {
         
@@ -12338,7 +12445,7 @@ sealed class EngineCommand {
     
     
     data class ApplySettings(
-        val v1: uniffi.timetug_engine_ffi.SettingsPatch) : EngineCommand()
+        val v1: com.binarycompanion.timetug.engine.SettingsPatch) : EngineCommand()
         
     {
         
@@ -12416,8 +12523,8 @@ sealed class EngineCommand {
     }
     
     data class Merge(
-        val v1: uniffi.timetug_engine_ffi.TimeTugCalendarEvent, 
-        val v2: uniffi.timetug_engine_ffi.TimeTugCalendarEvent) : EngineCommand()
+        val v1: com.binarycompanion.timetug.engine.TimeTugCalendarEvent, 
+        val v2: com.binarycompanion.timetug.engine.TimeTugCalendarEvent) : EngineCommand()
         
     {
         
@@ -12426,7 +12533,7 @@ sealed class EngineCommand {
     }
     
     data class Unmerge(
-        val v1: uniffi.timetug_engine_ffi.TimeTugCalendarEvent) : EngineCommand()
+        val v1: com.binarycompanion.timetug.engine.TimeTugCalendarEvent) : EngineCommand()
         
     {
         
@@ -12435,8 +12542,8 @@ sealed class EngineCommand {
     }
     
     data class Separate(
-        val `event`: uniffi.timetug_engine_ffi.TimeTugCalendarEvent, 
-        val `members`: List<uniffi.timetug_engine_ffi.MergedMember>) : EngineCommand()
+        val `event`: com.binarycompanion.timetug.engine.TimeTugCalendarEvent, 
+        val `members`: List<com.binarycompanion.timetug.engine.MergedMember>) : EngineCommand()
         
     {
         
@@ -12448,7 +12555,7 @@ sealed class EngineCommand {
     
     
     data class System(
-        val v1: uniffi.timetug_engine_ffi.SystemEvent) : EngineCommand()
+        val v1: com.binarycompanion.timetug.engine.SystemEvent) : EngineCommand()
         
     {
         
@@ -12839,7 +12946,7 @@ public object FfiConverterTypeEngineDiagnosticLevel: FfiConverterRustBuffer<Engi
 sealed class EngineEvent {
     
     data class TakeoverDue(
-        val `request`: uniffi.timetug_engine_ffi.TakeoverRequest, 
+        val `request`: com.binarycompanion.timetug.engine.TakeoverRequest, 
         val `calendarTitle`: kotlin.String?) : EngineEvent()
         
     {
@@ -12858,7 +12965,7 @@ sealed class EngineEvent {
     }
     
     data class WidgetSnapshot(
-        val v1: uniffi.timetug_engine_ffi.WidgetSnapshot) : EngineEvent()
+        val v1: com.binarycompanion.timetug.engine.WidgetSnapshot) : EngineEvent()
         
     {
         
@@ -12867,7 +12974,7 @@ sealed class EngineEvent {
     }
     
     data class JoinRequested(
-        val v1: uniffi.timetug_engine_ffi.UrlString) : EngineEvent()
+        val v1: com.binarycompanion.timetug.engine.UrlString) : EngineEvent()
         
     {
         
@@ -12876,7 +12983,7 @@ sealed class EngineEvent {
     }
     
     data class Diagnostic(
-        val v1: uniffi.timetug_engine_ffi.EngineDiagnostic) : EngineEvent()
+        val v1: com.binarycompanion.timetug.engine.EngineDiagnostic) : EngineEvent()
         
     {
         
@@ -13280,7 +13387,7 @@ sealed class FieldUpdateRecurrenceRule {
     
     
     data class Set(
-        val v1: uniffi.timetug_engine_ffi.RecurrenceRule) : FieldUpdateRecurrenceRule()
+        val v1: com.binarycompanion.timetug.engine.RecurrenceRule) : FieldUpdateRecurrenceRule()
         
     {
         
@@ -13367,7 +13474,7 @@ sealed class FieldUpdateReminders {
     
     
     data class Set(
-        val v1: List<uniffi.timetug_engine_ffi.Reminder>) : FieldUpdateReminders()
+        val v1: List<com.binarycompanion.timetug.engine.Reminder>) : FieldUpdateReminders()
         
     {
         
@@ -13750,7 +13857,7 @@ sealed class InferenceStatus {
     
     
     data class Active(
-        val v1: uniffi.timetug_engine_ffi.EngineInfo) : InferenceStatus()
+        val v1: com.binarycompanion.timetug.engine.EngineInfo) : InferenceStatus()
         
     {
         
@@ -13992,7 +14099,7 @@ sealed class Participation {
     
     
     data class Invited(
-        val v1: uniffi.timetug_engine_ffi.ResponseStatus) : Participation()
+        val v1: com.binarycompanion.timetug.engine.ResponseStatus) : Participation()
         
     {
         
@@ -14260,7 +14367,7 @@ sealed class ReminderTrigger {
     
     data class Relative(
         val `offset`: kotlin.Double, 
-        val `to`: uniffi.timetug_engine_ffi.ReminderAnchor) : ReminderTrigger()
+        val `to`: com.binarycompanion.timetug.engine.ReminderAnchor) : ReminderTrigger()
         
     {
         
@@ -14269,7 +14376,7 @@ sealed class ReminderTrigger {
     }
     
     data class Absolute(
-        val v1: uniffi.timetug_engine_ffi.Timestamp) : ReminderTrigger()
+        val v1: com.binarycompanion.timetug.engine.Timestamp) : ReminderTrigger()
         
     {
         
@@ -14278,8 +14385,8 @@ sealed class ReminderTrigger {
     }
     
     data class Location(
-        val v1: uniffi.timetug_engine_ffi.StructuredLocation, 
-        val v2: uniffi.timetug_engine_ffi.ReminderProximity) : ReminderTrigger()
+        val v1: com.binarycompanion.timetug.engine.StructuredLocation, 
+        val v2: com.binarycompanion.timetug.engine.ReminderProximity) : ReminderTrigger()
         
     {
         
@@ -14398,7 +14505,7 @@ sealed class ReminderType {
     }
     
     data class Procedure(
-        val `url`: uniffi.timetug_engine_ffi.UrlString?) : ReminderType()
+        val `url`: com.binarycompanion.timetug.engine.UrlString?) : ReminderType()
         
     {
         
@@ -14573,7 +14680,7 @@ sealed class RuleEnd {
     }
     
     data class Until(
-        val v1: uniffi.timetug_engine_ffi.Timestamp) : RuleEnd()
+        val v1: com.binarycompanion.timetug.engine.Timestamp) : RuleEnd()
         
     {
         
@@ -14665,7 +14772,7 @@ sealed class SeriesInfo {
     
     data class Occurrence(
         val `seriesId`: kotlin.String, 
-        val `originalStart`: uniffi.timetug_engine_ffi.Timestamp?) : SeriesInfo()
+        val `originalStart`: com.binarycompanion.timetug.engine.Timestamp?) : SeriesInfo()
         
     {
         
@@ -15154,7 +15261,7 @@ public object FfiConverterTypeSystemEvent: FfiConverterRustBuffer<SystemEvent> {
 sealed class TextGeneratorAvailability {
     
     data class Available(
-        val v1: uniffi.timetug_engine_ffi.EngineInfo) : TextGeneratorAvailability()
+        val v1: com.binarycompanion.timetug.engine.EngineInfo) : TextGeneratorAvailability()
         
     {
         
@@ -15407,7 +15514,7 @@ public object FfiConverterTypeWeekday: FfiConverterRustBuffer<Weekday> {
 sealed class WriteError {
     
     data class Unsupported(
-        val `fields`: Set<uniffi.timetug_engine_ffi.EventField>) : WriteError()
+        val `fields`: Set<com.binarycompanion.timetug.engine.EventField>) : WriteError()
         
     {
         
@@ -15416,7 +15523,7 @@ sealed class WriteError {
     }
     
     data class Conflict(
-        val `fields`: Set<uniffi.timetug_engine_ffi.EventField>) : WriteError()
+        val `fields`: Set<com.binarycompanion.timetug.engine.EventField>) : WriteError()
         
     {
         
@@ -18056,6 +18163,21 @@ public typealias FfiConverterTypeZone = FfiConverterString
     
 
         /**
+         * `EventDraft.usedFields`: the fields the draft sets beyond their defaults (title and timing always), which a connector
+         * checks against its writable fields (`require_writable`).
+         */ fun `eventDraftUsedFields`(`draft`: EventDraft): Set<EventField> {
+            return FfiConverterSetTypeEventField.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_func_event_draft_used_fields(
+    
+        
+        FfiConverterTypeEventDraft.lower(`draft`),_status)
+}
+    )
+    }
+    
+
+        /**
          * The two copies of an event compared as a patch that carries the first as its base (`EventPatch(from:to:)`).
          */ fun `eventPatchDiff`(`original`: CalendarEvent, `edited`: CalendarEvent): EventPatch {
             return FfiConverterTypeEventPatch.lift(
@@ -18065,6 +18187,21 @@ public typealias FfiConverterTypeZone = FfiConverterString
         
         FfiConverterTypeCalendarEvent.lower(`original`),
         FfiConverterTypeCalendarEvent.lower(`edited`),_status)
+}
+    )
+    }
+    
+
+        /**
+         * `EventPatch.touchedFields`: the fields the patch changes. A patch with a base counts the fields that differ from it
+         * (`event_patch_diff`), so a field set to the value the base already has is not touched.
+         */ fun `eventPatchTouchedFields`(`patch`: EventPatch): Set<EventField> {
+            return FfiConverterSetTypeEventField.lift(
+    uniffiRustCall() { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_func_event_patch_touched_fields(
+    
+        
+        FfiConverterTypeEventPatch.lower(`patch`),_status)
 }
     )
     }
@@ -18124,6 +18261,51 @@ public typealias FfiConverterTypeZone = FfiConverterString
         
         FfiConverterSetTypeEventField.lower(`fields`),
         FfiConverterTypeSourceCapabilities.lower(`capabilities`),_status)
+}
+    
+    
+
+        /**
+         * `EventDraft.validate()`: the timing, the recurrence rule, the attendee addresses and the reminders. Throws
+         * `FfiError.Write` (`WriteError.Invalid` or `.Unsupported`) before any request or store change.
+         */
+    @Throws(FfiException::class) fun `validateEventDraft`(`draft`: EventDraft)
+        = 
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_func_validate_event_draft(
+    
+        
+        FfiConverterTypeEventDraft.lower(`draft`),_status)
+}
+    
+    
+
+        /**
+         * `EventTiming.validate()`: the end is after the start, and an all-day timing has a zone and starts and ends at midnight
+         * in it.
+         */
+    @Throws(FfiException::class) fun `validateEventTiming`(`timing`: EventTiming)
+        = 
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_func_validate_event_timing(
+    
+        
+        FfiConverterTypeEventTiming.lower(`timing`),_status)
+}
+    
+    
+
+        /**
+         * `RecurrenceRule.validate()`: `Invalid` for an interval or a count below 1 or a part out of range, `Unsupported` for a
+         * rule the writers cannot store.
+         */
+    @Throws(FfiException::class) fun `validateRecurrenceRule`(`rule`: RecurrenceRule)
+        = 
+    uniffiRustCallWithError(FfiException) { _status ->
+    UniffiLib.uniffi_timetug_engine_ffi_fn_func_validate_recurrence_rule(
+    
+        
+        FfiConverterTypeRecurrenceRule.lower(`rule`),_status)
 }
     
     

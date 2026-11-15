@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 
 use calendar_core::connection::Connection;
 use calendar_core::source_types::SourceNotice;
+use jiff::Timestamp;
 use timetug_core::agenda::day_agenda::DayAgenda;
 use timetug_core::takeover::ledger::TakeoverLedger;
 use timetug_core::takeover::scheduler::ScheduledTakeover;
@@ -45,6 +46,11 @@ pub struct EngineState {
     pub next_takeover: Option<ScheduledTakeover>,
     /// True while a takeover is shown.
     pub takeover_visible: bool,
+    /// The start of the next meeting that still qualifies for a takeover (`Scheduler.next` over the events, the settings
+    /// and the ledger at the time of publication), whether or not a takeover is on screen. Unlike `next_takeover` it is
+    /// not cleared while one is outstanding, so a host can keep its "meeting soon" icon. Not part of the wire contract
+    /// (additive: the C interface and the golden fixtures do not carry it).
+    pub next_pending_start: Option<Timestamp>,
     /// What "add account" offers, in display order (CalDAV last); system-permission kinds are not listed.
     pub available_account_kinds: Vec<AccountKindInfo>,
 }
@@ -68,6 +74,7 @@ impl EngineState {
             ledger: TakeoverLedger::new(),
             next_takeover: None,
             takeover_visible: false,
+            next_pending_start: None,
             available_account_kinds: Vec::new(),
         }
     }

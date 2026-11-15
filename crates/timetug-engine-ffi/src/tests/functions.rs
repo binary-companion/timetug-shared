@@ -206,3 +206,117 @@ fn all_day_helpers_agree_with_the_zone() {
         }
     );
 }
+
+// ---------- the write checks (what the EventKit adapter calls before it touches the store) ----------
+
+fn timing(start: i64, end: i64) -> crate::values::write::EventTiming {
+    crate::values::write::EventTiming {
+        start: at(start),
+        end: at(end),
+        time_zone: Some(Zone::utc()),
+        is_all_day: false,
+    }
+}
+
+fn draft() -> crate::values::write::EventDraft {
+    calendar_core::write::event_draft::EventDraft::new(
+        "Lunch",
+        timing(1_700_000_000, 1_700_003_600).to_engine(),
+    )
+    .to_mirror()
+}
+
+#[test]
+fn a_draft_uses_the_fields_it_sets_beyond_the_defaults() {
+    let mut draft = draft();
+    assert_eq!(
+        event_draft_used_fields(draft.clone()),
+        HashSet::from([EventField::Title, EventField::Timing])
+    );
+    draft.notes = Some("bring cake".into());
+    draft.location = Some("Cafe".into());
+    draft.recurrence = Some(
+        calendar_core::recurrence::rule::RecurrenceRule::new(
+            calendar_core::recurrence::rule::Frequency::Weekly,
+        )
+        .to_mirror(),
+    );
+    assert_eq!(
+        event_draft_used_fields(draft),
+        HashSet::from([
+            EventField::Title,
+            EventField::Timing,
+            EventField::Notes,
+            EventField::Location,
+            EventField::Recurrence
+        ])
+    );
+}
+
+#[test]
+fn a_patch_touches_only_the_fields_it_changes() {
+    let empty = event_patch_diff(event(), event());
+    assert!(event_patch_touched_fields(empty).is_empty());
+    let original = event();
+    let mut edited = original.clone();
+    edited.title = "Renamed".into();
+    edited.notes = Some("n".into());
+    let patch = event_patch_diff(original, edited);
+    assert_eq!(
+        event_patch_touched_fields(patch),
+        HashSet::from([EventField::Title, EventField::Notes])
+    );
+}
+
+#[test]
+fn an_invalid_draft_timing_or_rule_fails_with_the_write_error_of_the_library() {
+    use crate::values::write::WriteError;
+    assert_eq!(validate_event_draft(draft()), Ok(()));
+    let mut backwards = draft();
+    backwards.timing = timing(1_700_003_600, 1_700_000_000);
+    assert_eq!(
+        validate_event_draft(backwards.clone()),
+        Err(FfiError::Write(WriteError::Invalid(
+            "end must be after start".into()
+        )))
+    );
+    assert_eq!(
+        validate_event_timing(backwards.timing),
+        Err(FfiError::Write(WriteError::Invalid(
+            "end must be after start".into()
+        )))
+    );
+    // An all-day timing must be midnight in its zone.
+    let mut all_day = timing(1_700_000_000, 1_700_086_400);
+    all_day.is_all_day = true;
+    assert!(matches!(
+        validate_event_timing(all_day),
+        Err(FfiError::Write(WriteError::Invalid(_)))
+    ));
+    assert_eq!(validate_event_timing(timing(0, 60)), Ok(()));
+
+    let mut rule: crate::values::model::RecurrenceRule =
+        calendar_core::recurrence::rule::RecurrenceRule::new(
+            calendar_core::recurrence::rule::Frequency::Weekly,
+        )
+        .to_mirror();
+    assert_eq!(validate_recurrence_rule(rule.clone()), Ok(()));
+    rule.interval = 0;
+    assert_eq!(
+        validate_recurrence_rule(rule.clone()),
+        Err(FfiError::Write(WriteError::Invalid(
+            "recurrence interval must be at least 1".into()
+        )))
+    );
+    let mut daily_with_weekdays = rule;
+    daily_with_weekdays.interval = 1;
+    daily_with_weekdays.frequency = crate::values::model::Frequency::Daily;
+    daily_with_weekdays.weekdays = vec![crate::values::model::WeekdayOccurrence {
+        weekday: crate::values::model::Weekday::Monday,
+        ordinal: None,
+    }];
+    assert!(matches!(
+        validate_recurrence_rule(daily_with_weekdays),
+        Err(FfiError::Write(WriteError::Unsupported { .. }))
+    ));
+}

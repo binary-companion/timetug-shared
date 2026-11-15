@@ -46,7 +46,7 @@ use crate::host::authorization::{
     OAuthRedirectSession,
 };
 use crate::host::credentials::{CredentialStore, CredentialStoreAdapter};
-use crate::host::diagnostics::{DiagnosticSink, engine_sink};
+use crate::host::diagnostics::{DiagnosticSink, connector_log, engine_sink};
 use crate::host::external_tokens::{ExternalTokenSource, ExternalTokenSourceAdapter};
 use crate::host::http::{HttpTransport, HttpTransportAdapter};
 use crate::host::settings_storage::{SettingsStorage, SettingsStorageAdapter};
@@ -56,7 +56,9 @@ use crate::host::system_calendar::{
 };
 use crate::host::text_generator::{TextGenerator, TextGeneratorAdapter};
 use crate::values::accounts::{CredentialField, CredentialHelp, CredentialSnapshot};
-use crate::values::diagnostics::{EngineDiagnostic, EngineDiagnosticLevel};
+use crate::values::diagnostics::{
+    DiagnosticEvent, DiagnosticFieldValue, DiagnosticLevel, EngineDiagnostic, EngineDiagnosticLevel,
+};
 use crate::values::host::{
     ExternalAccessToken, ExternalAccount, ExternalSignInRequest, ExternalSignInResult, HttpRequest,
     HttpResponse, TextGeneratorAvailability,
@@ -527,16 +529,20 @@ fn the_settings_adapter_loads_defaults_and_saves_what_the_engine_gives_it() {
     assert_eq!(adapter.load(), changed);
 }
 
-struct CollectingSink(Mutex<Vec<EngineDiagnostic>>);
+#[derive(Default)]
+struct CollectingSink(Mutex<Vec<EngineDiagnostic>>, Mutex<Vec<DiagnosticEvent>>);
 impl DiagnosticSink for CollectingSink {
     fn log(&self, diagnostic: EngineDiagnostic) {
         self.0.lock().unwrap().push(diagnostic);
+    }
+    fn record(&self, event: DiagnosticEvent) {
+        self.1.lock().unwrap().push(event);
     }
 }
 
 #[test]
 fn the_diagnostic_sink_gets_each_line_in_order() {
-    let host = Arc::new(CollectingSink(Mutex::default()));
+    let host = Arc::new(CollectingSink::default());
     let sink = engine_sink(host.clone());
     sink(timetug_engine::diagnostic::EngineDiagnostic::new(
         timetug_engine::diagnostic::Level::Warning,
@@ -559,6 +565,55 @@ fn the_diagnostic_sink_gets_each_line_in_order() {
         }
     );
     assert_eq!(lines[1].message, "second");
+}
+
+#[test]
+fn the_connector_log_forwards_each_event_with_its_privacy_flags_in_order() {
+    use calendar_core::diagnostic_log::{DiagnosticField, DiagnosticLevel as Level};
+    let host = Arc::new(CollectingSink::default());
+    let log = connector_log(host.clone());
+    let at = jiff::Timestamp::from_second(1_794_650_400).unwrap();
+    log.record(
+        Level::Notice,
+        "icalsub",
+        "fetchCompleted",
+        vec![
+            DiagnosticField::int("bytes", 120),
+            DiagnosticField::string("host", "feed.example.com"),
+            DiagnosticField::public_string("outcome", "ok"),
+        ],
+        at,
+    );
+    log.record(Level::Error, "icalsub", "fetchFailed", vec![], at);
+    assert!(
+        host.0.lock().unwrap().is_empty(),
+        "engine lines stay on `log`"
+    );
+    let events = host.1.lock().unwrap();
+    assert_eq!(events.len(), 2);
+    assert_eq!(events[0].level, DiagnosticLevel::Notice);
+    assert_eq!(events[0].category, "icalsub");
+    assert_eq!(events[0].name, "fetchCompleted");
+    assert_eq!(events[0].date, at);
+    let fields: Vec<_> = events[0]
+        .fields
+        .iter()
+        .map(|f| (f.name.as_str(), f.value.clone(), f.is_private))
+        .collect();
+    assert_eq!(
+        fields,
+        vec![
+            ("bytes", DiagnosticFieldValue::Int(120), false),
+            (
+                "host",
+                DiagnosticFieldValue::String("feed.example.com".into()),
+                true
+            ),
+            ("outcome", DiagnosticFieldValue::String("ok".into()), false),
+        ]
+    );
+    assert_eq!(events[1].name, "fetchFailed");
+    assert_eq!(events[1].level, DiagnosticLevel::Error);
 }
 
 // ---------- http, text, tokens ----------

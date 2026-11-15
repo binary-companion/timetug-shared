@@ -5,6 +5,8 @@
 
 use std::collections::HashMap;
 
+use jiff::Timestamp;
+
 use timetug_engine::state::EngineState as EngineEngineState;
 
 use super::ToMirror;
@@ -70,6 +72,9 @@ pub struct EngineStateSummary {
     pub ledger: TakeoverLedger,
     pub next_takeover: Option<ScheduledTakeover>,
     pub takeover_visible: bool,
+    /// The start of the next meeting that still qualifies for a takeover, whether or not one is on screen (`next_takeover`
+    /// is `None` while one is). A menu bar icon that turns "soon" ten minutes ahead reads this one.
+    pub next_pending_start: Option<Timestamp>,
     pub available_account_kinds: Vec<AccountKindInfo>,
 }
 
@@ -93,6 +98,7 @@ impl EngineStateSummary {
             ledger: state.ledger.clone().to_mirror(),
             next_takeover: state.next_takeover.clone().to_mirror(),
             takeover_visible: state.takeover_visible,
+            next_pending_start: state.next_pending_start,
             available_account_kinds: state.available_account_kinds.clone().to_mirror(),
         }
     }

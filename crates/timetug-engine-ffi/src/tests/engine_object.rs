@@ -198,6 +198,17 @@ impl EngineObserver for Recorder {
     }
 }
 
+/// Keeps the connector events the engine forwards.
+#[derive(Default)]
+struct ConnectorEvents(Mutex<Vec<crate::values::diagnostics::DiagnosticEvent>>);
+
+impl crate::host::diagnostics::DiagnosticSink for ConnectorEvents {
+    fn log(&self, _diagnostic: crate::values::diagnostics::EngineDiagnostic) {}
+    fn record(&self, event: crate::values::diagnostics::DiagnosticEvent) {
+        self.0.lock().unwrap().push(event);
+    }
+}
+
 fn interfaces(settings: Arc<MemorySettings>) -> EngineHostInterfaces {
     EngineHostInterfaces {
         credentials: Arc::new(MemoryCredentials::default()),
@@ -474,6 +485,14 @@ fn a_link_account_shows_its_events_and_a_takeover_comes_due_when_the_clock_gets_
         .fire_at
         .as_second();
     assert_eq!(fire_at, CLOCK_START + 3600 - 60);
+    assert_eq!(
+        fixture
+            .engine
+            .current_summary()
+            .next_pending_start
+            .map(|start| start.as_second()),
+        Some(CLOCK_START + 3600)
+    );
     fixture.engine.advance_manual_clock(3600.0 - 30.0);
     wait_until("takeoverDue", || {
         fixture
@@ -492,6 +511,10 @@ fn a_link_account_shows_its_events_and_a_takeover_comes_due_when_the_clock_gets_
         panic!("not due")
     };
     assert_eq!(request.event.event.title, "Standup");
+    // The takeover is out (nothing is armed); the one event has fired, so nothing else is pending.
+    let summary = fixture.engine.current_summary();
+    assert!(summary.next_takeover.is_none());
+    assert_eq!(summary.next_pending_start, None);
     block_on(fixture.engine.send(EngineCommand::Dismiss {
         event_id: request.event.event.event_id.clone(),
     }));
@@ -501,6 +524,47 @@ fn a_link_account_shows_its_events_and_a_takeover_comes_due_when_the_clock_gets_
             .send(EngineCommand::System(SystemEvent::DisplayChanged)),
     );
     fixture.engine.shutdown();
+}
+
+#[test]
+fn connector_diagnostics_reach_the_hosts_sink_with_their_private_flags() {
+    let dir = TempDir::new("connector-diagnostics");
+    let observed = Arc::new(Observed::default());
+    let events = Arc::new(ConnectorEvents::default());
+    let mut host = interfaces(Arc::new(MemorySettings::default()));
+    host.diagnostics = Some(events.clone());
+    let engine = Engine::build(
+        config(&dir.0),
+        host,
+        Arc::new(Recorder(observed)),
+        ClockChoice::Manual(clock_start()),
+    )
+    .unwrap();
+    block_on(engine.start());
+    block_on(engine.send(EngineCommand::AddAccount {
+        kind_id: "icalsub".into(),
+    }));
+    wait_until("the feed to be fetched and reported", || {
+        !events.0.lock().unwrap().is_empty()
+    });
+    let recorded = events.0.lock().unwrap().clone();
+    assert!(
+        recorded.iter().all(|event| event.category == "icalsub"),
+        "{recorded:?}"
+    );
+    assert!(
+        recorded.iter().any(|event| event.date == clock_start()),
+        "the connector's own clock is the engine clock: {recorded:?}"
+    );
+    // A string field is private unless the connector made it public; none carries the feed content.
+    assert!(
+        recorded
+            .iter()
+            .flat_map(|event| event.fields.iter())
+            .all(|field| !matches!(&field.value, crate::values::diagnostics::DiagnosticFieldValue::String(text) if text.contains("Standup"))),
+        "{recorded:?}"
+    );
+    engine.shutdown();
 }
 
 #[test]
