@@ -110,7 +110,7 @@ struct Host {
     let observer = RecordingObserver()
 
     var interfaces: EngineHostInterfaces {
-        EngineHostInterfaces(credentials: credentials, authorization: authorization, signIn: FakeSignIn(), settings: settings, http: http, diagnostics: nil, textGenerator: nil, externalTokens: nil, systemCalendar: nil)
+        EngineHostInterfaces(credentials: credentials, authorization: authorization, signIn: FakeSignIn(), settings: settings, http: http)   // the optional slots have defaults
     }
 
     func config(directory: URL) -> EngineConfig {

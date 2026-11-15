@@ -237,7 +237,20 @@ Every host interface is called from the engine's own thread, concurrently with t
 Decided 2026-11-15 (owner: nobody uses Kotlin yet, so make every change the future state needs now). Everything below is fixed
 before the first release that contains the bindings (2.1.0); after it, each rule is how a change stays non-breaking.
 
-**Foreign traits have no default methods.** UniFFI cannot give a method of a foreign trait (an interface the host implements) a
+**Design for growth.** A foreign trait (host-implemented) is small and single-purpose, and each optional capability is its own
+trait in its own optional slot with a record-field default (`#[uniffi(default = None)]`): the four optional slots are on
+`EngineHostInterfaces` (`diagnostics`, `textGenerator`, `externalTokens`, `systemCalendar`; the engine skips a capability whose
+slot is empty), and the settings that go with them are on `EngineConfig`, whose optional fields all have defaults. A host builds
+both from the required values alone (`kotlin/checks/OptionalSlots.kt`, compiled by `kotlin/compile-check.sh`, and the Swift
+`Host.interfaces` in the tests do exactly that). Required capabilities (credentials, authorization, sign-in, settings, HTTP) stay
+out of the optional set. A new capability is a new small trait plus a new defaulted slot; a new `EngineConfig` or
+`EngineHostInterfaces` field has a default and never becomes required in a minor release. `DiagnosticSink` is an optional slot
+(none: the engine's lines arrive as `EngineEvent.diagnostic`, connector events are dropped) and both of its methods are required
+once a sink is given. The existing traits were checked for growth (gaps M11 to M13 of the Mac migration map are app-side and
+the Android adapters implement the same methods), so none was split.
+
+**Foreign traits have no default methods** (UniFFI 0.32.2, the version pinned here; re-read its changelog when upgrading, a
+newer version may change this, and this rule then relaxes only by a decision record). UniFFI cannot give a method of a foreign trait (an interface the host implements) a
 default, so every method is required for every host, Swift and Kotlin alike, and the Swift package adds no empty defaults or shims
 that hide a method (`DiagnosticSink.record` was the last one; it is required now, and a sink that only wants engine lines
 implements it as an empty body). Consequences:
