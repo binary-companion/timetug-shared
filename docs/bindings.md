@@ -249,6 +249,10 @@ out of the optional set. A new capability is a new small trait plus a new defaul
 once a sink is given. The existing traits were checked for growth (gaps M11 to M13 of the Mac migration map are app-side and
 the Android adapters implement the same methods), so none was split.
 
+**At a major-version upgrade, consolidate.** A major version is the one time breaking the host contract is allowed, so before
+cutting one, consider merging related small foreign traits and optional slots, making slots that every host fills required,
+and dropping deprecated ones.
+
 **Foreign traits have no default methods** (UniFFI 0.32.2, the version pinned here; re-read its changelog when upgrading, a
 newer version may change this, and this rule then relaxes only by a decision record). UniFFI cannot give a method of a foreign trait (an interface the host implements) a
 default, so every method is required for every host, Swift and Kotlin alike, and the Swift package adds no empty defaults or shims
