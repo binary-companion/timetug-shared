@@ -107,7 +107,7 @@ wire contract of the C interface. See "Not exposed" (`Scheduler`) for how the Ma
 
 ## Host interfaces
 
-The app implements these (foreign UniFFI traits). Every method may be called from the engine thread concurrently with the
+The app implements these (foreign UniFFI traits; every method of every one is required, see "Foreign traits and the rules for later changes"). Every method may be called from the engine thread concurrently with the
 others, so an implementor is thread-safe (`Sendable`), does not block for long, and hops to its own actor or queue inside the
 method when it touches main-actor or EventKit state. A call that never returns is cancelled when the engine drops it (the
 Swift `Task` is cancelled; a cooperative implementation stops).
@@ -124,7 +124,7 @@ Swift `Task` is cancelled; a cooperative implementation stops).
 | `ExternalTokenSource` | `accessToken`, `signIn` | async |
 | `SystemCalendarSource` | `id`, `displayName`, `capabilities` (sync); `requestAccess`, `calendars`, `eventsIn(start:end:)`, `series`, `create`, `update`, `delete`, `respond`, `setChangeHandler` | async; errors are `FfiError` (`.Source(.needsPermission)`, `.Write(.forbidden(nil))`); the engine calls `setChangeHandler` once, before the first read, and the host calls `eventsChanged`, `calendarsChanged` or `sourceFailed` on the handler it was given |
 | `EngineObserver` | `stateChanged`, `event` | **synchronous**, called from the delivery thread one call at a time, in order; states are coalesced newest-wins, events are never dropped; nothing after `shutdown()` returns |
-| `DiagnosticSink` | `log`, `record` | synchronous; `record(event:)` (2.1.0) gets each structured event of a connector (today the iCalendar subscription's), with its privacy flags and the engine clock's time, in order; an engine without a sink drops them. A Swift sink that only needs `log` keeps compiling (the package gives `record` an empty default); a Kotlin implementor must add `record`, since UniFFI has no default methods for foreign traits |
+| `DiagnosticSink` | `log`, `record` | synchronous; `record(event:)` (2.1.0) gets each structured event of a connector (today the iCalendar subscription's), with its privacy flags and the engine clock's time, in order; an engine without a sink drops them. every sink implements both methods, for Swift and Kotlin alike (a sink that only wants engine lines implements `record` as an empty body); see "Foreign traits" |
 
 What a callback throws: `HostError` (`Network(detail)`, `Cancelled`, `NotFound`, `Denied`, `Failed(detail)`); any other
 Swift error arrives as `Failed` with its description. The engine converts it as the C interface's reply errors are converted
@@ -232,9 +232,58 @@ Every host interface is called from the engine's own thread, concurrently with t
   any other error becomes `Failed` with its description. `SystemCalendarSource` throws `FfiError`.
 - After `Engine.shutdown()` returns, no host method starts. A call that was running may still finish.
 
+## Foreign traits and the rules for later changes
+
+Decided 2026-11-15 (owner: nobody uses Kotlin yet, so make every change the future state needs now). Everything below is fixed
+before the first release that contains the bindings (2.1.0); after it, each rule is how a change stays non-breaking.
+
+**Foreign traits have no default methods.** UniFFI cannot give a method of a foreign trait (an interface the host implements) a
+default, so every method is required for every host, Swift and Kotlin alike, and the Swift package adds no empty defaults or shims
+that hide a method (`DiagnosticSink.record` was the last one; it is required now, and a sink that only wants engine lines
+implements it as an empty body). Consequences:
+
+- Adding a method to a foreign trait breaks every implementor, so it is a major-version change (`semver:major`). Do not do it.
+  Add a **new** foreign trait instead, passed as a new optional field of `EngineHostInterfaces` (`#[uniffi(default = None)]`,
+  so existing hosts compile unchanged), with a flag in `EngineConfig` when the engine must know before it starts.
+- Changing a method's arguments, return type or error type is major for the same reason.
+
+**Records** (structs). A new field is additive only when it is appended and carries `#[uniffi(default = ...)]`: Kotlin gets a
+default parameter and Swift a default argument. A new field without a default breaks every host that constructs the record
+(`EngineConfig`, `EngineHostInterfaces`, and every record a host returns from a callback: `CalendarDescriptor`,
+`SourceCapabilities`, `HttpResponse`, `EngineSettings`, the events and series). Removing, renaming or retyping a field is major.
+
+**Enums, sealed classes and error enums.** UniFFI's Swift and Kotlin generators ignore `#[non_exhaustive]`, so these are
+closed in the host language. A variant the host *passes in* (`EngineCommand`, `ProvidedField`, `HostError`, `CalendarChange`, the
+types of write arguments) can be added without breaking a host. A variant the engine *produces* (`EngineEvent`, `FfiError`,
+`SourceError`, `WriteError`, `SourceStatus`, `InferenceStatus`, `EventField`) breaks a host whose `switch` or `when` has no
+default arm. Rule for hosts: every `switch` over a type the engine produces has a `default`, and every Kotlin `when` over one has
+an `else`. Rule for this crate: adding such a variant is minor only because of that rule; the release notes name it.
+
+**Kotlin settings fixed now** (`uniffi.toml`): the package is `com.binarycompanion.timetug.engine` (the UniFFI default
+`uniffi.timetug_engine_ffi` would have to change later, which breaks every import), and records are immutable (`val`; changing
+`var` to `val` later breaks code that assigns a field). Swift records keep `var` because the Swift package's 1.x-style mutators
+and the app's code rely on it. `android = true` (the Android cleaner) is not set: it changes no name and no signature, so a later
+Android build can switch it without a break; it would need `android.jar` to compile, which the JVM compile check lacks.
+
+**Names that differ by host, found by the audit and left as they are.**
+
+| Item | Why it stays |
+|---|---|
+| Kotlin errors are `FfiException` and `HostException` (Swift `FfiError`, `HostError`) | UniFFI appends `Exception` to every error enum for Kotlin; there is no setting. |
+| `FfiError.Source(v1)`, `FfiError.Write(v1)`, and the other tuple variants have fields `v1`, `v2` in Kotlin and no labels in Swift | Naming them would add labels to the Swift call sites, which the 1.x Swift spellings and the Mac migration map (`.Source(.needsPermission)`, `.merge(a, b)`) do not have. Adding a field to a variant is a breaking change either way, so `v1` buys nothing to fix now. |
+| `DiagnosticFieldValue` has cases `Int`, `Double`, `Bool`, `String` | Legal in Kotlin (the generated code writes `kotlin.String`); they keep the 1.x Swift spellings `.int`, `.double`, `.bool`, `.string` that the app's log code uses. A Kotlin host should refer to them as `DiagnosticFieldValue.String`. |
+| Kotlin enum entries are `SCREAMING_SNAKE`, Swift cases are `lowerCamel` | UniFFI's convention for each language. |
+| `SystemCalendarSource` is the largest foreign trait (12 methods) | Android's calendar adapter needs the same methods; if it needs more, the rule above applies (a new trait). |
+
+Checked and clean: no record field, method or error variant is named `message`, `cause`, `close`, `finalize`, `toString`,
+`hashCode`, `equals` or `destroy` where it would clash (`name` and `ordinal` appear only as fields of data classes, which is
+legal); Kotlin keywords are escaped by the generator; no type clashes with a Kotlin or `java.lang` stdlib name that would be
+confusing inside the package. Gaps M11 to M13 of the Mac migration map need no shared change. `Platform.android` exists; the
+connector flag it needs is a `calendar-connectors` change that touches no signature here.
+
 ## Kotlin and Android
 
-`kotlin/generated/` holds the generated Kotlin (`uniffi-bindgen generate --library`, regenerated by
+`kotlin/generated/` (package `com.binarycompanion.timetug.engine`) holds the generated Kotlin (`uniffi-bindgen generate --library`, regenerated by
 `scripts/dev/generate-bindings.sh`; CI fails when it differs). It uses JNA and kotlinx-coroutines; the custom types map to
 `java.time.Instant` and `java.util.UUID`. `kotlin/compile-check.sh` compiles it with a pinned `kotlinc`, JNA and
 kotlinx-coroutines, each downloaded into `build/kotlin-tools` and verified against a checksum in the script. The

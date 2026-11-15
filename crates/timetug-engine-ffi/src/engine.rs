@@ -59,7 +59,8 @@ use crate::values::summary::{
 use crate::values::{ToEngine, ToMirror};
 
 /// The host objects the engine calls. The first five are required; the others are passed when the configuration says the
-/// host has them (`textGeneration`, `externalTokens`, `systemCalendar`).
+/// host has them (`textGeneration`, `externalTokens`, `systemCalendar`); the others default to nil / null. A new optional
+/// interface is added as a new field with `#[uniffi(default = None)]`, which is additive for every host.
 #[derive(uniffi::Record)]
 pub struct EngineHostInterfaces {
     /// Where secrets are kept.
@@ -73,12 +74,16 @@ pub struct EngineHostInterfaces {
     /// Sends every HTTP request.
     pub http: Arc<dyn HttpTransport>,
     /// Receives the engine's log lines; without it they arrive as `EngineEvent.diagnostic`.
+    #[uniffi(default = None)]
     pub diagnostics: Option<Arc<dyn DiagnosticSink>>,
     /// The host's text model (`textGeneration`).
+    #[uniffi(default = None)]
     pub text_generator: Option<Arc<dyn TextGenerator>>,
     /// The host's account broker (`externalTokens`).
+    #[uniffi(default = None)]
     pub external_tokens: Option<Arc<dyn ExternalTokenSource>>,
     /// The host's calendar store (`systemCalendar`).
+    #[uniffi(default = None)]
     pub system_calendar: Option<Arc<dyn SystemCalendarSource>>,
 }
 

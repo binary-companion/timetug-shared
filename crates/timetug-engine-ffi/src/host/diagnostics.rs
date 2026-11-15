@@ -20,7 +20,8 @@ pub trait DiagnosticSink: Send + Sync {
 
     /// Records one structured event of a connector (for example the iCalendar subscription's `fetchCompleted`), as the
     /// connector library's `DiagnosticLog.record` reported it: level, category, name, fields with their privacy flag, and
-    /// the engine clock's time. Added in 2.1.0; the Swift package gives it an empty default.
+    /// the engine clock's time. Added in 2.1.0. Required for every host:
+    /// UniFFI has no default methods for foreign traits (`docs/bindings.md`, "Foreign traits").
     fn record(&self, event: DiagnosticEvent);
 }
 

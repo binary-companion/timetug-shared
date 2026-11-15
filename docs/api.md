@@ -900,8 +900,8 @@ Added in `2.1.0` for the Mac app (all additive; the C interface, the wire contra
   `FfiError.Write`).
 - `EngineStateSummary.nextPendingStart` (and `EngineState.nextPendingStart`): the start of the next meeting that still qualifies for a
   takeover, also while one is on screen.
-- `DiagnosticSink.record(event:)`: the connectors' structured diagnostic events, with their private flags (a Swift sink that only
-  implements `log` keeps compiling; a Kotlin one adds `record`).
+- `DiagnosticSink.record(event:)`: the connectors' structured diagnostic events, with their private flags (a required method: every
+  sink, Swift or Kotlin, implements both `log` and `record`; one that only reads engine lines implements `record` as an empty body).
 
 ## 8. Staying current
 

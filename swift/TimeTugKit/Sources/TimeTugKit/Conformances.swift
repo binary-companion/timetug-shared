@@ -167,11 +167,3 @@ extension CalendarProvider: RawRepresentable {
     /// A CalDAV server whose host is not known.
     public static let calDAV = CalendarProvider(rawValue: "caldav")
 }
-
-// MARK: - Connector diagnostics
-
-extension DiagnosticSink {
-    /// Connector events (`record`) were added to the sink in 2.1.0; a sink that only reads engine lines (`log`) keeps
-    /// compiling and drops them.
-    public func record(event: DiagnosticEvent) {}
-}

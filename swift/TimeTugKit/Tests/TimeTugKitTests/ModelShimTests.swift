@@ -306,14 +306,15 @@ import TimeTugKit
 
     // MARK: Connector diagnostics
 
-    @Test func aSinkThatOnlyReadsEngineLinesStillConforms() {
+    @Test func aSinkThatOnlyWantsEngineLinesImplementsRecordAsAnEmptyBody() {
         final class LinesOnly: DiagnosticSink {
             let lines = Locked<[EngineDiagnostic]>([])
             func log(diagnostic: EngineDiagnostic) { lines.update { $0.append(diagnostic) } }
+            func record(event: DiagnosticEvent) {}   // required: foreign traits have no default methods
         }
         let sink = LinesOnly()
         let event = DiagnosticEvent(level: .info, category: "icalsub", name: "n", fields: [], date: Date(timeIntervalSince1970: 0))
-        sink.record(event: event)   // the default drops it
+        sink.record(event: event)
         sink.log(diagnostic: EngineDiagnostic(level: .info, category: "c", message: "m"))
         #expect(sink.lines.get().count == 1)
     }

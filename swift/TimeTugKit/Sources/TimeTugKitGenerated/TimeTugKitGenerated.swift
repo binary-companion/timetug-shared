@@ -1447,7 +1447,8 @@ public protocol DiagnosticSink: AnyObject, Sendable {
     /**
      * Records one structured event of a connector (for example the iCalendar subscription's `fetchCompleted`), as the
      * connector library's `DiagnosticLog.record` reported it: level, category, name, fields with their privacy flag, and
-     * the engine clock's time. Added in 2.1.0; the Swift package gives it an empty default.
+     * the engine clock's time. Added in 2.1.0. Required for every host:
+     * UniFFI has no default methods for foreign traits (`docs/bindings.md`, "Foreign traits").
      */
     func record(event: DiagnosticEvent) 
     
@@ -1526,7 +1527,8 @@ open func log(diagnostic: EngineDiagnostic)  {try! rustCall() {
     /**
      * Records one structured event of a connector (for example the iCalendar subscription's `fetchCompleted`), as the
      * connector library's `DiagnosticLog.record` reported it: level, category, name, fields with their privacy flag, and
-     * the engine clock's time. Added in 2.1.0; the Swift package gives it an empty default.
+     * the engine clock's time. Added in 2.1.0. Required for every host:
+     * UniFFI has no default methods for foreign traits (`docs/bindings.md`, "Foreign traits").
      */
 open func record(event: DiagnosticEvent)  {try! rustCall() {
         uniffiCallStatus in
@@ -6808,7 +6810,8 @@ public func FfiConverterTypeEngineDiagnostic_lower(_ value: EngineDiagnostic) ->
 
 /**
  * The host objects the engine calls. The first five are required; the others are passed when the configuration says the
- * host has them (`textGeneration`, `externalTokens`, `systemCalendar`).
+ * host has them (`textGeneration`, `externalTokens`, `systemCalendar`); the others default to nil / null. A new optional
+ * interface is added as a new field with `#[uniffi(default = None)]`, which is additive for every host.
  */
 public struct EngineHostInterfaces {
     /**
@@ -6868,16 +6871,16 @@ public struct EngineHostInterfaces {
          */http: HttpTransport, 
         /**
          * Receives the engine's log lines; without it they arrive as `EngineEvent.diagnostic`.
-         */diagnostics: DiagnosticSink?, 
+         */diagnostics: DiagnosticSink? = nil, 
         /**
          * The host's text model (`textGeneration`).
-         */textGenerator: TextGenerator?, 
+         */textGenerator: TextGenerator? = nil, 
         /**
          * The host's account broker (`externalTokens`).
-         */externalTokens: ExternalTokenSource?, 
+         */externalTokens: ExternalTokenSource? = nil, 
         /**
          * The host's calendar store (`systemCalendar`).
-         */systemCalendar: SystemCalendarSource?) {
+         */systemCalendar: SystemCalendarSource? = nil) {
         self.credentials = credentials
         self.authorization = authorization
         self.signIn = signIn
@@ -16438,7 +16441,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_log() != 2374) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_record() != 56010) {
+    if (uniffi_timetug_engine_ffi_checksum_method_diagnosticsink_record() != 46196) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_timetug_engine_ffi_checksum_method_externaltokensource_access_token() != 52861) {
