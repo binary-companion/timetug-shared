@@ -14,7 +14,7 @@ let package = Package(
         .library(name: "TimeTugKit", targets: ["TimeTugKit"]),
     ],
     targets: [
-        .binaryTarget(name: "TimeTugEngineFFI", path: "build/TimeTugEngineFFI.xcframework"),
+        .binaryTarget(name: "TimeTugEngineFFI", url: "https://github.com/binary-companion/timetug-shared/releases/download/2.1.3/TimeTugEngineFFI-2.1.3.xcframework.zip", checksum: "6e0cc1dbad2f6240fa822a2785409b440c7552821f4df2e2df09a3fe8f674c2b"),
         .target(
             name: "TimeTugKitGenerated",
             dependencies: ["TimeTugEngineFFI"],
