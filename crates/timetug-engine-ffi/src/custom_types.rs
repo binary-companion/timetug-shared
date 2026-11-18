@@ -52,9 +52,11 @@ uniffi::custom_type!(Zone, String, {
 uniffi::custom_type!(UrlString, String, {
     remote,
     lower: |url| url.as_str().to_string(),
-    try_lift: |text| UrlString::parse(&text).ok_or_else(|| FfiError::InvalidConfig {
-        reason: format!("not a URL: {text}"),
-    }.into()),
+    // Never refused: a failed lift of an argument of an exported function that cannot fail is a panic, and a Swift host's `try!` turns
+    // that into a crash (an event URL that macOS accepts but `UrlString::parse` refuses took the Mac app down on its first
+    // calendar read). Text that is not a link is held as given; every accessor answers nothing for it, so it is never a
+    // host, a conference or a join link.
+    try_lift: |text| Ok(UrlString::lenient(&text)),
 });
 
 uniffi::custom_type!(Uuid, String, {
