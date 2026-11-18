@@ -126,12 +126,21 @@ fn url_string_keeps_its_original_text_including_non_ascii() {
 #[test]
 fn a_url_the_host_sends_that_the_parser_refuses_is_held_not_refused() {
     // Refusing it would be a panic in an exported function that cannot fail, and the Swift host's `try!` would end the app.
-    for text in ["http://exa mple.com/", "https://[::1", "https://zoom.us:abc/", "", "https://%.com"] {
+    for text in [
+        "http://exa mple.com/",
+        "https://[::1",
+        "https://zoom.us:abc/",
+        "",
+        "https://%.com",
+    ] {
         assert!(UrlString::parse(text).is_none(), "{text}");
         let lowered = <String as uniffi::Lower<UniFfiTag>>::lower(text.to_string());
         let url = <UrlString as uniffi::Lift<UniFfiTag>>::try_lift(lowered).unwrap();
         assert_eq!(url.as_str(), text);
-        assert!(!calendar_core::join_url_policy::JoinUrlPolicy::is_allowed(&url), "{text}");
+        assert!(
+            !calendar_core::join_url_policy::JoinUrlPolicy::is_allowed(&url),
+            "{text}"
+        );
     }
 }
 
@@ -146,7 +155,11 @@ fn detect_conferences_survives_an_event_url_the_parser_refuses() {
             Some(url),
             None,
         );
-        assert_eq!(found.len(), 1, "the zoom link in the location is still found");
+        assert_eq!(
+            found.len(),
+            1,
+            "the zoom link in the location is still found"
+        );
     }
 }
 
