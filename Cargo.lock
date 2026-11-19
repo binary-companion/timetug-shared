@@ -123,15 +123,31 @@ checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 [[package]]
 name = "calendar-caldav"
 version = "0.0.0"
-source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7#b752faac6288367a3d61f7707dfafd91efe5c64b"
+source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.3#3382082d639cd5c471f57aa22d23388014c11d0b"
 dependencies = [
  "async-trait",
  "base64",
- "calendar-core",
- "calendar-ical",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.3)",
+ "calendar-ical 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.3)",
  "jiff",
  "quick-xml",
  "tokio",
+ "uuid",
+]
+
+[[package]]
+name = "calendar-core"
+version = "0.0.0"
+source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.3#3382082d639cd5c471f57aa22d23388014c11d0b"
+dependencies = [
+ "async-trait",
+ "getrandom",
+ "jiff",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "url",
  "uuid",
 ]
 
@@ -157,7 +173,7 @@ version = "0.0.0"
 source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7#b752faac6288367a3d61f7707dfafd91efe5c64b"
 dependencies = [
  "async-trait",
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "calendar-oauth",
  "getrandom",
  "jiff",
@@ -170,9 +186,19 @@ dependencies = [
 [[package]]
 name = "calendar-ical"
 version = "0.0.0"
+source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.3#3382082d639cd5c471f57aa22d23388014c11d0b"
+dependencies = [
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.3)",
+ "jiff",
+ "thiserror",
+]
+
+[[package]]
+name = "calendar-ical"
+version = "0.0.0"
 source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7#b752faac6288367a3d61f7707dfafd91efe5c64b"
 dependencies = [
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "jiff",
  "thiserror",
 ]
@@ -183,8 +209,8 @@ version = "0.0.0"
 source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7#b752faac6288367a3d61f7707dfafd91efe5c64b"
 dependencies = [
  "async-trait",
- "calendar-core",
- "calendar-ical",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
+ "calendar-ical 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "jiff",
  "tokio",
  "url",
@@ -197,7 +223,7 @@ version = "0.0.0"
 source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7#b752faac6288367a3d61f7707dfafd91efe5c64b"
 dependencies = [
  "async-trait",
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "calendar-oauth",
  "getrandom",
  "jiff",
@@ -214,7 +240,7 @@ source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7#
 dependencies = [
  "async-trait",
  "base64",
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "getrandom",
  "jiff",
  "serde",
@@ -232,7 +258,7 @@ version = "0.0.0"
 source = "git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7#b752faac6288367a3d61f7707dfafd91efe5c64b"
 dependencies = [
  "async-trait",
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "jiff",
  "serde_json",
  "tokio",
@@ -338,7 +364,7 @@ dependencies = [
 name = "dedup-benchmark"
 version = "0.0.0"
 dependencies = [
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "jiff",
  "serde_json",
  "timetug-core",
@@ -984,7 +1010,7 @@ name = "timetug-bridge"
 version = "0.0.0"
 dependencies = [
  "async-trait",
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "jiff",
  "serde",
  "serde_json",
@@ -998,7 +1024,7 @@ name = "timetug-core"
 version = "0.0.0"
 dependencies = [
  "async-trait",
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "jiff",
  "serde",
  "serde_json",
@@ -1012,7 +1038,7 @@ version = "0.0.0"
 dependencies = [
  "async-trait",
  "calendar-caldav",
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "calendar-google",
  "calendar-ical-subscription",
  "calendar-microsoft",
@@ -1035,9 +1061,9 @@ dependencies = [
  "async-trait",
  "base64",
  "calendar-caldav",
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "calendar-google",
- "calendar-ical",
+ "calendar-ical 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "calendar-ical-subscription",
  "calendar-microsoft",
  "calendar-oauth",
@@ -1057,9 +1083,9 @@ version = "0.0.0"
 dependencies = [
  "async-trait",
  "calendar-caldav",
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "calendar-google",
- "calendar-ical",
+ "calendar-ical 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "calendar-ical-subscription",
  "calendar-microsoft",
  "calendar-oauth",
@@ -1079,7 +1105,7 @@ name = "timetug-engine-protocol"
 version = "0.0.0"
 dependencies = [
  "async-trait",
- "calendar-core",
+ "calendar-core 0.0.0 (git+https://github.com/binary-companion/calendar-connectors?tag=2.0.7)",
  "jiff",
  "serde",
  "serde_json",
