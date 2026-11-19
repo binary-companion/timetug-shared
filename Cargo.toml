@@ -32,7 +32,7 @@ calendar-test-support = { git = "https://github.com/binary-companion/calendar-co
 serde = { version = "=1.0.229", default-features = false, features = ["derive", "std"] }
 serde_json = { version = "=1.0.154", default-features = false, features = ["std"] }
 # The zone database: the system one on macOS and Linux, a bundled one on Windows, iOS and Android (jiff-tzdb-platform).
-jiff = { version = "=0.2.42", default-features = false, features = ["serde", "std", "tz-system", "tz-fat", "tzdb-bundle-platform", "tzdb-zoneinfo", "tzdb-concatenated"] }
+jiff = { version = "=1.0.0", default-features = false, features = ["serde", "std", "tz-system", "tz-fat", "tzdb-bundle-platform", "tzdb-zoneinfo", "tzdb-concatenated"] }
 quick-xml = { version = "=0.42.0", default-features = false }
 sha2 = { version = "=0.11.1", default-features = false }
 getrandom = { version = "=0.4.3", default-features = false }
